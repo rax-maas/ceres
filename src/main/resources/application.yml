@@ -4,4 +4,6 @@ spring:
       keyspace-name: tsdb
       local-datacenter: datacenter1
       schema-action: create_if_not_exists
-
+server:
+  error:
+    include-message: always
