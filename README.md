@@ -81,27 +81,27 @@ Responds with query results per series-set, such as:
     "tenant": "t-1",
     "metricName": "cpu_idle",
     "tags": {
-      "host": "h-3",
+      "host": "h-1",
       "os": "linux",
-      "deployment": "dev"
+      "deployment": "prod"
     },
     "values": {
-      "2020-08-24T00:15:55Z": 498.0,
-      "2020-08-24T00:15:52Z": 84.0
+      "2020-08-24T00:13:16Z": 491.0,
+      "2020-08-24T00:13:20Z": 792.0,
+      "2020-08-24T00:13:21Z": 824.0
     }
   },
   {
     "tenant": "t-1",
     "metricName": "cpu_idle",
     "tags": {
-      "host": "h-1",
+      "host": "h-3",
       "os": "linux",
-      "deployment": "prod"
+      "deployment": "dev"
     },
     "values": {
-      "2020-08-24T00:13:21Z": 824.0,
-      "2020-08-24T00:13:20Z": 792.0,
-      "2020-08-24T00:13:16Z": 491.0
+      "2020-08-24T00:15:52Z": 84.0,
+      "2020-08-24T00:15:55Z": 498.0
     }
   }
 ]

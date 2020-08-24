@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -43,7 +44,7 @@ public class QueryService {
                     row.getDouble(1)
                     )
                 )
-                .collectMap(Entry::getKey, Entry::getValue)
+                .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new)
                 .filter(values -> !values.isEmpty())
                 .map(values -> buildQueryResult(tenant, seriesSet, values))
         );
