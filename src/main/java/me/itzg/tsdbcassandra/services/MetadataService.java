@@ -1,7 +1,9 @@
 package me.itzg.tsdbcassandra.services;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -48,8 +50,8 @@ public class MetadataService {
     ).collectList();
   }
 
-  public Mono<List<String>> locateSeriesSets(String tenant, String metricName,
-                                             Map<String, String> queryTags) {
+  public Mono<Set<String>> locateSeriesSets(String tenant, String metricName,
+                                            Map<String, String> queryTags) {
     return Flux.fromIterable(queryTags.entrySet())
         .flatMap(tagEntry ->
             cqlTemplate.queryForFlux(
@@ -58,12 +60,12 @@ public class MetadataService {
                 String.class,
                 tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
             )
-                .collectList()
+                .collect(Collectors.toSet())
         )
         .reduce((results1, results2) ->
             results1.stream()
                 .filter(results2::contains)
-                .collect(Collectors.toList())
+                .collect(Collectors.toSet())
         );
   }
 }
