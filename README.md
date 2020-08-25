@@ -146,7 +146,7 @@ When ingesting a metric, the following actions occur:
 The goal of a data query is to provide the data for the requested tenant, metric name, and one or more tags whose timestamped values fall within the requested time range
 
 Such a query is performed in two steps:
-- query the series_set table to retrieve the data for the requested tenant, metric name, and tags 
+- query the series_set table to retrieve the metadata for the requested tenant, metric name, and tags 
 - use that data to query the data_raw table to retrieve the values that fall within the requested time range
 
 The first step is achieved by retrieving the list of series-sets for each request tag (key-value). For example, let's say the query is requesting the metric `cpu_idle` and results for the tags `os=linux` and `deployment=prod`. A metadata retrieval of series-sets for each tag would be:
