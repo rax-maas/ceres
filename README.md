@@ -117,13 +117,15 @@ The Cassandra tables in the `tsdb` keyspace (by default) are organized into two 
 
 ![](docs/tables.drawio.png)
 
+To be a bit more explicit, all these tables are written to on ingest.  The "metric_names" table is only read by the "metricNames" metadata query; the "tag_keys" by the "tagKeys" metadata query and the "tag_values" by the "tagValues" metadata query.  The "series_set" and "data_raw" tables are only read by the "query" data query.
+
 ### Series-Set
 
 Each series is identified by a "series-set" which is a compact, textual, stable representation of a series.
 
 The syntax is:
 ```
-{metric_name},{tag_key}={tag_value,{tag_key}={tag_value},...
+{metric_name},{tag_key}={tag_value},{tag_key}={tag_value},...
 ```
 
 where the tag key-value pairs are sorted by tag key to ensure a stable and deterministic structure.
@@ -141,11 +143,13 @@ When ingesting a metric, the following actions occur:
 
 ### Data Query
 
-The goals of a data query are
-- retrieve the data for the requested tenant, metric name, and one or more tags
-- provide the timestamped values that fall within the requested time range
+The goal of a data query is to provide the data for the requested tenant, metric name, and one or more tags whose timestamped values fall within the requested time range
 
-The first goal is achieved by retrieving the list of series-sets for each request tag (key-value). For example, let's say the query is requesting the metric `cpu_idle` and results for the tags `os=linux` and `deployment=prod`. A metadata retrieval of series-sets for each tag would be:
+Such a query is performed in two steps:
+- query the series_set table to retrieve the metadata for the requested tenant, metric name, and tags 
+- use that metadata to query the data_raw table to retrieve the values that fall within the requested time range
+
+The first step is achieved by retrieving the list of series-sets for each request tag (key-value). For example, let's say the query is requesting the metric `cpu_idle` and results for the tags `os=linux` and `deployment=prod`. A metadata retrieval of series-sets for each tag would be:
 
 For `os=linux`:
 
@@ -168,7 +172,7 @@ The series-sets to retrieve from the data table can then be computed by finding 
 - `cpu_idle,deployment=prod,host=h-1,os=linux`
 - `cpu_idle,deployment=prod,host=h-4,os=linux`
 
-The second goal of the query is achieved by iterating over each series-set and querying the data table by tenant, series-set, and the requested time-range. Continuing the example, those rows from `data_raw` would be:
+The second step of the query is achieved by iterating over each series-set and querying the data table by tenant, series-set, and the requested time-range. Continuing the example, those rows from `data_raw` would be:
 
 | tenant | series\_set | ts | value |
 | :--- | :--- | :--- | :--- |
