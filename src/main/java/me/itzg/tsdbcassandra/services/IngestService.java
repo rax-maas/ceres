@@ -67,29 +67,25 @@ public class IngestService {
         .thenMany(
             Flux.fromIterable(metric.getTags().entrySet())
                 .flatMap(tagsEntry ->
-                    Flux.concat(
-                        cassandraTemplate.insert(
-                            new TagKey()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
-                                .setTagKey(tagsEntry.getKey())
-                        ),
-                        cassandraTemplate.insert(
-                            new TagValue()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
-                                .setTagKey(tagsEntry.getKey())
-                                .setTagValue(tagsEntry.getValue())
-                        ),
-                        cassandraTemplate.insert(
-                            new SeriesSet()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
-                                .setTagKey(tagsEntry.getKey())
-                                .setTagValue(tagsEntry.getValue())
-                                .setSeriesSet(seriesSet)
-                        )
+                    cassandraTemplate.batchOps()
+                    .insert(
+                        new TagKey()
+                            .setTenant(metric.getTenant())
+                            .setMetricName(metric.getMetricName())
+                            .setTagKey(tagsEntry.getKey()),
+                        new TagValue()
+                            .setTenant(metric.getTenant())
+                            .setMetricName(metric.getMetricName())
+                            .setTagKey(tagsEntry.getKey())
+                            .setTagValue(tagsEntry.getValue()),
+                        new SeriesSet()
+                            .setTenant(metric.getTenant())
+                            .setMetricName(metric.getMetricName())
+                            .setTagKey(tagsEntry.getKey())
+                            .setTagValue(tagsEntry.getValue())
+                            .setSeriesSet(seriesSet)
                     )
+                    .execute()
                 )
         )
         .ignoreElements();
