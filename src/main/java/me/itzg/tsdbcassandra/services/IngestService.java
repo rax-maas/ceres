@@ -51,9 +51,7 @@ public class IngestService {
             .setTs(metric.getTs())
             .setValue(metric.getValue()),
         InsertOptions.builder()
-            // calculate TTL relative to metric's timestamp
-            .ttl(
-                Duration.between(Instant.now(), metric.getTs()).plus(appProperties.getRawTtl()))
+            .ttl(appProperties.getRawTtl())
             .build()
     );
   }
