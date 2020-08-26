@@ -217,3 +217,45 @@ The resulting JSON structure derives the metric name and tag-map by decomposing 
   }
 ]
 ```
+
+### Downsampling (a.k.a. roll-ups, normalized)
+
+Downsampling is the process of aggregating "raw" metrics, which are collected and conveyed at arbitrary timestamps, into deterministic time granularities, such as 5 minute and 1 hour. The intention is to keep aggregated metrics for much longer periods of time than the raw metrics. Downsampling also benefits queries with wider time ranges since it reduces the number of data points to be retrieved and rendered. 
+
+This process is also known as roll-up since it can be thought of finer grained data points rolling up into wider and wider grained levels of data. It is also referred to as normalized since the result of downsampling allows related metrics to be compared in time since the timestamps would align consistently even if those metrics were originally collected slightly "out of sync". 
+
+- Downsampling work is sliced into partitions, much like Cassandra's partitioning key concept
+- Partitions are an integer value in the range \[0, partition-count\)
+- A particular partition value is computed by hashing the tenant and series-set of a metric and then applycing a consistent hash, such as [the one provided by Guava](https://guava.dev/releases/21.0/api/docs/com/google/common/hash/Hashing.html#consistentHash-com.google.common.hash.HashCode-int-)
+- The application is configured with a "time slot width", which is used to define unit of tracking and the range queried for each downsample operation.
+- As a raw metric is ingested, the downsampling time slot is computed by rounding down the metric's timestamp to the next lowest multiple of the time slot width
+- The time slot width must be a common-multiple of the desired granularities. For example, if granularities of 5 minutes and 1 hour are used, then the time slot width must a multiple of an hour. With a one-hour time slot width, 12 5-minute downsamples would fit and one 1-hour downsample. 
+- The following table is used to track pending downsample sets by "upserting" the corresponding row as part of raw metric ingestion
+
+`pending_downsample_sets`:
+
+Type | Column
+-----|------------
+PK   | partition
+CK   | time_slot
+CK   | tenant
+CK   | series_set
+
+- The `time_slot` is the first of clustering keys to ensure that oldest raw data is processed before newer raw data
+- This application will be replicated/scaled-out in order to accommodate the workload of the series-set cardinality
+- Each replica is configured with a distinct set of partition values that it will process
+- On a periodic basis, each replica will query the `pending_downsample_sets` for each partition that it owns along with an upper bound on the `time_slot` to ensure that very recent metrics are allowed a certain amount of time to settle before being considered for downsampling
+- Each resulting row drives the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range
+- The following aggregations are performed for each downsample:
+    - min
+    - max
+    - sum
+    - count
+    - average
+- The naming of aggregate metrics will append the aggregation to the existing name preceded by an underscore. For example, the aggregation of the metric `cpu_usage_idle` will production `cpu_usage_idle_min`, `cpu_usage_idle_max`, and so on
+- A raw metric with a name that already ends with an aggregate qualifier, will only be aggregated with the same aggregation with the exception of "average" (since an average of an average is not mathematically robust). For example, if a raw metric is named `cpu_usage_idle_min` then only a min-aggregation is performed
+- A configurable list of "counter suffixes" is used to further identify those raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
+- Downsampled data table(s) contain the same columns as `data_raw`
+
+TBD
+- table per downsample granularity, such as `data_5m`, `data_1h`? 
