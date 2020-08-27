@@ -259,6 +259,7 @@ CK   | series_set
     - As each granularity interval of the raw data set is aggregated, an aggregated data row is upserted for that tenant, series-set, and normalized timestamp.
         - As mentioned above, Cassandra doesn't have an "upsert", but `UPDATE` effectively acts as one. 
         - It's important that the aggregate data row be `UPDATE`d rather than `INSERT`ed to accommodate late arrival handling, describe below
+        - The TTL used for the `UPDATE` will be determined by the retention duration configured for that granularity. For example, 5m granularity might configured with 14 days retention and 1h with 1 year retention.
     - Upon completion of each `pending_downsample_sets` result row, that row is deleted from the table
 - Late arrivals of metrics into `data_row` are an interesting case to confirm are covered by the strategy above. There are two versions of late arrivals:
     - No metrics at all showed up for a given tenant+series-set during a time slot. 
