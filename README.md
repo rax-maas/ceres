@@ -245,17 +245,32 @@ CK   | series_set
 - This application will be replicated/scaled-out in order to accommodate the workload of the series-set cardinality
 - Each replica is configured with a distinct set of partition values that it will process
 - On a periodic basis, each replica will query the `pending_downsample_sets` for each partition that it owns along with an upper bound on the `time_slot` to ensure that very recent metrics are allowed a certain amount of time to settle before being considered for downsampling
-- Each resulting row drives the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range
-- The following aggregations are performed for each downsample:
-    - min
-    - max
-    - sum
-    - count
-    - average
-- The naming of aggregate metrics will append the aggregation to the existing name preceded by an underscore. For example, the aggregation of the metric `cpu_usage_idle` will production `cpu_usage_idle_min`, `cpu_usage_idle_max`, and so on
-- A raw metric with a name that already ends with an aggregate qualifier, will only be aggregated with the same aggregation with the exception of "average" (since an average of an average is not mathematically robust). For example, if a raw metric is named `cpu_usage_idle_min` then only a min-aggregation is performed
-- A configurable list of "counter suffixes" is used to further identify those raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
-- Downsampled data table(s) contain the same columns as `data_raw`
-
+    - Each resulting row drives the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range
+    - The following aggregations are performed for each downsample:
+        - min
+        - max
+        - sum
+        - count
+        - average
+    - The naming of aggregate metrics will append the aggregation to the existing name preceded by an underscore. For example, the aggregation of the metric `cpu_usage_idle` will production `cpu_usage_idle_min`, `cpu_usage_idle_max`, and so on
+    - A raw metric with a name that already ends with an aggregate qualifier, will only be aggregated with the same aggregation with the exception of "average" (since an average of an average is not mathematically robust). For example, if a raw metric is named `cpu_usage_idle_min` then only a min-aggregation is performed
+    - A configurable list of "counter suffixes" is used to further identify those raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
+    - The downsample process will then iterate through the retrieve raw data values, which were supplied in time ascending order, and incrementally aggregate the values. [Commons Math's description statistics](https://commons.apache.org/proper/commons-math/userguide/stat.html#a1.2_Descriptive_statistics) or similar could be used to perform those per-granularity aggregations.
+    - As each granularity interval of the raw data set is aggregated, an aggregated data row is upserted for that tenant, series-set, and normalized timestamp.
+        - As mentioned above, Cassandra doesn't have an "upsert", but `UPDATE` effectively acts as one. 
+        - It's important that the aggregate data row be `UPDATE`d rather than `INSERT`ed to accommodate late arrival handling, describe below
+    - Upon completion of each `pending_downsample_sets` result row, that row is deleted from the table
+- Late arrivals of metrics into `data_row` are an interesting case to confirm are covered by the strategy above. There are two versions of late arrivals:
+    - No metrics at all showed up for a given tenant+series-set during a time slot. 
+        - That case is handled by the design above simply because the `pending_downsample_sets` row never would have been created. 
+        - When those metrics arrive later, the `pending_downsample_sets` row is created at that time and the downsample process will agreegate those as normal.
+    - If a subset of metrics showed up for a given tenant+series-set during a time slot
+        - The downsample processor won't know that there's a subset of the expected metrics; however, that's fine because all of the aggregations are mathematically correct for what is present. For example, the "count" aggregation would be accurate even if it's a lesser value than was expected by an end user
+        - When the remaining metrics arrive later, the `pending_downsample_sets` row is **recreated**
+        - The downsample processor will pick up on the pending row at the next scheduled time and *assuming the raw data for the time slot has not TTL'ed away*, the re-query of that time slot's raw data will now retrieve all expected metrics entries
+        - The downsample processor will aggregate the granularities entries as described above and again upsert/UPDATE the resulting aggregated data rows. With the UPDATE the "partial" aggregation values will be replaced by the "complete" aggregation values
+    
 TBD
-- table per downsample granularity, such as `data_5m`, `data_1h`? 
+- Aggregated data table(s)
+    - Should there be a table per downsample granularity, such as `data_5m`, `data_1h` and each of those tables have the same columns as `data_raw`? Downside is that the application will need to explicitly manage those table creations vs the Spring Data Cassandra driven schema management (so far)
+    - Or...should there be one table for all downsample, such as `data_downsampled`, that includes an additional CK column conveying the downsample granularity, such as "5m", "1h". Downsample queries could then narrow by specifying that column's granularity in the WHERE-clause 
