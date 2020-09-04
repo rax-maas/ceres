@@ -117,7 +117,9 @@ The Cassandra tables in the `tsdb` keyspace (by default) are organized into two 
 
 ![](docs/tables.drawio.png)
 
-To be a bit more explicit, all these tables are written to on ingest.  The "metric_names" table is only read by the "metricNames" metadata query; the "tag_keys" by the "tagKeys" metadata query and the "tag_values" by the "tagValues" metadata query.  The "series_set" and "data_raw" tables are only read by the "query" data query.
+To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is only read by the "metricNames" metadata query; the "tag_keys" by the "tagKeys" metadata query and the "tag_values" by the "tagValues" metadata query.  The "series_set" and "data_raw" tables are only read by the "query" data query.
+
+Since the process of downsampling will derive new metric names by appending an aggregation suffix to the raw metric's name, the `metric_names` table includes columns to specify the applicablility of that metric name to raw metrics, downsampled metrics, or both.
 
 ### Series-Set
 
@@ -140,6 +142,7 @@ When ingesting a metric, the following actions occur:
 3. The metadata of the metric series is "upserted". 
    - Cassandra doesn't have first-class support for upserts; however, the metadata tables consist entirely of primary key columns and a CQL `INSERT` differs from SQL in that it will ensure "the row is created if none existed before, and updated otherwise"
    - Four tables are involved in the metadata upsert in order to accommodate the denormalized/NoSQL nature of Cassandra and enable metadata retrieval by each facet
+   - Since ingest works with raw metrics, the `raw` column, and only that column, of `metric_names` will be updated to a value `true`
 
 ### Data Query
 
@@ -220,7 +223,9 @@ The resulting JSON structure derives the metric name and tag-map by decomposing 
 
 ### Downsampling (a.k.a. roll-ups, normalized)
 
-Downsampling is the process of aggregating "raw" metrics, which are collected and conveyed at arbitrary timestamps, into deterministic time granularities, such as 5 minute and 1 hour. The intention is to keep aggregated metrics for much longer periods of time than the raw metrics. Downsampling also benefits queries with wider time ranges since it reduces the number of data points to be retrieved and rendered. 
+#### During ingestion
+
+Downsampling is the process of aggregating "raw" metrics, which are collected and conveyed at arbitrary timestamps, into deterministic time granularities, such as 5 minute and 1 hour. The intention is to retain aggregated metrics for much longer periods of time than the raw metrics. Downsampling also benefits queries with wider time ranges since it reduces the number of data points to be retrieved and rendered. 
 
 This process is also known as roll-up since it can be thought of finer grained data points rolling up into wider and wider grained levels of data. It is also referred to as normalized since the result of downsampling allows related metrics to be compared in time since the timestamps would align consistently even if those metrics were originally collected slightly "out of sync". 
 
@@ -228,50 +233,72 @@ This process is also known as roll-up since it can be thought of finer grained d
 - Partitions are an integer value in the range \[0, partition-count\)
 - A particular partition value is computed by hashing the tenant and series-set of a metric and then applycing a consistent hash, such as [the one provided by Guava](https://guava.dev/releases/21.0/api/docs/com/google/common/hash/Hashing.html#consistentHash-com.google.common.hash.HashCode-int-)
 - The application is configured with a "time slot width", which is used to define unit of tracking and the range queried for each downsample operation.
-- As a raw metric is ingested, the downsampling time slot is computed by rounding down the metric's timestamp to the next lowest multiple of the time slot width
+- As a raw metric is ingested, the downsampling time slot is computed by rounding down the metric's timestamp to the next lowest multiple of the time slot width. For example, if the time slot width is 1 hour, then rounded timestamp of the downsample set would always be at the top-of-the-hour.
 - The time slot width must be a common-multiple of the desired granularities. For example, if granularities of 5 minutes and 1 hour are used, then the time slot width must a multiple of an hour. With a one-hour time slot width, 12 5-minute downsamples would fit and one 1-hour downsample. 
-- The following table is used to track pending downsample sets by "upserting" the corresponding row as part of raw metric ingestion
+- Ingestion uses the following table, `pending_downsample_sets`, for tracking the downsampling to be done
 
-`pending_downsample_sets`:
+![](docs/pending_downsample_sets-table.png)
 
-Type | Column
------|------------
-PK   | partition
-CK   | time_slot
-CK   | tenant
-CK   | series_set
+- With the computed `time_slot`, rows in `pending_downsample_sets` are "upserted" with the `last_touch` as the current wall clock timestamp
 
-- The `time_slot` is the first of clustering keys to ensure that oldest raw data is processed before newer raw data
+#### Downsample processing
+
+- The `time_slot` is the first of the clustering keys to order the retrieval of older raw data before newer raw data
 - This application will be replicated/scaled-out in order to accommodate the workload of the series-set cardinality
 - Each replica is configured with a distinct set of partition values that it will process
-- On a periodic basis, each replica will query the `pending_downsample_sets` for each partition that it owns along with an upper bound on the `time_slot` to ensure that very recent metrics are allowed a certain amount of time to settle before being considered for downsampling
-    - Each resulting row drives the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range
-    - The following aggregations are performed for each downsample:
-        - min
-        - max
-        - sum
-        - count
-        - average
-    - The naming of aggregate metrics will append the aggregation to the existing name preceded by an underscore. For example, the aggregation of the metric `cpu_usage_idle` will production `cpu_usage_idle_min`, `cpu_usage_idle_max`, and so on
-    - A raw metric with a name that already ends with an aggregate qualifier, will only be aggregated with the same aggregation with the exception of "average" (since an average of an average is not mathematically robust). For example, if a raw metric is named `cpu_usage_idle_min` then only a min-aggregation is performed
-    - A configurable list of "counter suffixes" is used to further identify those raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
-    - The downsample process will then iterate through the retrieve raw data values, which were supplied in time ascending order, and incrementally aggregate the values. [Commons Math's description statistics](https://commons.apache.org/proper/commons-math/userguide/stat.html#a1.2_Descriptive_statistics) or similar could be used to perform those per-granularity aggregations.
-    - As each granularity interval of the raw data set is aggregated, an aggregated data row is upserted for that tenant, series-set, and normalized timestamp.
-        - As mentioned above, Cassandra doesn't have an "upsert", but `UPDATE` effectively acts as one. 
-        - It's important that the aggregate data row be `UPDATE`d rather than `INSERT`ed to accommodate late arrival handling, describe below
-        - The TTL used for the `UPDATE` will be determined by the retention duration configured for that granularity. For example, 5m granularity might configured with 14 days retention and 1h with 1 year retention.
-    - Upon completion of each `pending_downsample_sets` result row, that row is deleted from the table
-- Late arrivals of metrics into `data_row` are an interesting case to confirm are covered by the strategy above. There are two versions of late arrivals:
-    - No metrics at all showed up for a given tenant+series-set during a time slot. 
-        - That case is handled by the design above simply because the `pending_downsample_sets` row never would have been created. 
-        - When those metrics arrive later, the `pending_downsample_sets` row is created at that time and the downsample process will agreegate those as normal.
-    - If a subset of metrics showed up for a given tenant+series-set during a time slot
-        - The downsample processor won't know that there's a subset of the expected metrics; however, that's fine because all of the aggregations are mathematically correct for what is present. For example, the "count" aggregation would be accurate even if it's a lesser value than was expected by an end user
-        - When the remaining metrics arrive later, the `pending_downsample_sets` row is **recreated**
-        - The downsample processor will pick up on the pending row at the next scheduled time and *assuming the raw data for the time slot has not TTL'ed away*, the re-query of that time slot's raw data will now retrieve all expected metrics entries
-        - The downsample processor will aggregate the granularities entries as described above and again upsert/UPDATE the resulting aggregated data rows. With the UPDATE the "partial" aggregation values will be replaced by the "complete" aggregation values
-    
-TBD
-- Aggregated data table(s)
-    - Should there be a table per downsample granularity, such as `data_5m`, `data_1h` and each of those tables have the same columns as `data_raw`? Downside is that the application will need to explicitly manage those table creations vs the Spring Data Cassandra driven schema management (so far)
-    - Or...should there be one table for all downsample, such as `data_downsampled`, that includes an additional CK column conveying the downsample granularity, such as "5m", "1h". Downsample queries could then narrow by specifying that column's granularity in the WHERE-clause 
+- Downsample processing is an optional function of this application and can be disabled by not specifying any partitions to be owned and processed. This allows for deploying the same application code as both a cluster of ingest/query nodes, a cluster of downsample processors, or a combination thereof.
+
+The following diagram will be used to describe the downsample processing of a particular time slot:
+
+![](docs/downsample-timeline.drawio.png)
+
+> The "m" indicators represent raw metric values with their original timestamp.
+> The timeline is marked with an example granularity set of 5 minutes (5m) and 1 hour (1h).
+> The segment markers below the timeline indicate target granularities, where the bottom-most, solid segment indicates the downsample time slot width to be processed.
+
+The following introduces the table structure for `data_downsampled`, which is the destination of the process described next.
+
+![](docs/data_downsampled-table.drawio.png)
+
+- On a periodic basis, each replica for each owned partition will query the `pending_downsample_sets` to get "ready" downsample sets
+    - A downsample time slot is considered ready when it meets the following criteria:
+        - The `time_slot` + slot width is less than the current wallclock timestamp
+        - The `last_touch` + a configurable "stability" duration is less than the current wallclock timestamp
+- Each ready downsample set is used to determine the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range.
+- The following aggregations are considered for each downsample:
+    - min
+    - max
+    - sum
+    - count
+    - average
+- The naming of aggregate metrics will append the aggregation to the existing name preceded by an underscore. For example, the aggregation of the metric `cpu_usage_idle` will result in metrics named `cpu_usage_idle_min`, `cpu_usage_idle_max`, and so on
+- A raw metric with a name that already ends with an aggregate qualifier, will only be aggregated with the same aggregation. For example, if a raw metric is named `cpu_usage_idle_min` then only a min-aggregation is performed
+- A configurable list of "counter suffixes" is used to further identify those raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
+- A configurable list of "gauge suffixes" is used to identify those raw metrics that should only be aggregated with min, max, and average. 
+- At the start of each downsample process, an aggregation object will be initialized for each target granularity, such 5m and 1h from the diagram above
+- The downsample process will then iterate through the retrieved raw data values, which were supplied in time ascending order, and incrementally apply that value to the aggregation objects
+- When a metric's timestamp crosses over an aggregation object's time boundary, the downsample update is added to an update-batch for that granularity and the aggregation object is reset. Using the diagram above as an example:
+    1. A 5m and 1h aggregation object is created, such as a [DoubleSummaryStatistics](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/DoubleSummaryStatistics.html)
+    2. m1, m2, m3 would be passed to both aggregation objects
+    3. With m4, the 5m aggregated value would get added to the update-batch and the aggregation object is reset
+    4. At the end of the downsample set, both aggregation objects would be "closed" by adding their final aggregated values to the update-batches. To finish out the example, the 1h aggregation would include m1 - m7 from the diagram
+    5. The update-batch for each granularity is then sent to Cassandra
+    6. The pending downsample set row is deleted to track that it has been processed
+- **NOTE** during implementation an alternative might be considered where only the smallest granularities are aggregated across the raw data and then the next layer of granularity is rolled-up from that lower layer, such as raw -> 5m and then 5m's -> 1h. Either way the resulting update-batches would arrive at the same content. 
+- Each row in the update-batch will include the tenant, series-set, and normalized timestamp.
+    - It's important that the aggregate data row be `UPDATE`d rather than `INSERT`ed to accommodate late arrival handling, describe below. To ruin the surprise, the aggregated metric values are upserted in order to allow for re-calculation later and re-upserting the new value.
+    - The TTL used for each update-batch will be determined by the retention duration configured for that granularity. For example, 5m granularity might configured with 14 days retention and 1h with 1 year retention.
+
+#### Processing late arrivals
+
+Late arrivals of metrics into `data_row` are an interesting case to confirm are covered by the strategy above. There are two versions of late arrivals:
+
+- No metrics at all showed up for a given tenant+series-set during a time slot. This case is handled by the design above since:
+    - The `pending_downsample_sets` row would not have been created at the original time
+    - When those metrics arrive later, the `pending_downsample_sets` row is created
+    - Once the readiness of the downsample set is satisfied it is processed as normal
+- A subset of metrics showed up for a given tenant+series-set at the original time
+    - The downsample processor won't know that there's a subset of the expected metrics; however, that's fine because all of the aggregations are mathematically correct for what values are present. For example, the "count" aggregation would be mathematically accurate, even if technically lower than a user would expect.
+    - When the remaining metrics arrive later, the `pending_downsample_sets` row is **re-created**
+    - Once the readiness of the downsample set is satisfied the downsample processor will pick up on the pending row at the next scheduled time, the re-query of that time slot's raw data will now retrieve all expected metrics entries. _This assumes the raw data for that queried time slot has not been TTL'ed away._
+    - The downsample processor will aggregate the granularities entries as described above and again upsert/UPDATE the resulting update-batches as usual. With the UPDATE the "partial" aggregation values will be replaced by the "complete" aggregation values
