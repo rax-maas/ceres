@@ -19,4 +19,7 @@ public class MetricName {
       type = PrimaryKeyType.CLUSTERED,
       ordinal = 1)
   String metricName;
+
+  Boolean raw;
+  Boolean downsampled;
 }
