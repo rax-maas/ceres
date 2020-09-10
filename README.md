@@ -115,11 +115,57 @@ The Cassandra tables in the `tsdb` keyspace (by default) are organized into two 
 - **metadata** : tables that enable metadata lookup directly or to enable queries
 - **data** : tables that store the timestamped values
 
-![](docs/tables.drawio.png)
+#### Metadata
+
+`metric_names`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+CK | metric_name | 
+&nbsp; | aggregators | `set<text>` of one or more of raw,min,max,sum,count,avg
+
+`tag_keys`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+PK | metric_name | 
+CK | tag_key |
+
+`tag_values`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+PK | metric_name | 
+CK | tag_key |
+CK | tag_value |
+
+`series_sets`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+PK | metric_name | 
+CK | tag_key |
+CK | tag_value |
+CK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
+
+#### Data
+
+`data_raw`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+PK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
+CK | ts | timestamp of ingested metric
+&nbsp; | value | Metric value as double
 
 To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is only read by the "metricNames" metadata query; the "tag_keys" by the "tagKeys" metadata query and the "tag_values" by the "tagValues" metadata query.  The "series_set" and "data_raw" tables are only read by the "query" data query.
 
-Since the process of downsampling will derive new metric names by appending an aggregation suffix to the raw metric's name, the `metric_names` table includes columns to specify the applicablility of that metric name to raw metrics, downsampled metrics, or both.
+Since the process of downsampling will derive new metrics, the existence of those is tracked by adding into the `aggregators` set. The query API can be updated to take into account the metric name and aggregation to decide what downsampled data, if any, can be used.
 
 ### Series-Set
 
@@ -237,7 +283,15 @@ This process is also known as roll-up since it can be thought of finer grained d
 - The time slot width must be a common-multiple of the desired granularities. For example, if granularities of 5 minutes and 1 hour are used, then the time slot width must a multiple of an hour. With a one-hour time slot width, 12 5-minute downsamples would fit and one 1-hour downsample. 
 - Ingestion uses the following table, `pending_downsample_sets`, for tracking the downsampling to be done
 
-![](docs/pending_downsample_sets-table.png)
+`pending_downsample_sets` table:
+
+&nbsp; | Name | Notes
+---|----------|---
+PK | partition | 
+CK | time_slot | timestamp rounded down by time slot width
+CK | tenant | 
+CK | series_set | 
+&nbsp; | last_touch | 
 
 - With the computed `time_slot`, rows in `pending_downsample_sets` are "upserted" with the `last_touch` as the current wall clock timestamp
 
@@ -258,7 +312,16 @@ The following diagram will be used to describe the downsample processing of a pa
 
 The following introduces the table structure for `data_downsampled`, which is the destination of the process described next.
 
-![](docs/data_downsampled-table.drawio.png)
+`data_downsampled` table:
+
+&nbsp; | Name | Notes
+-------|------|------
+PK | tenant | 
+PK | series_set | Same as original raw series_set
+CK | aggregator | One of min,max,sum,count,avg
+CK | granularity | String in [quantity unit form](https://cassandra.apache.org/doc/latest/cql/types.html#working-with-durations)
+CK | ts | timestamp rounded down by granularity
+&nbsp; | value | 
 
 - On a periodic basis, each replica for each owned partition will query the `pending_downsample_sets` to get "ready" downsample sets
     - A downsample time slot is considered ready when it meets the following criteria:
