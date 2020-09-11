@@ -163,7 +163,7 @@ PK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
 CK | ts | timestamp of ingested metric
 &nbsp; | value | Metric value as double
 
-To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is only read by the "metricNames" metadata query; the "tag_keys" by the "tagKeys" metadata query and the "tag_values" by the "tagValues" metadata query.  The "series_set" and "data_raw" tables are only read by the "query" data query.
+To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is only read by the "metricNames" metadata query; the "tag_keys" by the "tagKeys" metadata query and the "tag_values" by the "tagValues" metadata query.  The "series_set" and "data_raw" tables are used in combination by data queries and "data_raw" is also used during downsampling.
 
 Since the process of downsampling will derive new metrics, the existence of those is tracked by adding into the `aggregators` set. The query API can be updated to take into account the metric name and aggregation to decide what downsampled data, if any, can be used.
 
@@ -302,7 +302,7 @@ CK | series_set |
 - Each replica is configured with a distinct set of partition values that it will process
 - Downsample processing is an optional function of this application and can be disabled by not specifying any partitions to be owned and processed. This allows for deploying the same application code as both a cluster of ingest/query nodes, a cluster of downsample processors, or a combination thereof.
 
-The following diagram will be used to describe the downsample processing of a particular time slot:
+The following diagram shows the high level relationship of raw metrics in a given downsample slot to the aggregated time slots:
 
 ![](docs/downsample-timeline.drawio.png)
 
@@ -332,25 +332,19 @@ CK | ts | timestamp rounded down by granularity
     - min
     - max
     - sum
-    - count
     - average
-- The naming of aggregate metrics will append the aggregation to the existing name preceded by an underscore. For example, the aggregation of the metric `cpu_usage_idle` will result in metrics named `cpu_usage_idle_min`, `cpu_usage_idle_max`, and so on
-- A raw metric with a name that already ends with an aggregate qualifier, will only be aggregated with the same aggregation. For example, if a raw metric is named `cpu_usage_idle_min` then only a min-aggregation is performed
-- A configurable list of "counter suffixes" is used to further identify those raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
-- A configurable list of "gauge suffixes" is used to identify those raw metrics that should only be aggregated with min, max, and average. 
-- At the start of each downsample process, an aggregation object will be initialized for each target granularity, such 5m and 1h from the diagram above
-- The downsample process will then iterate through the retrieved raw data values, which were supplied in time ascending order, and incrementally apply that value to the aggregation objects
-- When a metric's timestamp crosses over an aggregation object's time boundary, the downsample update is added to an update-batch for that granularity and the aggregation object is reset. Using the diagram above as an example:
-    1. A 5m and 1h aggregation object is created, such as a [DoubleSummaryStatistics](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/DoubleSummaryStatistics.html)
-    2. m1, m2, m3 would be passed to both aggregation objects
-    3. With m4, the 5m aggregated value would get added to the update-batch and the aggregation object is reset
-    4. At the end of the downsample set, both aggregation objects would be "closed" by adding their final aggregated values to the update-batches. To finish out the example, the 1h aggregation would include m1 - m7 from the diagram
-    5. The update-batch for each granularity is then sent to Cassandra
-    6. The pending downsample set row is deleted to track that it has been processed
-- **NOTE** during implementation an alternative might be considered where only the smallest granularities are aggregated across the raw data and then the next layer of granularity is rolled-up from that lower layer, such as raw -> 5m and then 5m's -> 1h. Either way the resulting update-batches would arrive at the same content. 
+- A configurable list of "counter suffixes" is used to identify from the metric name the raw metrics that should only be aggregated with a sum-aggregation. Examples of such suffixes are "reads", "writes", "bytes"
+- All other metrics will be treated as gauges and aggregated with min, max, and average. The average of each granularity slot is computed from `sum` / `count`, where `count` is aggregated by slot but not persisted.
+- The downsample process will iterate through the configured aggregation granularities and aggregate the values of each time slot from the finer granularity values before it, starting with the raw data stream. The following diagram relates that process into the flux returned by the Reactive Cassandra query and the flux instances created for each aggregation granularity:
+
+![](docs/downsample-aggregation-flow-diagram.drawio.png)
+
+- As shown on the right hand side of the diagram above, each granularity slot is ultimately gathered into an update-batch
 - Each row in the update-batch will include the tenant, series-set, and normalized timestamp.
     - It's important that the aggregate data row be `UPDATE`d rather than `INSERT`ed to accommodate late arrival handling, describe below. To ruin the surprise, the aggregated metric values are upserted in order to allow for re-calculation later and re-upserting the new value.
     - The TTL used for each update-batch will be determined by the retention duration configured for that granularity. For example, 5m granularity might configured with 14 days retention and 1h with 1 year retention.
+- The `metric_names` table is also upserted with the original raw metric's name and the aggregators identified during the aggregation process. For example, a gauge with the name `cpu_idle` could start with an `aggregators` of only `{'raw'}`, but after aggregation processing would become `{'raw','min','max','avg'}`
+- Finally, the pending downsample set row is deleted to track that it has been processed
 
 #### Processing late arrivals
 
