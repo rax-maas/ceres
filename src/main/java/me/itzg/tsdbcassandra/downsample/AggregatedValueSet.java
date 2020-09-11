@@ -6,8 +6,9 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class AggregatedValueSet extends ValueSet {
-  Double min;
-  Double max;
-  Double sum;
-  Double count;
+  double min = Double.MAX_VALUE;
+  double max = Double.MIN_VALUE;
+  double sum;
+  double count;
+  double average = Double.NaN;
 }

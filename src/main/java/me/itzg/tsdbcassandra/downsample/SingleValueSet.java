@@ -1,8 +1,10 @@
 package me.itzg.tsdbcassandra.downsample;
 
-public abstract class SingleValueSet extends ValueSet {
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-  public abstract void setValue(double value);
-  public abstract double getValue();
-
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class SingleValueSet extends ValueSet {
+  double value;
 }
