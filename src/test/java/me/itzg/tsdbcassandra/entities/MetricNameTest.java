@@ -1,7 +1,6 @@
 package me.itzg.tsdbcassandra.entities;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.data.cassandra.core.query.Criteria.where;
 
 import com.datastax.driver.core.Cluster;
@@ -14,7 +13,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
-import org.springframework.data.cassandra.core.query.Criteria;
 import org.springframework.data.cassandra.core.query.Query;
 import org.springframework.data.cassandra.core.query.Update;
 import org.testcontainers.containers.CassandraContainer;
@@ -25,7 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 class MetricNameTest {
   @Container
-  public static CassandraContainer cassandraContainer = new CassandraContainer();
+  public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>();
 
   @TestConfiguration
   public static class TestConfig {
@@ -56,7 +54,7 @@ class MetricNameTest {
             where("tenant").is("t-1"),
             where("metricName").is("cpu_usage")
         ),
-        Update.update("raw", true),
+        Update.empty().addTo("aggregators").append(Aggregator.raw),
         MetricName.class
         ).thenMany(cassandraTemplate.select(
         Query.query(
@@ -68,15 +66,14 @@ class MetricNameTest {
         .blockFirst();
 
     assertThat(resultWithRaw).isNotNull();
-    assertThat(resultWithRaw.getRaw()).isTrue();
-    assertThat(resultWithRaw.getDownsampled()).isNull();
+    assertThat(resultWithRaw.getAggregators()).containsOnly(Aggregator.raw);
 
     final MetricName resultWithDownsampled = cassandraTemplate.update(
         Query.query(
             where("tenant").is("t-1"),
             where("metricName").is("cpu_usage")
         ),
-        Update.update("downsampled", true),
+        Update.empty().addTo("aggregators").appendAll(Aggregator.min, Aggregator.max),
         MetricName.class
     ).thenMany(cassandraTemplate.select(
         Query.query(
@@ -89,7 +86,8 @@ class MetricNameTest {
 
 
     assertThat(resultWithDownsampled).isNotNull();
-    assertThat(resultWithDownsampled.getRaw()).isTrue();
-    assertThat(resultWithDownsampled.getDownsampled()).isTrue();
+    assertThat(resultWithDownsampled.getAggregators()).containsExactlyInAnyOrder(
+        Aggregator.raw, Aggregator.min, Aggregator.max
+    );
   }
 }
