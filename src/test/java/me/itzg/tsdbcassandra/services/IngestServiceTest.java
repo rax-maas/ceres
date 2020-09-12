@@ -23,12 +23,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.query.Query;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @Testcontainers
 class IngestServiceTest {
 

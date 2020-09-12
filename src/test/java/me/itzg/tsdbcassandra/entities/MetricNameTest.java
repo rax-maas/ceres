@@ -13,11 +13,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.query.Query;
 import org.springframework.data.cassandra.core.query.Update;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @Testcontainers
 class MetricNameTest {
   @Container

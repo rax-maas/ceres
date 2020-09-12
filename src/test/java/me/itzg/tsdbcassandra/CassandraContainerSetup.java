@@ -6,7 +6,6 @@ import java.net.InetSocketAddress;
 import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomizer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.CassandraContainer;
 
 /**
@@ -25,10 +24,6 @@ import org.testcontainers.containers.CassandraContainer;
   * </pre>
  */
 @TestConfiguration
-@TestPropertySource(properties = {
-    // make sure the default isn't contacted
-    "spring.data.cassandra.contact-points="
-})
 public class CassandraContainerSetup {
 
   @Bean
