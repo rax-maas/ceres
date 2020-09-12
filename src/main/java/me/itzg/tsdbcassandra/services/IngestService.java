@@ -25,14 +25,15 @@ public class IngestService {
     this.appProperties = appProperties;
   }
 
-  public Mono<?> ingest(Metric metric) {
+  public Mono<Metric> ingest(Metric metric) {
 
     final String seriesSet = seriesSetService
         .buildSeriesSet(metric.getMetricName(), metric.getTags());
 
     return
         insertData(metric, seriesSet)
-            .and(seriesSetService.storeMetadata(metric, seriesSet));
+            .and(seriesSetService.storeMetadata(metric, seriesSet))
+            .then(Mono.just(metric));
   }
 
   private Mono<?> insertData(Metric metric, String seriesSet) {
