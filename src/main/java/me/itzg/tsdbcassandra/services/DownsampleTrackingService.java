@@ -6,6 +6,7 @@ import com.google.common.hash.Hashing;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import lombok.extern.slf4j.Slf4j;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.downsample.TemporalNormalizer;
 import me.itzg.tsdbcassandra.entities.PendingDownsampleSet;
@@ -18,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
+@Slf4j
 public class DownsampleTrackingService {
 
   private static final Charset HASHING_CHARSET = StandardCharsets.UTF_8;
@@ -32,6 +34,7 @@ public class DownsampleTrackingService {
                                    DownsampleProperties properties) {
     this.cassandraTemplate = cassandraTemplate;
     this.properties = properties;
+    log.info("Downsample tracking is {}", properties.isEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
     hashFunction = Hashing.murmur3_32();
   }
