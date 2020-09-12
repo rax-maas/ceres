@@ -44,9 +44,7 @@ public class IngestService {
 
     return
         insertData(metric, seriesSet)
-            .then(
-                insertMetadata(metric, seriesSet)
-            );
+            .and(seriesSetService.storeMetadata(metric, seriesSet));
   }
 
   private Mono<?> insertData(Metric metric, String seriesSet) {
@@ -60,46 +58,5 @@ public class IngestService {
             .ttl(appProperties.getRawTtl())
             .build()
     );
-  }
-
-  private Mono<?> insertMetadata(Metric metric, String seriesSet) {
-
-    return cassandraTemplate.update(
-        query(
-            where("tenant").is(metric.getTenant()),
-            where("metricName").is(metric.getMetricName())
-        ),
-        Update.empty().addTo("aggregators").append(Aggregator.raw),
-        MetricName.class
-    )
-        .thenMany(
-            Flux.fromIterable(metric.getTags().entrySet())
-                .flatMap(tagsEntry ->
-                    Flux.concat(
-                        cassandraTemplate.insert(
-                            new TagKey()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
-                                .setTagKey(tagsEntry.getKey())
-                        ),
-                        cassandraTemplate.insert(
-                            new TagValue()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
-                                .setTagKey(tagsEntry.getKey())
-                                .setTagValue(tagsEntry.getValue())
-                        ),
-                        cassandraTemplate.insert(
-                            new SeriesSet()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
-                                .setTagKey(tagsEntry.getKey())
-                                .setTagValue(tagsEntry.getValue())
-                                .setSeriesSet(seriesSet)
-                        )
-                    )
-                )
-        )
-        .ignoreElements();
   }
 }
