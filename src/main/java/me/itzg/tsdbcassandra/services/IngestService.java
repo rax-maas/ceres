@@ -59,10 +59,14 @@ public class IngestService {
   }
 
   private Mono<?> insertMetadata(Metric metric, String seriesSet) {
-    return cassandraTemplate.insert(
-        new MetricName()
-            .setTenant(metric.getTenant())
-            .setMetricName(metric.getMetricName())
+
+    return cassandraTemplate.update(
+        query(
+            where("tenant").is(metric.getTenant()),
+            where("metricName").is(metric.getMetricName())
+        ),
+        Update.empty().addTo("aggregators").append(Aggregator.raw),
+        MetricName.class
     )
         .thenMany(
             Flux.fromIterable(metric.getTags().entrySet())
