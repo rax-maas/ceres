@@ -1,17 +1,24 @@
 package me.itzg.tsdbcassandra.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import me.itzg.tsdbcassandra.CassandraContainerSetup;
-import me.itzg.tsdbcassandra.entities.SeriesSet;
+import me.itzg.tsdbcassandra.entities.DataRaw;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -19,6 +26,7 @@ import org.springframework.data.cassandra.core.query.Query;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Mono;
 
 @SpringBootTest
 @Testcontainers
@@ -35,6 +43,9 @@ class IngestServiceTest {
     }
   }
 
+  @MockBean
+  SeriesSetService seriesSetService;
+
   @Autowired
   IngestService ingestService;
 
@@ -45,58 +56,48 @@ class IngestServiceTest {
   void ingestingWorks() {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
-    ingest(tenantId,metricName, 20, 20, "linux", "h-1", "prod");
-    ingest(tenantId, metricName, 10, 30, "linux", "h-1", "prod");
-    ingest(tenantId, metricName, 0, 40, "linux", "h-1", "prod");
+    final String seriesSet = metricName + ",deployment=prod,host=h-1,os=linux";
 
-    ingest(tenantId, metricName, 20, 25, "windows", "h-2", "prod");
-    ingest(tenantId, metricName, 10, 35, "windows", "h-2", "prod");
-    ingest(tenantId, metricName, 0, 45, "windows", "h-2", "prod");
+    when(seriesSetService.storeMetadata(any(), any()))
+        .thenReturn(Mono.empty());
+    when(seriesSetService.buildSeriesSet(any(), any()))
+        .thenReturn(seriesSet);
 
-    ingest(tenantId, metricName, 20, 50, "linux", "h-3", "dev");
-    ingest(tenantId, metricName, 10, 60, "linux", "h-3", "dev");
-    ingest(tenantId, metricName, 0, 70, "linux", "h-3", "dev");
-
-    assertThat(cassandraTemplate.select(Query.query(), SeriesSet.class).collectList().block())
-        .containsExactlyInAnyOrder(
-            seriesSet(tenantId, metricName, "deployment", "dev", "deployment=dev,host=h-3,os=linux"),
-            seriesSet(tenantId, metricName, "deployment", "prod", "deployment=prod,host=h-1,os=linux"),
-            seriesSet(tenantId, metricName, "deployment", "prod", "deployment=prod,host=h-2,os=windows"),
-            seriesSet(tenantId, metricName, "host", "h-1", "deployment=prod,host=h-1,os=linux"),
-            seriesSet(tenantId, metricName, "host", "h-2", "deployment=prod,host=h-2,os=windows"),
-            seriesSet(tenantId, metricName, "host", "h-3", "deployment=dev,host=h-3,os=linux"),
-            seriesSet(tenantId, metricName, "os", "linux", "deployment=dev,host=h-3,os=linux"),
-            seriesSet(tenantId, metricName, "os", "linux", "deployment=prod,host=h-1,os=linux"),
-            seriesSet(tenantId, metricName, "os", "windows", "deployment=prod,host=h-2,os=windows")
-        );
-    assertThat(cassandraTemplate.count(SeriesSet.class).block()).isEqualTo(9);
-    assertThat(
-        cassandraTemplate.select("SELECT metric_name FROM metric_names", String.class).collectList()
-            .block()
-    ).containsExactly(metricName);
-  }
-
-  private SeriesSet seriesSet(String tenantId, String metricName, String tagKey, String tagValue,
-                              String tagPart) {
-    return new SeriesSet().setTenant(tenantId).setMetricName(metricName).setTagKey(tagKey)
-        .setTagValue(tagValue).setSeriesSet(metricName+ "," + tagPart);
-  }
-
-  private void ingest(String tenantId, String metricName, int timeOffset, int value,
-                      String os, String host,
-                      String deployment) {
-    ingestService.ingest(
+    final Metric metric = ingestService.ingest(
         new Metric()
-            .setTs(Instant.now().minusSeconds(timeOffset))
-            .setValue(value)
+            .setTs(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+            .setValue(Math.random())
             .setTenant(tenantId)
             .setMetricName(metricName)
             .setTags(Map.of(
-                "os", os,
-                "host", host,
-                "deployment", deployment
+                "os", "linux",
+                "host", "h-1",
+                "deployment", "prod"
             ))
     )
         .block();
+    
+    assertThat(metric).isNotNull();
+
+    final List<DataRaw> results = cassandraTemplate.select(
+        Query.query(
+            where("tenant").is(tenantId),
+            where("seriesSet").is(seriesSet)
+        ),
+        DataRaw.class
+    ).collectList().block();
+
+    assertThat(results).isNotNull();
+    assertThat(results).hasSize(1);
+    assertThat(results.get(0).getTenant()).isEqualTo(tenantId);
+    // only millisecond resolution retained by cassandra
+    assertThat(results.get(0).getTs()).isEqualTo("2020-09-12T18:42:23.658Z");
+    assertThat(results.get(0).getValue()).isEqualTo(metric.getValue());
+
+    verify(seriesSetService).buildSeriesSet(metricName, metric.getTags());
+    verify(seriesSetService).storeMetadata(metric, seriesSet);
+
+    verifyNoMoreInteractions(seriesSetService);
   }
+
 }
