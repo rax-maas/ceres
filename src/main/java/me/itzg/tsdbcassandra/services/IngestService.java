@@ -25,18 +25,22 @@ import reactor.core.publisher.Mono;
 public class IngestService {
 
   private final ReactiveCassandraTemplate cassandraTemplate;
+  private final SeriesSetService seriesSetService;
   private final AppProperties appProperties;
 
   @Autowired
   public IngestService(ReactiveCassandraTemplate cassandraTemplate,
+                       SeriesSetService seriesSetService,
                        AppProperties appProperties) {
     this.cassandraTemplate = cassandraTemplate;
+    this.seriesSetService = seriesSetService;
     this.appProperties = appProperties;
   }
 
   public Mono<?> ingest(Metric metric) {
 
-    final String seriesSet = buildSeriesSet(metric);
+    final String seriesSet = seriesSetService
+        .buildSeriesSet(metric.getMetricName(), metric.getTags());
 
     return
         insertData(metric, seriesSet)
@@ -97,13 +101,5 @@ public class IngestService {
                 )
         )
         .ignoreElements();
-  }
-
-  private String buildSeriesSet(Metric metric) {
-    return metric.getMetricName() + "," +
-        metric.getTags().entrySet().stream()
-            .sorted(Entry.comparingByKey())
-            .map(tagsEntry -> tagsEntry.getKey() + "=" + tagsEntry.getValue())
-            .collect(Collectors.joining(","));
   }
 }
