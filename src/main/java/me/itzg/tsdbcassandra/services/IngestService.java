@@ -14,14 +14,17 @@ public class IngestService {
 
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final SeriesSetService seriesSetService;
+  private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
 
   @Autowired
   public IngestService(ReactiveCassandraTemplate cassandraTemplate,
                        SeriesSetService seriesSetService,
+                       DownsampleTrackingService downsampleTrackingService,
                        AppProperties appProperties) {
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetService = seriesSetService;
+    this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
   }
 
@@ -33,6 +36,7 @@ public class IngestService {
     return
         insertData(metric, seriesSet)
             .and(seriesSetService.storeMetadata(metric, seriesSet))
+            .and(downsampleTrackingService.track(metric, seriesSet))
             .then(Mono.just(metric));
   }
 

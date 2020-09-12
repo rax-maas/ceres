@@ -2,6 +2,7 @@ package me.itzg.tsdbcassandra.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -48,6 +49,9 @@ class IngestServiceTest {
   @MockBean
   SeriesSetService seriesSetService;
 
+  @MockBean
+  DownsampleTrackingService downsampleTrackingService;
+
   @Autowired
   IngestService ingestService;
 
@@ -64,6 +68,9 @@ class IngestServiceTest {
         .thenReturn(Mono.empty());
     when(seriesSetService.buildSeriesSet(any(), any()))
         .thenReturn(seriesSet);
+
+    when(downsampleTrackingService.track(any(), anyString()))
+        .thenReturn(Mono.empty());
 
     final Metric metric = ingestService.ingest(
         new Metric()
@@ -99,7 +106,9 @@ class IngestServiceTest {
     verify(seriesSetService).buildSeriesSet(metricName, metric.getTags());
     verify(seriesSetService).storeMetadata(metric, seriesSet);
 
-    verifyNoMoreInteractions(seriesSetService);
+    verify(downsampleTrackingService).track(metric, seriesSet);
+
+    verifyNoMoreInteractions(seriesSetService, downsampleTrackingService);
   }
 
 }
