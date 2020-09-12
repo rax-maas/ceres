@@ -6,12 +6,14 @@ import static org.springframework.data.cassandra.core.query.Criteria.where;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 import java.net.InetSocketAddress;
+import me.itzg.tsdbcassandra.services.CassandraContainerSetup;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.query.Query;
 import org.springframework.data.cassandra.core.query.Update;
@@ -24,23 +26,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class MetricNameTest {
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>();
-
   @TestConfiguration
+  @Import(CassandraContainerSetup.class)
   public static class TestConfig {
     @Bean
-    public CqlSessionBuilderCustomizer cqlSessionBuilderCustomizer() {
-      return cqlSessionBuilder -> {
-
-        final Cluster cluster = cassandraContainer.getCluster();
-        try (Session session = cluster.connect()) {
-          session.execute("CREATE KEYSPACE IF NOT EXISTS tsdb "
-              + "    WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}");
-        }
-
-        cqlSessionBuilder.addContactPoint(
-            new InetSocketAddress(cassandraContainer.getHost(), cassandraContainer.getMappedPort(CassandraContainer.CQL_PORT))
-        );
-      };
+    CassandraContainer<?> cassandraContainer() {
+      return cassandraContainer;
     }
   }
 
