@@ -44,6 +44,7 @@ public class QueryService {
                     row.getDouble(1)
                     )
                 )
+                // collect the ts->value entries into an ordered, LinkedHashMap
                 .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new)
                 .filter(values -> !values.isEmpty())
                 .map(values -> buildQueryResult(tenant, seriesSet, values))

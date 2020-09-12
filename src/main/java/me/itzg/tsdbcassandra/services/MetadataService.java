@@ -53,6 +53,7 @@ public class MetadataService {
   public Mono<Set<String>> locateSeriesSets(String tenant, String metricName,
                                             Map<String, String> queryTags) {
     return Flux.fromIterable(queryTags.entrySet())
+        // find the series-sets for each query tag
         .flatMap(tagEntry ->
             cqlTemplate.queryForFlux(
                 "SELECT series_set FROM series_sets"
@@ -62,6 +63,7 @@ public class MetadataService {
             )
                 .collect(Collectors.toSet())
         )
+        // and reduce to the intersection of those
         .reduce((results1, results2) ->
             results1.stream()
                 .filter(results2::contains)
