@@ -1,24 +1,12 @@
 package me.itzg.tsdbcassandra.services;
 
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
-
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
 import me.itzg.tsdbcassandra.config.AppProperties;
-import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.DataRaw;
-import me.itzg.tsdbcassandra.entities.MetricName;
-import me.itzg.tsdbcassandra.entities.SeriesSet;
-import me.itzg.tsdbcassandra.entities.TagKey;
-import me.itzg.tsdbcassandra.entities.TagValue;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.InsertOptions;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
-import org.springframework.data.cassandra.core.query.Update;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
