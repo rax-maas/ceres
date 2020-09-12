@@ -1,0 +1,59 @@
+package me.itzg.tsdbcassandra.services;
+
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import me.itzg.tsdbcassandra.config.DownsampleProperties;
+import me.itzg.tsdbcassandra.downsample.TemporalNormalizer;
+import me.itzg.tsdbcassandra.entities.PendingDownsampleSet;
+import me.itzg.tsdbcassandra.model.Metric;
+import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+
+@SuppressWarnings("UnstableApiUsage") // guava
+@Service
+public class DownsampleTrackingService {
+
+  private static final Charset HASHING_CHARSET = StandardCharsets.UTF_8;
+
+  private final ReactiveCassandraTemplate cassandraTemplate;
+  private final DownsampleProperties properties;
+  private final TemporalNormalizer timeSlotNormalizer;
+  private final HashFunction hashFunction;
+
+  @Autowired
+  public DownsampleTrackingService(ReactiveCassandraTemplate cassandraTemplate,
+                                   DownsampleProperties properties) {
+    this.cassandraTemplate = cassandraTemplate;
+    this.properties = properties;
+    timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
+    hashFunction = Hashing.murmur3_32();
+  }
+
+  public Publisher<?> track(Metric metric, String seriesSet) {
+    if (!properties.isEnabled()) {
+      return Mono.empty();
+    }
+
+    final HashCode hashCode = hashFunction.newHasher()
+        .putString(metric.getTenant(), HASHING_CHARSET)
+        .putString(seriesSet, HASHING_CHARSET)
+        .hash();
+    final int partition = Hashing.consistentHash(hashCode, properties.getPartitions());
+
+    return cassandraTemplate.update(
+        new PendingDownsampleSet()
+            .setPartition(partition)
+            .setTimeSlot(metric.getTs().with(timeSlotNormalizer))
+            .setTenant(metric.getTenant())
+            .setSeriesSet(seriesSet)
+            .setLastTouch(Instant.now())
+    );
+  }
+}
