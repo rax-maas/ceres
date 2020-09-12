@@ -76,7 +76,7 @@ class IngestServiceTest {
             ))
     )
         .block();
-    
+
     assertThat(metric).isNotNull();
 
     final List<DataRaw> results = cassandraTemplate.select(
