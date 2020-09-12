@@ -3,13 +3,9 @@ package me.itzg.tsdbcassandra.entities;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.cassandra.core.query.Criteria.where;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
-import java.net.InetSocketAddress;
-import me.itzg.tsdbcassandra.services.CassandraContainerSetup;
+import me.itzg.tsdbcassandra.CassandraContainerSetup;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;

@@ -1,4 +1,4 @@
-package me.itzg.tsdbcassandra.services;
+package me.itzg.tsdbcassandra;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;

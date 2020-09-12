@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.Map;
+import me.itzg.tsdbcassandra.CassandraContainerSetup;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
