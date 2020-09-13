@@ -21,4 +21,12 @@ public class DownsampleProperties {
 
   @DurationUnit(ChronoUnit.HOURS)
   Duration timeSlotWidth = Duration.ofHours(1);
+
+  /**
+   * The amount of time to allow for the lastTouch of pending downsample sets to remain stable.
+   * This is mainly useful for handling backfilled data where this delay ensures that all metrics
+   * have likely been ingested for the slot.
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration lastTouchDelay = Duration.ofMinutes(5);
 }
