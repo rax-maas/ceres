@@ -19,6 +19,7 @@ import me.itzg.tsdbcassandra.downsample.SingleValueSet;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
 import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.DataDownsampled;
+import me.itzg.tsdbcassandra.services.DownsampleProcessorTest.TestConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -26,13 +27,18 @@ import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
 @SpringBootTest(classes = {
+    TestConfig.class,
     IntegerSetConverter.class,
     DownsampleProcessor.class
 }, properties = {
@@ -41,6 +47,14 @@ import reactor.util.function.Tuples;
 @ActiveProfiles("test")
 @EnableConfigurationProperties(DownsampleProperties.class)
 class DownsampleProcessorTest {
+
+  @TestConfiguration
+  static class TestConfig {
+    @Bean
+    public Scheduler downsampleScheduler() {
+      return Schedulers.immediate();
+    }
+  }
 
   @MockBean
   DownsampleTrackingService downsampleTrackingService;
@@ -78,7 +92,7 @@ class DownsampleProcessorTest {
   }
 
   @Test
-  void aggregateRawData() {
+  void aggregateSomeRawData() {
     when(ingestService.storeDownsampledData(any(), any()))
         .then(invocationOnMock -> {
           final Flux<DataDownsampled> data = invocationOnMock.getArgument(0);
@@ -147,6 +161,61 @@ class DownsampleProcessorTest {
             dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 60, Aggregator.avg, 1.8)
         )
         .verifyComplete();
+
+    verifyNoMoreInteractions(ingestService);
+  }
+
+  @Test
+  void aggregateOneRawData() {
+    when(ingestService.storeDownsampledData(any(), any()))
+        .then(invocationOnMock -> {
+          final Flux<DataDownsampled> data = invocationOnMock.getArgument(0);
+          return data.map(dataDownsampled -> Tuples.of(dataDownsampled, true));
+        });
+
+    final String tenant = randomAlphanumeric(10);
+    final String seriesSet = randomAlphanumeric(10)+",host=h-1";
+
+    StepVerifier.create(
+        downsampleProcessor.aggregateData(
+            Flux.just(
+                singleValue("2007-12-03T10:01:23.00Z", 1.2)
+            ), tenant, seriesSet,
+            List.of(granularity(1, 12), granularity(2, 24)).iterator(),
+            false
+        )
+            // just count them since actual values verified within calls below
+            .count()
+    )
+        .expectNext(8L)
+        .verifyComplete();
+
+    verify(ingestService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
+    verify(ingestService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
+
+/*
+    StepVerifier.create(
+        dataDownsampledCaptor.getAllValues().get(0)
+    )
+        .expectNext(
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.sum, 1.2),
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.min, 1.2),
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.max, 1.2),
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.avg, 1.2)
+        )
+        .verifyComplete();
+
+    StepVerifier.create(
+        dataDownsampledCaptor.getAllValues().get(1)
+    )
+        .expectNext(
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.sum, 1.2),
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.min, 1.2),
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.max, 1.2),
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.avg, 1.2)
+        )
+        .verifyComplete();
+*/
 
     verifyNoMoreInteractions(ingestService);
   }

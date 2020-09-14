@@ -1,0 +1,13 @@
+app:
+  downsample:
+    enabled: true
+    granularities:
+      - width: 1m
+        ttl: 12h
+      - width: 2m
+        ttl: 24h
+    time-slot-width: 2m
+    last-touch-delay: 1m
+    downsample-process-period: 10s
+    partitions: 4
+    partitions-to-process: 0-3

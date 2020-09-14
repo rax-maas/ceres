@@ -7,10 +7,10 @@ import java.time.Instant;
 import java.util.Iterator;
 import java.util.Set;
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.config.DownsampleProperties.Granularity;
-import me.itzg.tsdbcassandra.config.IntegerSetConverter;
 import me.itzg.tsdbcassandra.downsample.AggregatedValueSet;
 import me.itzg.tsdbcassandra.downsample.TemporalNormalizer;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
@@ -19,13 +19,13 @@ import me.itzg.tsdbcassandra.entities.DataDownsampled;
 import me.itzg.tsdbcassandra.entities.PendingDownsampleSet;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.task.TaskSchedulerBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple2;
 
 @Service
@@ -35,15 +35,18 @@ public class DownsampleProcessor {
   private final Environment env;
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
+  private final Scheduler scheduler;
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final IngestService ingestService;
   private final MetadataService metadataService;
+  private Disposable scheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
                              DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
+                             @Qualifier("downsampleScheduler") Scheduler downsampleScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
                              IngestService ingestService,
@@ -51,6 +54,7 @@ public class DownsampleProcessor {
     this.env = env;
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
+    scheduler = downsampleScheduler;
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.ingestService = ingestService;
@@ -63,8 +67,6 @@ public class DownsampleProcessor {
         downsampleProperties.getPartitionsToProcess().isEmpty()) {
       log.info("Downsample processing is disabled");
       return;
-    } else {
-      log.info("Downsample processing is enabled");
     }
 
     if (env.acceptsProfiles(Profiles.of("test"))) {
@@ -72,30 +74,33 @@ public class DownsampleProcessor {
       return;
     }
 
-    final ThreadPoolTaskScheduler scheduler = new TaskSchedulerBuilder()
-        .threadNamePrefix("downsample-")
-        .poolSize(Runtime.getRuntime().availableProcessors())
-        .build();
+    scheduled = Flux.interval(downsampleProperties.getDownsampleProcessPeriod(), scheduler)
+        .flatMap(tick -> Flux.fromIterable(downsampleProperties.getPartitionsToProcess()))
+        .flatMap(this::processPartition)
+        .subscribe();
 
-    final IntegerSetConverter integerSetConverter = new IntegerSetConverter();
-    for (int partition : downsampleProperties.getPartitionsToProcess()) {
-      scheduler.scheduleAtFixedRate(
-          () -> process(partition),
-          downsampleProperties.getDownsampleProcessPeriod()
-      );
+    log.debug("Downsample processing is scheduled");
+  }
+
+  @PreDestroy
+  public void stop() {
+    if (scheduled != null) {
+      scheduled.dispose();
     }
   }
 
-  private void process(int partition) {
-    log.debug("Downsampling partition {}", partition);
+  private Flux<?> processPartition(int partition) {
+    log.trace("Downsampling partition {}", partition);
 
-    downsampleTrackingService
+    return downsampleTrackingService
         .retrieveReadyOnes(partition)
-        .flatMap(this::processDownsampleSet)
-        .subscribe();
+        .publishOn(scheduler)
+        .flatMap(this::processDownsampleSet);
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
+    log.debug("Processing downsample set {}", pendingDownsampleSet);
+
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSet());
 
     final Flux<ValueSet> data = queryService.queryRaw(
@@ -103,7 +108,8 @@ public class DownsampleProcessor {
         pendingDownsampleSet.getSeriesSet(),
         pendingDownsampleSet.getTimeSlot(),
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
-    );
+    )
+        .publishOn(scheduler);
 
     final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateData(data,
         pendingDownsampleSet.getTenant(),
@@ -111,17 +117,20 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().iterator(), isCounter
     );
 
-    return Mono.from(aggregated)
-        .and(
-            metadataService.updateMetricNames(
-                pendingDownsampleSet.getTenant(),
-                seriesSetService.metricNameFromSeriesSet(pendingDownsampleSet.getSeriesSet()),
-                isCounter ? Set.of(Aggregator.sum) : Set.of(Aggregator.sum, Aggregator.min, Aggregator.max, Aggregator.avg)
+    return
+        aggregated
+            .then(
+                metadataService.updateMetricNames(
+                    pendingDownsampleSet.getTenant(),
+                    seriesSetService.metricNameFromSeriesSet(pendingDownsampleSet.getSeriesSet()),
+                    isCounter ? Set.of(Aggregator.sum) : Set.of(Aggregator.sum, Aggregator.min, Aggregator.max, Aggregator.avg)
+                )
             )
-        )
-        .and(
-            downsampleTrackingService.complete(pendingDownsampleSet)
-        );
+            .then(
+                downsampleTrackingService.complete(pendingDownsampleSet)
+            )
+            .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
+            .doOnSuccess(o -> log.debug("Completed downsampling of {}", pendingDownsampleSet));
   }
 
   /**
@@ -150,6 +159,7 @@ public class DownsampleProcessor {
 
     final Flux<AggregatedValueSet> aggregated =
         data
+            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
             // group the incoming data by granularity-time-window
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
