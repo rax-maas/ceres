@@ -1,12 +1,23 @@
 package me.itzg.tsdbcassandra.services;
 
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import me.itzg.tsdbcassandra.entities.Aggregator;
+import me.itzg.tsdbcassandra.entities.MetricName;
+import me.itzg.tsdbcassandra.entities.SeriesSet;
+import me.itzg.tsdbcassandra.entities.TagKey;
+import me.itzg.tsdbcassandra.entities.TagValue;
+import me.itzg.tsdbcassandra.model.Metric;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.data.cassandra.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -22,6 +33,45 @@ public class MetadataService {
                          ReactiveCassandraTemplate cassandraTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
+  }
+
+  public Publisher<?> storeMetadata(Metric metric, String seriesSet) {
+    return
+        cassandraTemplate.update(
+            query(
+                where("tenant").is(metric.getTenant()),
+                where("metricName").is(metric.getMetricName())
+            ),
+            Update.empty().addTo("aggregators").append(Aggregator.raw),
+            MetricName.class
+        ).and(
+            Flux.fromIterable(metric.getTags().entrySet())
+                .flatMap(tagsEntry ->
+                    Flux.concat(
+                        cassandraTemplate.insert(
+                            new TagKey()
+                                .setTenant(metric.getTenant())
+                                .setMetricName(metric.getMetricName())
+                                .setTagKey(tagsEntry.getKey())
+                        ),
+                        cassandraTemplate.insert(
+                            new TagValue()
+                                .setTenant(metric.getTenant())
+                                .setMetricName(metric.getMetricName())
+                                .setTagKey(tagsEntry.getKey())
+                                .setTagValue(tagsEntry.getValue())
+                        ),
+                        cassandraTemplate.insert(
+                            new SeriesSet()
+                                .setTenant(metric.getTenant())
+                                .setMetricName(metric.getMetricName())
+                                .setTagKey(tagsEntry.getKey())
+                                .setTagValue(tagsEntry.getValue())
+                                .setSeriesSet(seriesSet)
+                        )
+                    )
+                )
+        );
   }
 
   public Mono<List<String>> getMetricNames(String tenant) {
@@ -68,5 +118,16 @@ public class MetadataService {
                 .filter(results2::contains)
                 .collect(Collectors.toSet())
         );
+  }
+
+  public Mono<?> updateMetricNames(String tenant, String metricName, Set<Aggregator> aggregators) {
+    return cassandraTemplate.update(
+        query(
+            where("tenant").is(tenant),
+            where("metricName").is(metricName)
+        ),
+        Update.empty().addTo("aggregators").appendAll(aggregators),
+        MetricName.class
+    );
   }
 }

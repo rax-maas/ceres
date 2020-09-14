@@ -1,5 +1,6 @@
 package me.itzg.tsdbcassandra.downsample;
 
+import java.time.Duration;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -11,4 +12,5 @@ public class AggregatedValueSet extends ValueSet {
   double sum;
   double count;
   double average = Double.NaN;
+  Duration granularity;
 }

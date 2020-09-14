@@ -50,6 +50,9 @@ class IngestServiceTest {
   SeriesSetService seriesSetService;
 
   @MockBean
+  MetadataService metadataService;
+
+  @MockBean
   DownsampleTrackingService downsampleTrackingService;
 
   @Autowired
@@ -64,7 +67,7 @@ class IngestServiceTest {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String seriesSet = metricName + ",deployment=prod,host=h-1,os=linux";
 
-    when(seriesSetService.storeMetadata(any(), any()))
+    when(metadataService.storeMetadata(any(), any()))
         .thenReturn(Mono.empty());
     when(seriesSetService.buildSeriesSet(any(), any()))
         .thenReturn(seriesSet);
@@ -104,11 +107,11 @@ class IngestServiceTest {
     assertThat(results.get(0).getValue()).isEqualTo(metric.getValue());
 
     verify(seriesSetService).buildSeriesSet(metricName, metric.getTags());
-    verify(seriesSetService).storeMetadata(metric, seriesSet);
+    verify(metadataService).storeMetadata(metric, seriesSet);
 
     verify(downsampleTrackingService).track(metric, seriesSet);
 
-    verifyNoMoreInteractions(seriesSetService, downsampleTrackingService);
+    verifyNoMoreInteractions(metadataService, seriesSetService, downsampleTrackingService);
   }
 
 }

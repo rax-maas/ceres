@@ -25,6 +25,7 @@ class ValueSetCollectorsTest {
     assertThat(result.getCount()).isEqualTo(4);
     assertThat(result.getAverage()).isEqualTo(1.975);
     assertThat(result.getTimestamp()).isEqualTo(Instant.parse("2007-12-03T10:15:00.00Z"));
+    assertThat(result.getGranularity()).isEqualTo(Duration.ofMinutes(5));
   }
 
   @Test
@@ -39,5 +40,6 @@ class ValueSetCollectorsTest {
 
     assertThat(result.getSum()).isEqualTo(79);
     assertThat(result.getTimestamp()).isEqualTo(Instant.parse("2007-12-03T10:35:00.00Z"));
+    assertThat(result.getGranularity()).isEqualTo(Duration.ofMinutes(5));
   }
 }

@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import me.itzg.tsdbcassandra.downsample.SingleValueSet;
+import me.itzg.tsdbcassandra.downsample.ValueSet;
 import me.itzg.tsdbcassandra.model.QueryResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -48,6 +50,19 @@ public class QueryService {
                 .filter(values -> !values.isEmpty())
                 .map(values -> buildQueryResult(tenant, seriesSet, values))
         );
+  }
+
+  public Flux<ValueSet> queryRaw(String tenant, String seriesSet, Instant start,
+                                 Instant end) {
+    return cqlTemplate.queryForRows(
+        "SELECT ts, value FROM data_raw"
+            + " WHERE tenant = ? AND series_set = ?"
+            + "  AND ts >= ? AND ts < ?",
+        tenant, seriesSet, start, end
+    )
+        .map(row ->
+            new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
+            );
   }
 
   private QueryResult buildQueryResult(String tenant, String seriesSet,

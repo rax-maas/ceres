@@ -26,6 +26,7 @@ public class ValueSetCollectors {
         agg -> {
           agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
           agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
+          agg.setGranularity(windowSize);
           return agg;
         }
     );
@@ -47,6 +48,7 @@ public class ValueSetCollectors {
         ValueSetCollectors::combineCounters,
         agg -> {
           agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
+          agg.setGranularity(windowSize);
           return agg;
         }
     );

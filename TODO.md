@@ -1,0 +1,7 @@
+- End to end testing of DownsampleProcessor
+- Implement `SeriesSetService.isCounter` by matching configured suffixes
+- Implement OpenTSDB ingest HTTP API
+- Implement error handling on downsample storage
+- Implement simple query of downsampled data
+- Logging, especially in downsampler
+- Metrics, especially in downsampler
