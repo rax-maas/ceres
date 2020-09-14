@@ -1,4 +1,20 @@
-###
+### single
+POST http://localhost:8080/api/put
+Content-Type: application/json
+
+{
+  "metric": "cpu_idle",
+  "tags": {
+    "tenant": "t-1",
+    "os": "linux",
+    "host": "h-1",
+    "deployment": "prod"
+  },
+  "timestamp": {{$timestamp}},
+  "value": {{$randomInt}}
+}
+
+### multi
 POST http://localhost:8080/api/put
 Content-Type: application/json
 
