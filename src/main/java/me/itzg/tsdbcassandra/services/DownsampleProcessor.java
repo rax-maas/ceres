@@ -22,6 +22,7 @@ import org.springframework.boot.task.TaskSchedulerBuilder;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 @Service
@@ -89,13 +90,17 @@ public class DownsampleProcessor {
         data, downsampleProperties.getGranularities().iterator(), isCounter
     );
 
-    return aggregated.then(
-        metadataService.updateMetricNames(
-            pendingDownsampleSet.getTenant(),
-            seriesSetService.metricNameFromSeriesSet(pendingDownsampleSet.getSeriesSet()),
-            isCounter ? Set.of(Aggregator.sum) : Set.of(Aggregator.sum, Aggregator.min, Aggregator.max, Aggregator.avg)
+    return Mono.from(aggregated)
+        .and(
+            metadataService.updateMetricNames(
+                pendingDownsampleSet.getTenant(),
+                seriesSetService.metricNameFromSeriesSet(pendingDownsampleSet.getSeriesSet()),
+                isCounter ? Set.of(Aggregator.sum) : Set.of(Aggregator.sum, Aggregator.min, Aggregator.max, Aggregator.avg)
+            )
         )
-    );
+        .and(
+            downsampleTrackingService.complete(pendingDownsampleSet)
+        );
   }
 
   public Flux<Tuple2<DataDownsampled, Boolean>> aggregateRawData(String tenant,
