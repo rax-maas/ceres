@@ -10,12 +10,11 @@ import lombok.Data;
 @Data
 public class Metric {
   @NotNull
-  Instant ts;
+  Instant timestamp;
   @NotBlank
-  String tenant;
-  @NotBlank
-  String metricName;
+  String metric;
   @NotEmpty
   Map<String,String> tags;
-  double value;
+  @NotNull
+  Number value;
 }

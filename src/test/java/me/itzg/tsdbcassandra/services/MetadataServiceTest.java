@@ -22,10 +22,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
 
-@SpringBootTest(classes = {
-    MetadataService.class,
-    SeriesSetService.class
-})
+@SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
 class MetadataServiceTest {
@@ -92,10 +89,9 @@ class MetadataServiceTest {
                      String os, String host,
                      String deployment) {
     final Metric metric = new Metric()
-        .setTs(Instant.now())
+        .setTimestamp(Instant.now())
         .setValue(Math.random())
-        .setTenant(tenantId)
-        .setMetricName(metricName)
+        .setMetric(metricName)
         .setTags(Map.of(
             "os", os,
             "host", host,
@@ -104,7 +100,9 @@ class MetadataServiceTest {
 
     Mono.ignoreElements(
         metadataService.storeMetadata(
-            metric, seriesSetService.buildSeriesSet(metric.getMetricName(), metric.getTags())
+            tenantId,
+            metric,
+            seriesSetService.buildSeriesSet(metric.getMetric(), metric.getTags())
         )
     )
         .block();

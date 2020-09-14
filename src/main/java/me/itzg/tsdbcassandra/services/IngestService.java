@@ -37,25 +37,30 @@ public class IngestService {
     this.appProperties = appProperties;
   }
 
-  public Mono<Metric> ingest(Metric metric) {
+  public Mono<?> ingest(Flux<Tuple2<String,Metric>> metrics) {
+    return Mono.from(
+        metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()))
+    );
+  }
 
+  public Mono<Metric> ingest(String tenant, Metric metric) {
     final String seriesSet = seriesSetService
-        .buildSeriesSet(metric.getMetricName(), metric.getTags());
+        .buildSeriesSet(metric.getMetric(), metric.getTags());
 
     return
-        storeRawData(metric, seriesSet)
-            .and(metadataService.storeMetadata(metric, seriesSet))
-            .and(downsampleTrackingService.track(metric, seriesSet))
+        storeRawData(tenant, metric, seriesSet)
+            .and(metadataService.storeMetadata(tenant, metric, seriesSet))
+            .and(downsampleTrackingService.track(tenant, seriesSet, metric.getTimestamp()))
             .then(Mono.just(metric));
   }
 
-  private Mono<?> storeRawData(Metric metric, String seriesSet) {
+  private Mono<?> storeRawData(String tenant, Metric metric, String seriesSet) {
     return cassandraTemplate.insert(
         new DataRaw()
-            .setTenant(metric.getTenant())
+            .setTenant(tenant)
             .setSeriesSet(seriesSet)
-            .setTs(metric.getTs())
-            .setValue(metric.getValue()),
+            .setTs(metric.getTimestamp())
+            .setValue(metric.getValue().doubleValue()),
         InsertOptions.builder()
             .ttl(appProperties.getRawTtl())
             .build()

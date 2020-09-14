@@ -35,12 +35,12 @@ public class MetadataService {
     this.cassandraTemplate = cassandraTemplate;
   }
 
-  public Publisher<?> storeMetadata(Metric metric, String seriesSet) {
+  public Publisher<?> storeMetadata(String tenant, Metric metric, String seriesSet) {
     return
         cassandraTemplate.update(
             query(
-                where("tenant").is(metric.getTenant()),
-                where("metricName").is(metric.getMetricName())
+                where("tenant").is(tenant),
+                where("metricName").is(metric.getMetric())
             ),
             Update.empty().addTo("aggregators").append(Aggregator.raw),
             MetricName.class
@@ -50,21 +50,21 @@ public class MetadataService {
                     Flux.concat(
                         cassandraTemplate.insert(
                             new TagKey()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
+                                .setTenant(tenant)
+                                .setMetricName(metric.getMetric())
                                 .setTagKey(tagsEntry.getKey())
                         ),
                         cassandraTemplate.insert(
                             new TagValue()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
+                                .setTenant(tenant)
+                                .setMetricName(metric.getMetric())
                                 .setTagKey(tagsEntry.getKey())
                                 .setTagValue(tagsEntry.getValue())
                         ),
                         cassandraTemplate.insert(
                             new SeriesSet()
-                                .setTenant(metric.getTenant())
-                                .setMetricName(metric.getMetricName())
+                                .setTenant(tenant)
+                                .setMetricName(metric.getMetric())
                                 .setTagKey(tagsEntry.getKey())
                                 .setTagValue(tagsEntry.getValue())
                                 .setSeriesSet(seriesSet)

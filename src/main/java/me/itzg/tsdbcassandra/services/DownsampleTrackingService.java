@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.downsample.TemporalNormalizer;
 import me.itzg.tsdbcassandra.entities.PendingDownsampleSet;
-import me.itzg.tsdbcassandra.model.Metric;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -46,13 +45,13 @@ public class DownsampleTrackingService {
     hashFunction = Hashing.murmur3_32();
   }
 
-  public Publisher<?> track(Metric metric, String seriesSet) {
+  public Publisher<?> track(String tenant, String seriesSet, Instant timestamp) {
     if (!properties.isEnabled()) {
       return Mono.empty();
     }
 
     final HashCode hashCode = hashFunction.newHasher()
-        .putString(metric.getTenant(), HASHING_CHARSET)
+        .putString(tenant, HASHING_CHARSET)
         .putString(seriesSet, HASHING_CHARSET)
         .hash();
     final int partition = Hashing.consistentHash(hashCode, properties.getPartitions());
@@ -60,8 +59,8 @@ public class DownsampleTrackingService {
     return cassandraTemplate.update(
         new PendingDownsampleSet()
             .setPartition(partition)
-            .setTimeSlot(metric.getTs().with(timeSlotNormalizer))
-            .setTenant(metric.getTenant())
+            .setTimeSlot(timestamp.with(timeSlotNormalizer))
+            .setTenant(tenant)
             .setSeriesSet(seriesSet)
             .setLastTouch(timestampProvider.now())
     );

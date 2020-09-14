@@ -81,19 +81,19 @@ class DownsampleTrackingServiceTest {
         // and for second call
         .thenReturn(touch2);
 
+    final Metric metric = new Metric()
+        .setTimestamp(Instant.parse("2020-09-12T19:42:23.658447900Z"))
+        .setValue(Math.random())
+        .setMetric(metricName)
+        .setTags(Map.of(
+            "os", "linux",
+            "host", "h-1",
+            "deployment", "prod"
+        ));
     Mono.from(
         downsampleTrackingService.track(
-            new Metric()
-                .setTs(Instant.parse("2020-09-12T19:42:23.658447900Z"))
-                .setValue(Math.random())
-                .setTenant(tenantId)
-                .setMetricName(metricName)
-                .setTags(Map.of(
-                    "os", "linux",
-                    "host", "h-1",
-                    "deployment", "prod"
-                )),
-            seriesSet
+            tenantId,
+            seriesSet, metric.getTimestamp()
         )
     ).block();
 
@@ -114,19 +114,19 @@ class DownsampleTrackingServiceTest {
         );
 
     // store another a second later
+    final Metric metric1 = new Metric()
+        .setTimestamp(Instant.parse("2020-09-12T19:59:59.1Z"))
+        .setValue(Math.random())
+        .setMetric(metricName)
+        .setTags(Map.of(
+            "os", "linux",
+            "host", "h-1",
+            "deployment", "prod"
+        ));
     Mono.from(
         downsampleTrackingService.track(
-            new Metric()
-                .setTs(Instant.parse("2020-09-12T19:59:59.1Z"))
-                .setValue(Math.random())
-                .setTenant(tenantId)
-                .setMetricName(metricName)
-                .setTags(Map.of(
-                    "os", "linux",
-                    "host", "h-1",
-                    "deployment", "prod"
-                )),
-            seriesSet
+            tenantId,
+            seriesSet, metric1.getTimestamp()
         )
     ).block();
 
