@@ -17,10 +17,16 @@ import org.springframework.validation.annotation.Validated;
 @Data
 @Validated
 public class DownsampleProperties {
-  boolean enabled;
+  /**
+   * Specifies how many partitions should be used when tracking ingested data for downsampling.
+   * A value of zero disables downsample tracking.
+   */
+  @Min(0)
+  int partitions;
 
-  @Min(1)
-  int partitions = 1;
+  public boolean isTrackingEnabled() {
+    return partitions > 0;
+  }
 
   @DurationUnit(ChronoUnit.HOURS)
   Duration timeSlotWidth = Duration.ofHours(1);

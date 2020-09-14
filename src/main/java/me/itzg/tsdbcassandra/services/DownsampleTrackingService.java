@@ -40,13 +40,13 @@ public class DownsampleTrackingService {
     this.cassandraTemplate = cassandraTemplate;
     this.timestampProvider = timestampProvider;
     this.properties = properties;
-    log.info("Downsample tracking is {}", properties.isEnabled() ? "enabled" : "disabled");
+    log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
     hashFunction = Hashing.murmur3_32();
   }
 
   public Publisher<?> track(String tenant, String seriesSet, Instant timestamp) {
-    if (!properties.isEnabled()) {
+    if (!properties.isTrackingEnabled()) {
       return Mono.empty();
     }
 
