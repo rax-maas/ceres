@@ -1,6 +1,7 @@
 package me.itzg.tsdbcassandra.services;
 
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.config.DownsampleProperties.Granularity;
+import me.itzg.tsdbcassandra.config.IntegerSetConverter;
 import me.itzg.tsdbcassandra.downsample.AggregatedValueSet;
 import me.itzg.tsdbcassandra.downsample.SingleValueSet;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
@@ -22,16 +24,22 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
 @SpringBootTest(classes = {
-    DownsampleProcessor.class,
-    DownsampleProperties.class
+    IntegerSetConverter.class,
+    DownsampleProcessor.class
+}, properties = {
+    "app.downsample.partitions-to-process=0,1,4-7"
 })
+@ActiveProfiles("test")
+@EnableConfigurationProperties(DownsampleProperties.class)
 class DownsampleProcessorTest {
 
   @MockBean
@@ -57,6 +65,12 @@ class DownsampleProcessorTest {
 
   @Captor
   ArgumentCaptor<Flux<DataDownsampled>> dataDownsampledCaptor;
+
+  @Test
+  void partitionsToProcessConfig() {
+    assertThat(downsampleProperties.getPartitionsToProcess())
+        .containsExactly(0, 1, 4, 5, 6, 7);
+  }
 
   @Test
   void processDownsampleSet() {

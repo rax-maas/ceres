@@ -10,6 +10,7 @@ import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.config.DownsampleProperties.Granularity;
+import me.itzg.tsdbcassandra.config.IntegerSetConverter;
 import me.itzg.tsdbcassandra.downsample.AggregatedValueSet;
 import me.itzg.tsdbcassandra.downsample.TemporalNormalizer;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
@@ -19,6 +20,8 @@ import me.itzg.tsdbcassandra.entities.PendingDownsampleSet;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.task.TaskSchedulerBuilder;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -29,6 +32,7 @@ import reactor.util.function.Tuple2;
 @Slf4j
 public class DownsampleProcessor {
 
+  private final Environment env;
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
   private final SeriesSetService seriesSetService;
@@ -37,12 +41,14 @@ public class DownsampleProcessor {
   private final MetadataService metadataService;
 
   @Autowired
-  public DownsampleProcessor(DownsampleProperties downsampleProperties,
+  public DownsampleProcessor(Environment env,
+                             DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
                              IngestService ingestService,
                              MetadataService metadataService) {
+    this.env = env;
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
     this.seriesSetService = seriesSetService;
@@ -53,12 +59,26 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
+    if (downsampleProperties.getPartitionsToProcess() == null ||
+        downsampleProperties.getPartitionsToProcess().isEmpty()) {
+      log.info("Downsample processing is disabled");
+      return;
+    } else {
+      log.info("Downsample processing is enabled");
+    }
+
+    if (env.acceptsProfiles(Profiles.of("test"))) {
+      log.warn("Downsample scheduling disabled during testing");
+      return;
+    }
+
     final ThreadPoolTaskScheduler scheduler = new TaskSchedulerBuilder()
         .threadNamePrefix("downsample-")
         .poolSize(Runtime.getRuntime().availableProcessors())
         .build();
 
-    for (int partition : downsampleProperties.expandPartitionsToProcess()) {
+    final IntegerSetConverter integerSetConverter = new IntegerSetConverter();
+    for (int partition : downsampleProperties.getPartitionsToProcess()) {
       scheduler.scheduleAtFixedRate(
           () -> process(partition),
           downsampleProperties.getDownsampleProcessPeriod()
