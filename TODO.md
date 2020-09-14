@@ -1,7 +1,8 @@
-- End to end testing of DownsampleProcessor
-- Implement `SeriesSetService.isCounter` by matching configured suffixes
-- Implement OpenTSDB ingest HTTP API
-- Implement error handling on downsample storage
-- Implement simple query of downsampled data
-- Logging, especially in downsampler
-- Metrics, especially in downsampler
+- [ ] End to end testing of DownsampleProcessor
+- [ ] Implement `SeriesSetService.isCounter` by matching configured suffixes
+- [x] Implement OpenTSDB ingest HTTP API
+- [ ] Implement error handling on downsample storage
+- [ ] Implement simple query of downsampled data
+- [ ] Logging, especially in downsampler
+- [ ] Metrics, especially in downsampler
+- [ ] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
