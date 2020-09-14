@@ -1,6 +1,7 @@
 package me.itzg.tsdbcassandra.services;
 
 import java.time.Duration;
+import lombok.extern.slf4j.Slf4j;
 import me.itzg.tsdbcassandra.config.AppProperties;
 import me.itzg.tsdbcassandra.entities.DataDownsampled;
 import me.itzg.tsdbcassandra.entities.DataRaw;
@@ -16,6 +17,7 @@ import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
 @Service
+@Slf4j
 public class IngestService {
 
   private final ReactiveCassandraTemplate cassandraTemplate;
@@ -68,9 +70,15 @@ public class IngestService {
   }
 
   public Flux<Tuple2<DataDownsampled,Boolean>> storeDownsampledData(Flux<DataDownsampled> data, Duration ttl) {
-    return data.flatMap(entry -> cassandraTemplate.update(entry, UpdateOptions.builder()
-        .ttl(ttl)
-        .build()))
+    return data.flatMap(entry -> cassandraTemplate.update(
+        entry,
+        UpdateOptions.builder()
+            .ttl(ttl)
+            .build()
+        )
+    )
+        .doOnNext(result -> log
+            .trace("Stored downsampled={} applied={}", result.getEntity(), result.wasApplied()))
         .map(result -> Tuples.of(result.getEntity(), result.wasApplied()));
   }
 }
