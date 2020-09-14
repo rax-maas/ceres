@@ -121,6 +121,7 @@ public class DownsampleProcessor {
                                                               Iterator<Granularity> granularities,
                                                               boolean isCounter) {
     if (!granularities.hasNext()) {
+      // end of the recursion so pop back out
       return Flux.empty();
     }
 
@@ -129,8 +130,10 @@ public class DownsampleProcessor {
 
     final Flux<AggregatedValueSet> aggregated =
         data
+            // group the incoming data by granularity-time-window
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
+            // ...and then do the aggregation math on those
             .concatMap(valueSetFlux -> valueSetFlux.collect(
                 isCounter ? counterCollector(granularity.getWidth())
                     : gaugeCollector(granularity.getWidth())
@@ -140,6 +143,8 @@ public class DownsampleProcessor {
         aggregated, tenant, seriesSet, isCounter);
 
     return
+        // store this granularity of aggregated downsamples providing the TTL/retention configured
+        // for this granularity
         ingestService.storeDownsampledData(expanded, granularity.getTtl())
             .concatWith(
                 // ...and recurse into remaining granularities
