@@ -85,9 +85,10 @@ public class DownsampleProcessor {
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
     );
 
-    final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateRawData(pendingDownsampleSet.getTenant(),
+    final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateData(data,
+        pendingDownsampleSet.getTenant(),
         pendingDownsampleSet.getSeriesSet(),
-        data, downsampleProperties.getGranularities().iterator(), isCounter
+        downsampleProperties.getGranularities().iterator(), isCounter
     );
 
     return Mono.from(aggregated)
@@ -103,11 +104,22 @@ public class DownsampleProcessor {
         );
   }
 
-  public Flux<Tuple2<DataDownsampled, Boolean>> aggregateRawData(String tenant,
-                                                                 String seriesSet,
-                                                                 Flux<? extends ValueSet> data,
-                                                                 Iterator<Granularity> granularities,
-                                                                 boolean isCounter) {
+  /**
+   * Aggregates the given data into the next granularity, schedules the storage of that data,
+   * and recurses until the remaining granularities are processed.
+   * @param data a flux of either raw {@link me.itzg.tsdbcassandra.downsample.SingleValueSet}s or
+   * aggregated {@link AggregatedValueSet}s from the prior granularity.
+   * @param tenant the tenant of the pending downsample set
+   * @param seriesSet the series-set of the pending downsample set
+   * @param granularities remaining granularties to process
+   * @param isCounter indicates if the original metric is a counter or gauge
+   * @return a flux of the stored downsamples along with the "applied" indicator from Cassandra
+   */
+  public Flux<Tuple2<DataDownsampled, Boolean>> aggregateData(Flux<? extends ValueSet> data,
+                                                              String tenant,
+                                                              String seriesSet,
+                                                              Iterator<Granularity> granularities,
+                                                              boolean isCounter) {
     if (!granularities.hasNext()) {
       return Flux.empty();
     }
@@ -131,7 +143,7 @@ public class DownsampleProcessor {
         ingestService.storeDownsampledData(expanded, granularity.getTtl())
             .concatWith(
                 // ...and recurse into remaining granularities
-                aggregateRawData(tenant, seriesSet, aggregated, granularities, isCounter)
+                aggregateData(aggregated, tenant, seriesSet, granularities, isCounter)
             );
   }
 

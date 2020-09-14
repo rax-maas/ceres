@@ -75,14 +75,13 @@ class DownsampleProcessorTest {
     final String seriesSet = randomAlphanumeric(10)+",host=h-1";
 
     StepVerifier.create(
-        downsampleProcessor.aggregateRawData(
-            tenant, seriesSet,
+        downsampleProcessor.aggregateData(
             Flux.just(
                 singleValue("2007-12-03T10:01:23.00Z", 1.2),
                 singleValue("2007-12-03T10:16:11.00Z", 1.5),
                 singleValue("2007-12-03T10:31:21.00Z", 1.1),
                 singleValue("2007-12-03T10:47:01.00Z", 3.4)
-            ),
+            ), tenant, seriesSet,
             List.of(granularity(15, 12), granularity(60, 24)).iterator(),
             false
         )
