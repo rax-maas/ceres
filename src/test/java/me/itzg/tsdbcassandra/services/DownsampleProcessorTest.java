@@ -66,7 +66,7 @@ class DownsampleProcessorTest {
   QueryService queryService;
 
   @MockBean
-  IngestService ingestService;
+  DataWriteService dataWriteService;
 
   @MockBean
   MetadataService metadataService;
@@ -93,7 +93,7 @@ class DownsampleProcessorTest {
 
   @Test
   void aggregateSomeRawData() {
-    when(ingestService.storeDownsampledData(any(), any()))
+    when(dataWriteService.storeDownsampledData(any(), any()))
         .then(invocationOnMock -> {
           final Flux<DataDownsampled> data = invocationOnMock.getArgument(0);
           return data.map(dataDownsampled -> Tuples.of(dataDownsampled, true));
@@ -119,8 +119,8 @@ class DownsampleProcessorTest {
         .expectNext(20L)
         .verifyComplete();
 
-    verify(ingestService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
-    verify(ingestService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
+    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
+    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
 
     StepVerifier.create(
         dataDownsampledCaptor.getAllValues().get(0)
@@ -162,12 +162,12 @@ class DownsampleProcessorTest {
         )
         .verifyComplete();
 
-    verifyNoMoreInteractions(ingestService);
+    verifyNoMoreInteractions(dataWriteService);
   }
 
   @Test
   void aggregateOneRawData() {
-    when(ingestService.storeDownsampledData(any(), any()))
+    when(dataWriteService.storeDownsampledData(any(), any()))
         .then(invocationOnMock -> {
           final Flux<DataDownsampled> data = invocationOnMock.getArgument(0);
           return data.map(dataDownsampled -> Tuples.of(dataDownsampled, true));
@@ -190,8 +190,8 @@ class DownsampleProcessorTest {
         .expectNext(8L)
         .verifyComplete();
 
-    verify(ingestService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
-    verify(ingestService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
+    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
+    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
 
 /*
     StepVerifier.create(
@@ -217,7 +217,7 @@ class DownsampleProcessorTest {
         .verifyComplete();
 */
 
-    verifyNoMoreInteractions(ingestService);
+    verifyNoMoreInteractions(dataWriteService);
   }
 
   @Test

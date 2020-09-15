@@ -38,7 +38,7 @@ public class DownsampleProcessor {
   private final Scheduler scheduler;
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
-  private final IngestService ingestService;
+  private final DataWriteService dataWriteService;
   private final MetadataService metadataService;
   private Disposable scheduled;
 
@@ -49,7 +49,7 @@ public class DownsampleProcessor {
                              @Qualifier("downsampleScheduler") Scheduler downsampleScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
-                             IngestService ingestService,
+                             DataWriteService dataWriteService,
                              MetadataService metadataService) {
     this.env = env;
     this.downsampleProperties = downsampleProperties;
@@ -57,7 +57,7 @@ public class DownsampleProcessor {
     scheduler = downsampleScheduler;
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
-    this.ingestService = ingestService;
+    this.dataWriteService = dataWriteService;
     this.metadataService = metadataService;
   }
 
@@ -175,7 +175,7 @@ public class DownsampleProcessor {
     return
         // store this granularity of aggregated downsamples providing the TTL/retention configured
         // for this granularity
-        ingestService.storeDownsampledData(expanded, granularity.getTtl())
+        dataWriteService.storeDownsampledData(expanded, granularity.getTtl())
             .concatWith(
                 // ...and recurse into remaining granularities
                 aggregateData(aggregated, tenant, seriesSet, granularities, isCounter)

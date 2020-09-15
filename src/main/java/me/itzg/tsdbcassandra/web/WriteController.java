@@ -4,7 +4,7 @@ import java.util.List;
 import me.itzg.tsdbcassandra.config.AppProperties;
 import me.itzg.tsdbcassandra.model.Metric;
 import me.itzg.tsdbcassandra.model.PutResponse;
-import me.itzg.tsdbcassandra.services.IngestService;
+import me.itzg.tsdbcassandra.services.DataWriteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -22,12 +22,12 @@ import reactor.util.function.Tuples;
 @RequestMapping("/api")
 public class WriteController {
 
-  private final IngestService ingestService;
+  private final DataWriteService dataWriteService;
   private final AppProperties appProperties;
 
   @Autowired
-  public WriteController(IngestService ingestService, AppProperties appProperties) {
-    this.ingestService = ingestService;
+  public WriteController(DataWriteService dataWriteService, AppProperties appProperties) {
+    this.dataWriteService = dataWriteService;
     this.appProperties = appProperties;
   }
 
@@ -37,7 +37,7 @@ public class WriteController {
                             @RequestParam(defaultValue = "false") boolean details,
                             @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
   ) {
-    final Flux<Metric> results = ingestService.ingest(
+    final Flux<Metric> results = dataWriteService.ingest(
         metrics.map(metric -> {
           if (tenantHeader != null) {
             return Tuples.of(tenantHeader, metric);

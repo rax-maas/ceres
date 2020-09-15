@@ -18,7 +18,7 @@ import reactor.util.function.Tuples;
 
 @Service
 @Slf4j
-public class IngestService {
+public class DataWriteService {
 
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final SeriesSetService seriesSetService;
@@ -27,11 +27,11 @@ public class IngestService {
   private final AppProperties appProperties;
 
   @Autowired
-  public IngestService(ReactiveCassandraTemplate cassandraTemplate,
-                       SeriesSetService seriesSetService,
-                       MetadataService metadataService,
-                       DownsampleTrackingService downsampleTrackingService,
-                       AppProperties appProperties) {
+  public DataWriteService(ReactiveCassandraTemplate cassandraTemplate,
+                          SeriesSetService seriesSetService,
+                          MetadataService metadataService,
+                          DownsampleTrackingService downsampleTrackingService,
+                          AppProperties appProperties) {
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;

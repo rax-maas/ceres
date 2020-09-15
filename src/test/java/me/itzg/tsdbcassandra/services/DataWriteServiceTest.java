@@ -36,7 +36,7 @@ import reactor.util.function.Tuples;
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-class IngestServiceTest {
+class DataWriteServiceTest {
 
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>();
@@ -59,7 +59,7 @@ class IngestServiceTest {
   SeriesSetService seriesSetService;
 
   @Autowired
-  IngestService ingestService;
+  DataWriteService dataWriteService;
 
   @Autowired
   ReactiveCassandraTemplate cassandraTemplate;
@@ -78,7 +78,7 @@ class IngestServiceTest {
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
-      final Metric metric = ingestService.ingest(
+      final Metric metric = dataWriteService.ingest(
           tenantId,
           new Metric()
               .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
@@ -137,7 +137,7 @@ class IngestServiceTest {
               "deployment", "prod"
           ));
 
-      ingestService.ingest(Flux.just(
+      dataWriteService.ingest(Flux.just(
           Tuples.of(tenant1, metric1),
           Tuples.of(tenant2, metric2)
       )).then().block();
