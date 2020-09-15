@@ -82,6 +82,26 @@ public class MetadataService {
     ).collectList();
   }
 
+  /**
+   * Determines if the requested metricName has the requested aggregator tracked with it.
+   * @param tenant tenant scope of the metric name
+   * @param metricName the metric name
+   * @param aggregator an aggregator to check
+   * @return true if the metric name exists and has requested aggregator
+   */
+  public Mono<Boolean> metricNameHasAggregator(String tenant, String metricName, Aggregator aggregator) {
+    return cassandraTemplate.exists(
+        query(
+            where("tenant").is(tenant),
+            where("metricName").is(metricName),
+            where("aggregators").contains(aggregator)
+        )
+            // for aggregators part
+            .withAllowFiltering(),
+        MetricName.class
+    );
+  }
+
   public Mono<List<String>> getTagKeys(String tenant, String metricName) {
     return cqlTemplate.queryForFlux(
         "SELECT tag_key FROM tag_keys WHERE tenant = ? AND metric_name = ?",
