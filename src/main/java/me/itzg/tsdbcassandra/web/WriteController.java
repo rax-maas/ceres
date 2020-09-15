@@ -1,19 +1,21 @@
 package me.itzg.tsdbcassandra.web;
 
+import java.util.List;
 import me.itzg.tsdbcassandra.config.AppProperties;
 import me.itzg.tsdbcassandra.model.Metric;
+import me.itzg.tsdbcassandra.model.PutResponse;
 import me.itzg.tsdbcassandra.services.IngestService;
-import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
 @RestController
@@ -30,11 +32,12 @@ public class WriteController {
   }
 
   @PostMapping("/put")
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  public Publisher<?> writeSingle(@RequestBody @Validated Flux<Metric> metrics,
-                                  @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
+  public Mono<?> putMetrics(@RequestBody @Validated Flux<Metric> metrics,
+                            @RequestParam(defaultValue = "false") boolean summary,
+                            @RequestParam(defaultValue = "false") boolean details,
+                            @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
   ) {
-    return ingestService.ingest(
+    final Flux<Metric> results = ingestService.ingest(
         metrics.map(metric -> {
           if (tenantHeader != null) {
             return Tuples.of(tenantHeader, metric);
@@ -44,7 +47,21 @@ public class WriteController {
 
           return Tuples.of(tenant != null ? tenant : appProperties.getDefaultTenant(), metric);
         })
-
     );
+
+    if (summary || details) {
+      return results
+          .count()
+          .map(count ->
+              new PutResponse()
+                  .setSuccess(count)
+                  // TODO set this with actual failed count
+                  .setFailed(0)
+                  // TODO set actual errored metrics
+                  .setErrors(details ? List.of() : null)
+          );
+    } else {
+      return results.then(Mono.just(ResponseEntity.noContent().build()));
+    }
   }
 }
