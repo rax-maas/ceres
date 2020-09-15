@@ -140,7 +140,7 @@ class IngestServiceTest {
       ingestService.ingest(Flux.just(
           Tuples.of(tenant1, metric1),
           Tuples.of(tenant2, metric2)
-      )).block();
+      )).then().block();
 
       assertViaQuery(tenant1, seriesSet1, metric1);
       assertViaQuery(tenant2, seriesSet2, metric2);

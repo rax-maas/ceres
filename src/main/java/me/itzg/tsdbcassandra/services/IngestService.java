@@ -39,10 +39,8 @@ public class IngestService {
     this.appProperties = appProperties;
   }
 
-  public Mono<?> ingest(Flux<Tuple2<String,Metric>> metrics) {
-    return Mono.from(
-        metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()))
-    );
+  public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
+    return metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()));
   }
 
   public Mono<Metric> ingest(String tenant, Metric metric) {
