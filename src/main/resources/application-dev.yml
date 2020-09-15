@@ -1,6 +1,5 @@
 app:
   downsample:
-    enabled: true
     granularities:
       - width: 1m
         ttl: 12h
