@@ -13,6 +13,10 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+/**
+ * This web filter is needed to handle ingest put API calls where the caller gzips the request body,
+ * which is the case with telegraf's opentsdb output plugin.
+ */
 @Component
 public class GzipDecompressWebFilter implements WebFilter {
 
