@@ -103,7 +103,7 @@ public class DownsampleProcessor {
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSet());
 
-    final Flux<ValueSet> data = queryService.queryRaw(
+    final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
         pendingDownsampleSet.getTenant(),
         pendingDownsampleSet.getSeriesSet(),
         pendingDownsampleSet.getTimeSlot(),

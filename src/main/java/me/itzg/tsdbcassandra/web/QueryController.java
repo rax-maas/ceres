@@ -2,8 +2,11 @@ package me.itzg.tsdbcassandra.web;
 
 import static me.itzg.tsdbcassandra.web.TagListConverter.convertPairsListToMap;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.model.QueryResult;
 import me.itzg.tsdbcassandra.services.QueryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,12 +30,31 @@ public class QueryController {
   @GetMapping
   public Flux<QueryResult> query(@RequestParam String tenant,
                                  @RequestParam String metricName,
+                                 @RequestParam(defaultValue = "raw") Aggregator aggregator,
+                                 @RequestParam(required = false) Duration granularity,
                                  @RequestParam List<String> tag,
                                  @RequestParam Instant start,
                                  @RequestParam Instant end) {
-    return queryService.query(tenant, metricName,
-        convertPairsListToMap(tag),
-        start, end
+
+    if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
+      return queryService.queryRaw(tenant, metricName,
+          convertPairsListToMap(tag),
+          start, end
+      );
+    } else {
+      if (granularity == null) {
+        return Flux.error(
+            new IllegalArgumentException("granularity is required when using aggregator")
         );
+      } else {
+        return queryService.queryDownsampled(tenant, metricName,
+            aggregator,
+            granularity,
+            convertPairsListToMap(tag),
+            start, end
+        );
+      }
+    }
+
   }
 }
