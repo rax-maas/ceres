@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import me.itzg.tsdbcassandra.downsample.SingleValueSet;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
+import me.itzg.tsdbcassandra.entities.Aggregator;
+import me.itzg.tsdbcassandra.model.MetricNameAndTags;
 import me.itzg.tsdbcassandra.model.QueryResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -20,10 +22,12 @@ public class QueryService {
 
   private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
+  private final SeriesSetService seriesSetService;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
-                      MetadataService metadataService) {
+                      MetadataService metadataService,
+                      SeriesSetService seriesSetService) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
   }
@@ -67,18 +71,12 @@ public class QueryService {
 
   private QueryResult buildQueryResult(String tenant, String seriesSet,
                                        Map<Instant, Double> values) {
-    final String[] pairs = seriesSet.split(",");
-    final String metricName = pairs[0];
-    final Map<String, String> tags = new HashMap<>(pairs.length - 1);
-    for (int i = 1; i < pairs.length; i++) {
-      final String[] kv = pairs[i].split("=", 2);
-      tags.put(kv[0], kv[1]);
-    }
+    final MetricNameAndTags metricNameAndTags = seriesSetService.expandSeriesSet(seriesSet);
 
     return new QueryResult()
         .setTenant(tenant)
-        .setMetricName(metricName)
-        .setTags(tags)
+        .setMetricName(metricNameAndTags.getMetricName())
+        .setTags(metricNameAndTags.getTags())
         .setValues(values);
   }
 }
