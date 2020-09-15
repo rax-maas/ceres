@@ -7,6 +7,7 @@ import me.itzg.tsdbcassandra.model.PutResponse;
 import me.itzg.tsdbcassandra.services.DataWriteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,22 +33,25 @@ public class WriteController {
   }
 
   @PostMapping("/put")
-  public Mono<?> putMetrics(@RequestBody @Validated Flux<Metric> metrics,
-                            @RequestParam(defaultValue = "false") boolean summary,
-                            @RequestParam(defaultValue = "false") boolean details,
-                            @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
+  public Mono<ResponseEntity<?>> putMetrics(@RequestBody @Validated Flux<Metric> metrics,
+                                            @RequestParam MultiValueMap<String, String> allParams,
+                                            @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
   ) {
     final Flux<Metric> results = dataWriteService.ingest(
-        metrics.map(metric -> {
-          if (tenantHeader != null) {
-            return Tuples.of(tenantHeader, metric);
-          }
+        metrics
+            .map(metric -> {
+              if (tenantHeader != null) {
+                return Tuples.of(tenantHeader, metric);
+              }
 
-          final String tenant = metric.getTags().remove(appProperties.getTenantTag());
+              final String tenant = metric.getTags().remove(appProperties.getTenantTag());
 
-          return Tuples.of(tenant != null ? tenant : appProperties.getDefaultTenant(), metric);
-        })
+              return Tuples.of(tenant != null ? tenant : appProperties.getDefaultTenant(), metric);
+            })
     );
+
+    final boolean details = ParamUtils.paramPresentOrTrue(allParams, "details");
+    final boolean summary = ParamUtils.paramPresentOrTrue(allParams, "summary");
 
     if (summary || details) {
       return results
@@ -59,9 +63,15 @@ public class WriteController {
                   .setFailed(0)
                   // TODO set actual errored metrics
                   .setErrors(details ? List.of() : null)
+          )
+          .flatMap(putResponse ->
+              Mono.just(ResponseEntity.ok(putResponse))
           );
     } else {
-      return results.then(Mono.just(ResponseEntity.noContent().build()));
+      return results.then(
+          Mono.just(ResponseEntity.noContent().build())
+      );
     }
   }
+
 }
