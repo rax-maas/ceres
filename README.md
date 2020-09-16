@@ -27,21 +27,23 @@ mvn spring-boot:run
 ### Write some data
 
 ```http request
-POST http://localhost:8080/api/write/single
+POST http://localhost:8080/api/put
 Content-Type: application/json
 
 {
-  "tenant": "t-1",
-  "metricName": "cpu_idle",
+  "metric": "cpu_idle",
   "tags": {
+    "tenant": "t-1",
     "os": "linux",
     "host": "h-1",
     "deployment": "prod"
   },
-  "ts": {{$timestamp}},
+  "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
 }
 ```
+
+where the above IntelliJ HTTP request snippet substitutes current epoch seconds for `{{$timestamp}}` and a random integer value at `{{$randomInt}}`.
 
 ### Query metadata
 
@@ -105,6 +107,22 @@ Responds with query results per series-set, such as:
     }
   }
 ]
+```
+
+### Downsampling
+
+_Documentation coming soon, but see [application-dev.yml](src/main/resources/application-dev.yml) for an example. Example of a query for downsampled data of 'min' aggregation at 2m granularity is:_
+
+```http request
+GET http://localhost:8080/api/query?
+  tenant=t-1
+  &metricName=cpu_idle
+  &aggregator=min
+  &granularity=PT2M
+  &tag=os=linux
+  &tag=deployment=prod
+  &start=2020-09-15T16:00:00Z
+  &end=2020-09-15T17:00:00Z
 ```
 
 ## Design
