@@ -109,6 +109,22 @@ Responds with query results per series-set, such as:
 ]
 ```
 
+### Ingesting data from telegraf
+
+The following telegraf config snippet can be used to output metrics collected by telegraf into `tsdb-cassandra`:
+
+```toml
+[[outputs.opentsdb]]
+  ## prefix for metrics keys
+  # prefix = "my.specific.prefix."
+  host = "http://localhost"
+  port = 8080
+  http_batch_size = 50
+  http_path = "/api/put"
+  debug = false
+  separator = "_"
+```
+
 ### Downsampling
 
 _Documentation coming soon, but see [application-dev.yml](src/main/resources/application-dev.yml) for an example. Example of a query for downsampled data of 'min' aggregation at 2m granularity is:_
