@@ -141,3 +141,6 @@ GET http://localhost:8080/api/query?
   &end=2020-09-15T17:00:00Z
 ```
 
+## Design
+
+Design documentation is available in [DESIGN.md](DESIGN.md).
