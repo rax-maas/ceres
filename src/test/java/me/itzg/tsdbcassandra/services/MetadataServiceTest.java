@@ -3,14 +3,18 @@ package me.itzg.tsdbcassandra.services;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import me.itzg.tsdbcassandra.CassandraContainerSetup;
 import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.MetricName;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
 import me.itzg.tsdbcassandra.entities.TagKey;
 import me.itzg.tsdbcassandra.entities.TagValue;
+import me.itzg.tsdbcassandra.entities.Tenant;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest
@@ -56,10 +61,12 @@ class MetadataServiceTest {
 
   @AfterEach
   void tearDown() {
-    cassandraTemplate.truncate(MetricName.class);
-    cassandraTemplate.truncate(TagKey.class);
-    cassandraTemplate.truncate(TagValue.class);
-    cassandraTemplate.truncate(SeriesSet.class);
+    cassandraTemplate.truncate(Tenant.class)
+        .and(cassandraTemplate.truncate(MetricName.class))
+        .and(cassandraTemplate.truncate(TagKey.class))
+        .and(cassandraTemplate.truncate(TagValue.class))
+        .and(cassandraTemplate.truncate(SeriesSet.class))
+        .block();
   }
 
   @Test
@@ -94,6 +101,12 @@ class MetadataServiceTest {
             seriesSet(tenantId, metricName, "os", "windows", "deployment=prod,host=h-2,os=windows")
         );
     assertThat(cassandraTemplate.count(SeriesSet.class).block()).isEqualTo(9);
+
+    assertThat(
+        cassandraTemplate.select("SELECT tenant FROM tenants", String.class).collectList()
+            .block()
+    ).containsExactly(tenantId);
+
     assertThat(
         cassandraTemplate.select("SELECT metric_name FROM metric_names", String.class).collectList()
             .block()
@@ -121,6 +134,24 @@ class MetadataServiceTest {
         )
     )
         .block();
+  }
+
+  @Test
+  void getTenants() {
+    final List<String> tenantIds = IntStream.range(0, 10)
+        .mapToObj(value -> RandomStringUtils.randomAlphanumeric(10))
+        .collect(Collectors.toList());
+
+    Flux.fromIterable(tenantIds)
+        .flatMap(tenantId ->
+            cassandraTemplate.insert(new Tenant().setTenant(tenantId))
+        )
+        .blockLast();
+
+    final List<String> result = metadataService.getTenants()
+        .block();
+
+    assertThat(result).containsExactlyInAnyOrderElementsOf(tenantIds);
   }
 
   @Nested

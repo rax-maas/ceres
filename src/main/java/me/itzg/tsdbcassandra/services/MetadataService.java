@@ -12,6 +12,7 @@ import me.itzg.tsdbcassandra.entities.MetricName;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
 import me.itzg.tsdbcassandra.entities.TagKey;
 import me.itzg.tsdbcassandra.entities.TagValue;
+import me.itzg.tsdbcassandra.entities.Tenant;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,34 +45,45 @@ public class MetadataService {
             ),
             Update.empty().addTo("aggregators").append(Aggregator.raw),
             MetricName.class
-        ).and(
-            Flux.fromIterable(metric.getTags().entrySet())
-                .flatMap(tagsEntry ->
-                    Flux.concat(
-                        cassandraTemplate.insert(
-                            new TagKey()
-                                .setTenant(tenant)
-                                .setMetricName(metric.getMetric())
-                                .setTagKey(tagsEntry.getKey())
-                        ),
-                        cassandraTemplate.insert(
-                            new TagValue()
-                                .setTenant(tenant)
-                                .setMetricName(metric.getMetric())
-                                .setTagKey(tagsEntry.getKey())
-                                .setTagValue(tagsEntry.getValue())
-                        ),
-                        cassandraTemplate.insert(
-                            new SeriesSet()
-                                .setTenant(tenant)
-                                .setMetricName(metric.getMetric())
-                                .setTagKey(tagsEntry.getKey())
-                                .setTagValue(tagsEntry.getValue())
-                                .setSeriesSet(seriesSet)
+        )
+            .and(
+                cassandraTemplate.insert(new Tenant().setTenant(tenant))
+            )
+            .and(
+                Flux.fromIterable(metric.getTags().entrySet())
+                    .flatMap(tagsEntry ->
+                        Flux.concat(
+                            cassandraTemplate.insert(
+                                new TagKey()
+                                    .setTenant(tenant)
+                                    .setMetricName(metric.getMetric())
+                                    .setTagKey(tagsEntry.getKey())
+                            ),
+                            cassandraTemplate.insert(
+                                new TagValue()
+                                    .setTenant(tenant)
+                                    .setMetricName(metric.getMetric())
+                                    .setTagKey(tagsEntry.getKey())
+                                    .setTagValue(tagsEntry.getValue())
+                            ),
+                            cassandraTemplate.insert(
+                                new SeriesSet()
+                                    .setTenant(tenant)
+                                    .setMetricName(metric.getMetric())
+                                    .setTagKey(tagsEntry.getKey())
+                                    .setTagValue(tagsEntry.getValue())
+                                    .setSeriesSet(seriesSet)
+                            )
                         )
                     )
-                )
-        );
+            );
+  }
+
+  public Mono<List<String>> getTenants() {
+    return cqlTemplate.queryForFlux(
+        "SELECT tenant FROM tenants",
+        String.class
+    ).collectList();
   }
 
   public Mono<List<String>> getMetricNames(String tenant) {
@@ -119,6 +131,14 @@ public class MetadataService {
     ).collectList();
   }
 
+  /**
+   * Locates the recorded series-sets (<code>metricName,tagK=tagV,...</code>) that match the given
+   * search criteria.
+   * @param tenant series-sets are located by this tenant
+   * @param metricName series-sets are located by this metric name
+   * @param queryTags series-sets are located by and'ing these tag key-value pairs
+   * @return the matching series-sets
+   */
   public Mono<Set<String>> locateSeriesSets(String tenant, String metricName,
                                             Map<String, String> queryTags) {
     return Flux.fromIterable(queryTags.entrySet())

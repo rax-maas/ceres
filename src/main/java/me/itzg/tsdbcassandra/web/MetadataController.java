@@ -20,6 +20,11 @@ public class MetadataController {
     this.metadataService = metadataService;
   }
 
+  @GetMapping("/tenants")
+  public Mono<List<String>> getTenants() {
+    return metadataService.getTenants();
+  }
+
   @GetMapping("/metricNames")
   public Mono<List<String>> getMetricNames(@RequestParam String tenant) {
     return metadataService.getMetricNames(tenant);
