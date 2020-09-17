@@ -9,7 +9,9 @@ import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 public class CassandraConfig {
 
   @Bean
-  public ReactiveCqlTemplate cqlTemplate(ReactiveSessionFactory cqlSessionFactory) {
-    return new ReactiveCqlTemplate(cqlSessionFactory);
+  public ReactiveCqlTemplate cqlTemplate(ReactiveSessionFactory reactiveSessionFactory) {
+    // following pattern of
+    // org.springframework.boot.autoconfigure.data.cassandra.CassandraReactiveDataAutoConfiguration.reactiveCassandraTemplate
+    return new ReactiveCqlTemplate(reactiveSessionFactory);
   }
 }
