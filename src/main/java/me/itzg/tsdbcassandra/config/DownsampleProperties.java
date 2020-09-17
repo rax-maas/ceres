@@ -4,10 +4,11 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.convert.DurationFormat;
+import org.springframework.boot.convert.DurationStyle;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
@@ -39,6 +40,9 @@ public class DownsampleProperties {
   @DurationUnit(ChronoUnit.MINUTES)
   Duration lastTouchDelay = Duration.ofMinutes(5);
 
+  /**
+   * Specifies how often pending downsample sets will be retrieved and processed.
+   */
   @DurationUnit(ChronoUnit.MINUTES)
   Duration downsampleProcessPeriod = Duration.ofMinutes(1);
 
@@ -47,14 +51,29 @@ public class DownsampleProperties {
    */
   IntegerSet partitionsToProcess;
 
-  @NotNull @NotEmpty
-  List<Granularity> granularities = List.of(
-      new Granularity().setWidth(Duration.ofMinutes(5)).setTtl(Duration.ofHours(48))
-  );
+  /**
+   * Target granularities to downsample from raw data.
+   */
+  List<Granularity> granularities;
 
   @Data
   public static class Granularity {
+
+    /**
+     * The width of the downsample target where the timestamps will be normalized to multiples of
+     * this width.
+     * For example: 5m
+     */
+    @NotNull
+    @DurationFormat(DurationStyle.SIMPLE)
     Duration width;
+
+    /**
+     * The amount of time to retain this granularity of downsamples.
+     * For example: 14d
+     */
+    @NotNull
+    @DurationFormat(DurationStyle.SIMPLE)
     Duration ttl;
   }
 }

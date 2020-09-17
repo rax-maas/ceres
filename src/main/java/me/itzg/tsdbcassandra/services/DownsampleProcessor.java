@@ -63,15 +63,21 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    if (downsampleProperties.getPartitionsToProcess() == null ||
-        downsampleProperties.getPartitionsToProcess().isEmpty()) {
-      log.info("Downsample processing is disabled");
-      return;
-    }
-
     if (env.acceptsProfiles(Profiles.of("test"))) {
       log.warn("Downsample scheduling disabled during testing");
       return;
+    }
+
+    if (downsampleProperties.getPartitionsToProcess() == null ||
+        downsampleProperties.getPartitionsToProcess().isEmpty()) {
+      // just info level since this is the normal way to disable downsampling
+      log.info("Downsample processing is disabled due to no partitions to process");
+      return;
+    }
+
+    if (downsampleProperties.getGranularities() == null ||
+        downsampleProperties.getGranularities().isEmpty()) {
+      throw new IllegalStateException("Downsample partitions to process are configured, but not granularities");
     }
 
     scheduled = Flux.interval(downsampleProperties.getDownsampleProcessPeriod(), scheduler)

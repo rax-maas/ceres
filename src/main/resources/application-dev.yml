@@ -4,7 +4,7 @@ app:
       - width: 1m
         ttl: 12h
       - width: 2m
-        ttl: 24h
+        ttl: 1d
     time-slot-width: 2m
     last-touch-delay: 1m
     downsample-process-period: 10s

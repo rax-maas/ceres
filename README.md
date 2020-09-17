@@ -127,7 +127,27 @@ The following telegraf config snippet can be used to output metrics collected by
 
 ### Downsampling
 
-_Documentation coming soon, but see [application-dev.yml](src/main/resources/application-dev.yml) for an example. Example of a query for downsampled data of 'min' aggregation at 2m granularity is:_
+Continuous downsampling is configured in the `app.downsample` application properties, as shown in the following example:
+
+```yaml
+app:
+  downsample:
+    # For tracking during ingest
+    partitions: 4
+    time-slot-width: 2m
+
+    # For downsample processing
+    partitions-to-process: 0-3
+    last-touch-delay: 1m
+    downsample-process-period: 10s
+    granularities:
+      - width: 1m
+        ttl: 12h
+      - width: 2m
+        ttl: 24h
+```
+
+Querying for downsample data uses the same endpoint as raw data; however, the addition of `aggregator` and `granularity` indicate the use of downsample data. The following is an example of a querying for downsampled data with 'min' aggregation at 2-minute granularity:
 
 ```http request
 GET http://localhost:8080/api/query?
