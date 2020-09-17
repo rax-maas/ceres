@@ -125,6 +125,8 @@ public class DownsampleProcessor {
 
     return
         aggregated
+            .name("downsample")
+            .metrics()
             .then(
                 metadataService.updateMetricNames(
                     pendingDownsampleSet.getTenant(),

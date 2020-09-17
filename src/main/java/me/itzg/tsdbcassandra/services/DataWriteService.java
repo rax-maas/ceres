@@ -49,6 +49,8 @@ public class DataWriteService {
 
     return
         storeRawData(tenant, metric, seriesSet)
+            .name("ingest")
+            .metrics()
             .and(metadataService.storeMetadata(tenant, metric, seriesSet))
             .and(downsampleTrackingService.track(tenant, seriesSet, metric.getTimestamp()))
             .then(Mono.just(metric));

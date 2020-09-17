@@ -39,6 +39,8 @@ public class QueryService {
                                     Map<String, String> queryTags,
                                     Instant start, Instant end) {
     return metadataService.locateSeriesSets(tenant, metricName, queryTags)
+        .name("queryRaw")
+        .metrics()
         .flatMapMany(Flux::fromIterable)
         .flatMap(seriesSet ->
             mapSeriesSetResult(tenant, seriesSet,
@@ -78,6 +80,8 @@ public class QueryService {
         )
         .thenMany(
             metadataService.locateSeriesSets(tenant, metricName, queryTags)
+                .name("queryDownsampled")
+                .metrics()
                 .flatMapMany(Flux::fromIterable)
                 .flatMap(seriesSet ->
                     mapSeriesSetResult(tenant, seriesSet,
