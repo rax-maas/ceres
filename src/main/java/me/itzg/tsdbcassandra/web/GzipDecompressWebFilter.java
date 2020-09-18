@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.zip.GZIPInputStream;
 import org.springframework.boot.web.server.WebServerException;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -37,10 +38,12 @@ public class GzipDecompressWebFilter implements WebFilter {
                         try (GZIPInputStream gis = new GZIPInputStream(
                             inBuffer.asInputStream())) {
                           gis.transferTo(outBuffer.asOutputStream());
+                          return outBuffer;
                         } catch (IOException e) {
                           throw new WebServerException("Failed to gzip request body", e);
+                        } finally {
+                          DataBufferUtils.release(inBuffer);
                         }
-                        return outBuffer;
                       });
                 }
               })
