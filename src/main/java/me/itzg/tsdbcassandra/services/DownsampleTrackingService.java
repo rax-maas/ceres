@@ -78,7 +78,9 @@ public class DownsampleTrackingService {
             where("lastTouch").lt(now.minus(properties.getLastTouchDelay()))
         )
             // for lastTouch filtering
-            .withAllowFiltering(),
+            .withAllowFiltering()
+            .limit(properties.getPendingRetrievalLimit())
+        ,
         PendingDownsampleSet.class
     );
   }

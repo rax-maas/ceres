@@ -5,7 +5,10 @@ import static me.itzg.tsdbcassandra.downsample.ValueSetCollectors.gaugeCollector
 
 import java.time.Instant;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +28,7 @@ import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple2;
 
@@ -40,7 +44,7 @@ public class DownsampleProcessor {
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private final MetadataService metadataService;
-  private Disposable scheduled;
+  private List<Disposable> scheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -80,10 +84,13 @@ public class DownsampleProcessor {
       throw new IllegalStateException("Downsample partitions to process are configured, but not granularities");
     }
 
-    scheduled = Flux.interval(downsampleProperties.getDownsampleProcessPeriod(), scheduler)
-        .flatMap(tick -> Flux.fromIterable(downsampleProperties.getPartitionsToProcess()))
-        .flatMap(this::processPartition)
-        .subscribe();
+    scheduled = downsampleProperties.getPartitionsToProcess().stream()
+        .map(partition -> scheduler.schedulePeriodically(
+            () -> processPartition(partition),
+            0,
+            downsampleProperties.getDownsampleProcessPeriod().getSeconds(), TimeUnit.SECONDS
+        ))
+        .collect(Collectors.toList());
 
     log.debug("Downsample processing is scheduled");
   }
@@ -91,17 +98,30 @@ public class DownsampleProcessor {
   @PreDestroy
   public void stop() {
     if (scheduled != null) {
-      scheduled.dispose();
+      scheduled.forEach(Disposable::dispose);
     }
   }
 
-  private Flux<?> processPartition(int partition) {
+  private void processPartition(int partition) {
     log.trace("Downsampling partition {}", partition);
 
-    return downsampleTrackingService
+    downsampleTrackingService
         .retrieveReadyOnes(partition)
+        // Each retrieval above does so with a row count limit, so the following requests
+        // a repeated subscription when the number of retrieved downsample sets is more than zero
+        .repeatWhen(retrievedCountFlux ->
+            retrievedCountFlux.flatMap(retrievedCount -> {
+              log.trace("Retrieved count={} pending downsample sets for partition={}", retrievedCount, partition);
+              return retrievedCount > 0 ?
+                  // add a slight delay in between each repetition to avoid saturating cassandra
+                  // with downsample updates given a large number of pending downsample sets
+                  Mono.delay(downsampleProperties.getPendingRetrieveRepeatDelay())
+                  : Mono.<Long>empty();
+            }))
         .publishOn(scheduler)
-        .flatMap(this::processDownsampleSet);
+        .flatMap(this::processDownsampleSet)
+        .doOnError(throwable -> log.warn("Failed to process partition={}", partition, throwable))
+        .subscribe();
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
@@ -138,7 +158,8 @@ public class DownsampleProcessor {
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
             .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
-            .doOnSuccess(o -> log.debug("Completed downsampling of {}", pendingDownsampleSet));
+            .doOnSuccess(o -> log.debug("Completed downsampling of {}", pendingDownsampleSet))
+            .checkpoint();
   }
 
   /**
@@ -187,7 +208,8 @@ public class DownsampleProcessor {
             .concatWith(
                 // ...and recurse into remaining granularities
                 aggregateData(aggregated, tenant, seriesSet, granularities, isCounter)
-            );
+            )
+            .checkpoint();
   }
 
   public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant,

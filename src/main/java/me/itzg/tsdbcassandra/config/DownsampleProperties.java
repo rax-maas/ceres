@@ -46,6 +46,11 @@ public class DownsampleProperties {
   @DurationUnit(ChronoUnit.MINUTES)
   Duration downsampleProcessPeriod = Duration.ofMinutes(1);
 
+  int pendingRetrievalLimit = 10;
+
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration pendingRetrieveRepeatDelay = Duration.ofSeconds(1);
+
   /**
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
    */
