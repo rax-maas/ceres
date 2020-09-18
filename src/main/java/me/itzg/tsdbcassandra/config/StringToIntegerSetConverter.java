@@ -15,7 +15,7 @@ import org.springframework.util.StringUtils;
  */
 @Component
 @ConfigurationPropertiesBinding
-public class IntegerSetConverter implements Converter<String, IntegerSet> {
+public class StringToIntegerSetConverter implements Converter<String, IntegerSet> {
 
   @Override
   public IntegerSet convert(String input) {
@@ -44,31 +44,4 @@ public class IntegerSetConverter implements Converter<String, IntegerSet> {
 
     return new IntegerSet(partitions);
   }
-
-/*
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target(ElementType.FIELD)
-  public @interface NumberRangeList {}
-
-  public static final String VALIDATION_REGEX = "(\\d+|(\\d+-\\d+))(,(\\d+|(\\d+-\\d+)))*";
-
-  @Override
-  public boolean matches(TypeDescriptor sourceType, TypeDescriptor targetType) {
-    return targetType.hasAnnotation(NumberRangeList.class) &&
-        sourceType.isAssignableTo(TypeDescriptor.valueOf(String.class)) &&
-        targetType.isAssignableTo(TypeDescriptor.collection(Set.class, TypeDescriptor.valueOf(Integer.class)));
-  }
-
-  @Override
-  public Set<ConvertiblePair> getConvertibleTypes() {
-    return Set.of(
-        new ConvertiblePair(String.class, Set.class)
-    );
-  }
-
-  @Override
-  public Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
-    return convert((String) source);
-  }
-*/
 }

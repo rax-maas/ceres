@@ -5,10 +5,11 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.stream.Stream;
 
 /**
  * Provides a specific integer "collection" that can be bound to properties that provide
- * integer range lists converted with {@link IntegerSetConverter}.
+ * integer range lists converted with {@link StringToIntegerSetConverter}.
  */
 public class IntegerSet implements Iterable<Integer> {
 
@@ -30,5 +31,9 @@ public class IntegerSet implements Iterable<Integer> {
   @Override
   public Spliterator<Integer> spliterator() {
     return Spliterators.spliterator(iterator(), content.size(), 0);
+  }
+
+  public Stream<Integer> stream() {
+    return content.stream();
   }
 }

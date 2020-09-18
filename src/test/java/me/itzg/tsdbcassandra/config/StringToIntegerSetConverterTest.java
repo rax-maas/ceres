@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-class IntegerSetConverterTest {
+class StringToIntegerSetConverterTest {
 
   @Test
   void combo() {
-    final IntegerSetConverter converter = new IntegerSetConverter();
+    final StringToIntegerSetConverter converter = new StringToIntegerSetConverter();
 
     final IntegerSet results = converter.convert("1,5-8,12,15-18");
 
@@ -19,7 +19,7 @@ class IntegerSetConverterTest {
 
   @Test
   void nullInput() {
-    final IntegerSetConverter converter = new IntegerSetConverter();
+    final StringToIntegerSetConverter converter = new StringToIntegerSetConverter();
 
     final IntegerSet results = converter.convert(null);
 
@@ -29,7 +29,7 @@ class IntegerSetConverterTest {
 
   @Test
   void blankInput() {
-    final IntegerSetConverter converter = new IntegerSetConverter();
+    final StringToIntegerSetConverter converter = new StringToIntegerSetConverter();
 
     final IntegerSet results = converter.convert("");
 

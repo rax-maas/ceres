@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.config.DownsampleProperties.Granularity;
-import me.itzg.tsdbcassandra.config.IntegerSetConverter;
+import me.itzg.tsdbcassandra.config.StringToIntegerSetConverter;
 import me.itzg.tsdbcassandra.downsample.AggregatedValueSet;
 import me.itzg.tsdbcassandra.downsample.SingleValueSet;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
@@ -39,7 +39,7 @@ import reactor.util.function.Tuples;
 
 @SpringBootTest(classes = {
     TestConfig.class,
-    IntegerSetConverter.class,
+    StringToIntegerSetConverter.class,
     DownsampleProcessor.class
 }, properties = {
     "app.downsample.partitions-to-process=0,1,4-7"
