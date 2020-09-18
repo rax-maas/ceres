@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -25,11 +25,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
-import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple2;
 
 @Service
@@ -39,18 +38,18 @@ public class DownsampleProcessor {
   private final Environment env;
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
-  private final Scheduler scheduler;
+  private final TaskScheduler taskScheduler;
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private final MetadataService metadataService;
-  private List<Disposable> scheduled;
+  private List<ScheduledFuture<?>> scheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
                              DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
-                             @Qualifier("downsampleScheduler") Scheduler downsampleScheduler,
+                             @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
                              DataWriteService dataWriteService,
@@ -58,7 +57,7 @@ public class DownsampleProcessor {
     this.env = env;
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
-    scheduler = downsampleScheduler;
+    this.taskScheduler = taskScheduler;
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
@@ -85,11 +84,12 @@ public class DownsampleProcessor {
     }
 
     scheduled = downsampleProperties.getPartitionsToProcess().stream()
-        .map(partition -> scheduler.schedulePeriodically(
-            () -> processPartition(partition),
-            0,
-            downsampleProperties.getDownsampleProcessPeriod().getSeconds(), TimeUnit.SECONDS
-        ))
+        .map(partition ->
+            taskScheduler.scheduleAtFixedRate(
+                () -> processPartition(partition),
+                downsampleProperties.getDownsampleProcessPeriod()
+            )
+        )
         .collect(Collectors.toList());
 
     log.debug("Downsample processing is scheduled");
@@ -98,7 +98,7 @@ public class DownsampleProcessor {
   @PreDestroy
   public void stop() {
     if (scheduled != null) {
-      scheduled.forEach(Disposable::dispose);
+      scheduled.forEach(scheduledFuture -> scheduledFuture.cancel(false));
     }
   }
 
@@ -118,7 +118,6 @@ public class DownsampleProcessor {
                   Mono.delay(downsampleProperties.getPendingRetrieveRepeatDelay())
                   : Mono.<Long>empty();
             }))
-        .publishOn(scheduler)
         .flatMap(this::processDownsampleSet)
         .doOnError(throwable -> log.warn("Failed to process partition={}", partition, throwable))
         .subscribe();
@@ -134,8 +133,7 @@ public class DownsampleProcessor {
         pendingDownsampleSet.getSeriesSet(),
         pendingDownsampleSet.getTimeSlot(),
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
-    )
-        .publishOn(scheduler);
+    );
 
     final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateData(data,
         pendingDownsampleSet.getTenant(),

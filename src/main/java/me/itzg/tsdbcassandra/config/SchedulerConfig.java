@@ -1,15 +1,18 @@
 package me.itzg.tsdbcassandra.config;
 
+import org.springframework.boot.task.TaskSchedulerBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
+import org.springframework.scheduling.TaskScheduler;
 
 @Configuration
 public class SchedulerConfig {
 
   @Bean
-  public Scheduler downsampleScheduler() {
-    return Schedulers.newParallel("downsample");
+  public TaskScheduler downsampleTaskScheduler() {
+    return new TaskSchedulerBuilder()
+        .poolSize(Runtime.getRuntime().availableProcessors())
+        .threadNamePrefix("downsample")
+        .build();
   }
 }
