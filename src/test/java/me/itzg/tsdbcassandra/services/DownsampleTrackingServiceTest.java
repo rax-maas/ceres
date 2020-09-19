@@ -33,7 +33,8 @@ import reactor.core.publisher.Mono;
     "app.downsample.enabled=true",
     "app.downsample.partitions=64",
     "app.downsample.time-slot-width=PT2H",
-    "app.downsample.last-touch-delay=PT2M"
+    "app.downsample.last-touch-delay=PT2M",
+    "logging.level.cql=debug"
 })
 @ActiveProfiles("test")
 @Testcontainers
