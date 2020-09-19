@@ -87,6 +87,7 @@ public class DownsampleProcessor {
         .map(partition ->
             taskScheduler.scheduleAtFixedRate(
                 () -> processPartition(partition),
+                Instant.now().plus(downsampleProperties.getInitialProcessingDelay()),
                 downsampleProperties.getDownsampleProcessPeriod()
             )
         )

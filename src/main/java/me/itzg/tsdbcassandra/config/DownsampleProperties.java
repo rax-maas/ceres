@@ -40,6 +40,9 @@ public class DownsampleProperties {
   @DurationUnit(ChronoUnit.MINUTES)
   Duration lastTouchDelay = Duration.ofMinutes(5);
 
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration initialProcessingDelay = Duration.ofMinutes(1);
+
   /**
    * Specifies how often pending downsample sets will be retrieved and processed.
    */
