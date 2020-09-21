@@ -3,9 +3,11 @@ package me.itzg.tsdbcassandra.services;
 import static me.itzg.tsdbcassandra.downsample.ValueSetCollectors.counterCollector;
 import static me.itzg.tsdbcassandra.downsample.ValueSetCollectors.gaugeCollector;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
@@ -87,13 +89,23 @@ public class DownsampleProcessor {
         .map(partition ->
             taskScheduler.scheduleAtFixedRate(
                 () -> processPartition(partition),
-                Instant.now().plus(downsampleProperties.getInitialProcessingDelay()),
+                Instant.now()
+                    .plus(randomizeInitialDelay()),
                 downsampleProperties.getDownsampleProcessPeriod()
             )
         )
         .collect(Collectors.toList());
 
     log.debug("Downsample processing is scheduled");
+  }
+
+  private Duration randomizeInitialDelay() {
+    return downsampleProperties.getInitialProcessingDelay()
+        .plus(
+            downsampleProperties.getInitialProcessingDelay().dividedBy(
+                2 + new Random().nextInt(8)
+            )
+        );
   }
 
   @PreDestroy
