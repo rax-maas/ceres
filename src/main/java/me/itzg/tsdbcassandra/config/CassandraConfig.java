@@ -35,7 +35,7 @@ public class CassandraConfig {
                               @NotNull DriverExecutionProfile executionProfile, @NotNull Node node,
                               @NotNull String requestLogPrefix) {
           if (request instanceof SimpleStatement) {
-            cqlLogger.debug("Executed query: {}", ((SimpleStatement) request).getQuery());
+            cqlLogger.trace("Executed query: {}", ((SimpleStatement) request).getQuery());
           }
         }
 
