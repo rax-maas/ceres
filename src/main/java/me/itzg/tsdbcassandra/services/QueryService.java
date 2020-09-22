@@ -72,32 +72,24 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,
                                             Duration granularity, Map<String, String> queryTags,
                                             Instant start, Instant end) {
-    return metadataService.metricNameHasAggregator(tenant, metricName, aggregator)
-        .flatMap(exists -> exists ?
-            // continue
-            Mono.empty() :
-            Mono.error(new IllegalArgumentException("Requested metric name and aggregator is not available"))
-        )
-        .thenMany(
-            metadataService.locateSeriesSets(tenant, metricName, queryTags)
-                .name("queryDownsampled")
-                .metrics()
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(seriesSet ->
-                    mapSeriesSetResult(tenant, seriesSet,
-                        // TODO use repository and projections
-                        cqlTemplate.queryForRows(
-                            "SELECT ts, value FROM data_downsampled"
-                                + " WHERE"
-                                + "  tenant = ?"
-                                + "  AND series_set = ?"
-                                + "  AND aggregator = ?"
-                                + "  AND granularity = ?"
-                                + "  AND ts >= ? AND ts < ?",
-                            tenant, seriesSet, aggregator.name(), granularity.toString(), start, end
-                        )
-                    )
+    return metadataService.locateSeriesSets(tenant, metricName, queryTags)
+        .name("queryDownsampled")
+        .metrics()
+        .flatMapMany(Flux::fromIterable)
+        .flatMap(seriesSet ->
+            mapSeriesSetResult(tenant, seriesSet,
+                // TODO use repository and projections
+                cqlTemplate.queryForRows(
+                    "SELECT ts, value FROM data_downsampled"
+                        + " WHERE"
+                        + "  tenant = ?"
+                        + "  AND series_set = ?"
+                        + "  AND aggregator = ?"
+                        + "  AND granularity = ?"
+                        + "  AND ts >= ? AND ts < ?",
+                    tenant, seriesSet, aggregator.name(), granularity.toString(), start, end
                 )
+            )
         )
         .checkpoint();
   }

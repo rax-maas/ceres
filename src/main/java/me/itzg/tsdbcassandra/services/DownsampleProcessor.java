@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
@@ -158,13 +157,6 @@ public class DownsampleProcessor {
         aggregated
             .name("downsample")
             .metrics()
-            .then(
-                metadataService.updateMetricNames(
-                    pendingDownsampleSet.getTenant(),
-                    seriesSetService.metricNameFromSeriesSet(pendingDownsampleSet.getSeriesSet()),
-                    isCounter ? Set.of(Aggregator.sum) : Set.of(Aggregator.sum, Aggregator.min, Aggregator.max, Aggregator.avg)
-                )
-            )
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )

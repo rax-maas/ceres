@@ -26,14 +26,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.task.TaskSchedulerBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
@@ -51,8 +51,8 @@ class DownsampleProcessorTest {
   @TestConfiguration
   static class TestConfig {
     @Bean
-    public Scheduler downsampleScheduler() {
-      return Schedulers.immediate();
+    public TaskScheduler downsampleTaskScheduler() {
+      return new TaskSchedulerBuilder().build();
     }
   }
 

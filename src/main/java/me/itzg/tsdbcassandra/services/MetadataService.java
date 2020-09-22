@@ -1,13 +1,9 @@
 package me.itzg.tsdbcassandra.services;
 
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.MetricName;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
 import me.itzg.tsdbcassandra.entities.TagKey;
@@ -18,7 +14,6 @@ import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.cassandra.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -38,16 +33,11 @@ public class MetadataService {
 
   public Publisher<?> storeMetadata(String tenant, Metric metric, String seriesSet) {
     return
-        cassandraTemplate.update(
-            query(
-                where("tenant").is(tenant),
-                where("metricName").is(metric.getMetric())
-            ),
-            Update.empty().addTo("aggregators").append(Aggregator.raw),
-            MetricName.class
-        )
+        cassandraTemplate.insert(new Tenant().setTenant(tenant))
             .and(
-                cassandraTemplate.insert(new Tenant().setTenant(tenant))
+                cassandraTemplate.insert(
+                    new MetricName().setTenant(tenant).setMetricName(metric.getMetric())
+                )
             )
             .and(
                 Flux.fromIterable(metric.getTags().entrySet())
@@ -92,26 +82,6 @@ public class MetadataService {
         String.class,
         tenant
     ).collectList();
-  }
-
-  /**
-   * Determines if the requested metricName has the requested aggregator tracked with it.
-   * @param tenant tenant scope of the metric name
-   * @param metricName the metric name
-   * @param aggregator an aggregator to check
-   * @return true if the metric name exists and has requested aggregator
-   */
-  public Mono<Boolean> metricNameHasAggregator(String tenant, String metricName, Aggregator aggregator) {
-    return cassandraTemplate.exists(
-        query(
-            where("tenant").is(tenant),
-            where("metricName").is(metricName),
-            where("aggregators").contains(aggregator)
-        )
-            // for aggregators part
-            .withAllowFiltering(),
-        MetricName.class
-    );
   }
 
   public Mono<List<String>> getTagKeys(String tenant, String metricName) {
@@ -160,14 +130,4 @@ public class MetadataService {
         );
   }
 
-  public Mono<?> updateMetricNames(String tenant, String metricName, Set<Aggregator> aggregators) {
-    return cassandraTemplate.update(
-        query(
-            where("tenant").is(tenant),
-            where("metricName").is(metricName)
-        ),
-        Update.empty().addTo("aggregators").appendAll(aggregators),
-        MetricName.class
-    );
-  }
 }

@@ -5,11 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import me.itzg.tsdbcassandra.CassandraContainerSetup;
-import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.MetricName;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
 import me.itzg.tsdbcassandra.entities.TagKey;
@@ -18,7 +16,6 @@ import me.itzg.tsdbcassandra.entities.Tenant;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -152,64 +149,6 @@ class MetadataServiceTest {
         .block();
 
     assertThat(result).containsExactlyInAnyOrderElementsOf(tenantIds);
-  }
-
-  @Nested
-  class metricNameHasAggregator {
-
-    @Test
-    void exists() {
-      final String tenant = RandomStringUtils.randomAlphanumeric(10);
-      final String metricName = RandomStringUtils.randomAlphanumeric(10);
-
-      insertOne(tenant, metricName);
-
-      final Boolean result = metadataService
-          .metricNameHasAggregator(tenant, metricName, Aggregator.min)
-          .block();
-
-      assertThat(result).isTrue();
-    }
-
-    private void insertOne(String tenant, String metricName) {
-      cassandraTemplate.insert(
-          new MetricName()
-              .setTenant(tenant)
-              .setMetricName(metricName)
-              .setAggregators(Set.of(Aggregator.raw, Aggregator.min, Aggregator.max))
-      ).block();
-    }
-
-    @Test
-    void existsButNotAggregator() {
-      final String tenant = RandomStringUtils.randomAlphanumeric(10);
-      final String metricName = RandomStringUtils.randomAlphanumeric(10);
-
-      insertOne(tenant, metricName);
-
-      final Boolean result = metadataService
-          .metricNameHasAggregator(tenant, metricName, Aggregator.avg)
-          .block();
-
-      assertThat(result).isFalse();
-    }
-
-    @Test
-    void notExists() {
-      final String tenant = RandomStringUtils.randomAlphanumeric(10);
-      final String metricName = RandomStringUtils.randomAlphanumeric(10);
-
-      insertOne(tenant, metricName);
-
-      final Boolean result = metadataService
-          .metricNameHasAggregator(tenant,
-              // query for metric name that doesn't exist
-              metricName+"_not_exists",
-              Aggregator.min)
-          .block();
-
-      assertThat(result).isFalse();
-    }
   }
 
   private SeriesSet seriesSet(String tenantId, String metricName, String tagKey, String tagValue,
