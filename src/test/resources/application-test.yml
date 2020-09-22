@@ -1,0 +1,4 @@
+spring:
+  data:
+    cassandra:
+      contact-points: ""

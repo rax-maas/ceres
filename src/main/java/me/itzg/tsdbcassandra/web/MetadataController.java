@@ -1,7 +1,5 @@
 package me.itzg.tsdbcassandra.web;
 
-import static me.itzg.tsdbcassandra.web.TagListConverter.convertPairsListToMap;
-
 import java.util.List;
 import me.itzg.tsdbcassandra.services.MetadataService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +18,11 @@ public class MetadataController {
   @Autowired
   public MetadataController(MetadataService metadataService) {
     this.metadataService = metadataService;
+  }
+
+  @GetMapping("/tenants")
+  public Mono<List<String>> getTenants() {
+    return metadataService.getTenants();
   }
 
   @GetMapping("/metricNames")

@@ -7,3 +7,5 @@ spring:
 server:
   error:
     include-message: always
+  compression:
+    enabled: true
