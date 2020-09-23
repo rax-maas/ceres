@@ -172,24 +172,25 @@ This process is also known as roll-up since it can be thought of finer grained d
 - The application is configured with a "time slot width", which is used to define unit of tracking and the range queried for each downsample operation.
 - As a raw metric is ingested, the downsampling time slot is computed by rounding down the metric's timestamp to the next lowest multiple of the time slot width. For example, if the time slot width is 1 hour, then rounded timestamp of the downsample set would always be at the top-of-the-hour.
 - The time slot width must be a common-multiple of the desired granularities. For example, if granularities of 5 minutes and 1 hour are used, then the time slot width must a multiple of an hour. With a one-hour time slot width, 12 5-minute downsamples would fit and one 1-hour downsample. 
-- Ingestion uses the following table, `pending_downsample_sets`, for tracking the downsampling to be done
 
-`pending_downsample_sets` table:
+#### Redis pending downsample set tracking
 
-&nbsp; | Name | Notes
----|----------|---
-PK | partition | 
-CK | time_slot | timestamp rounded down by time slot width
-CK | tenant | 
-CK | series_set | 
-&nbsp; | last_touch | 
+The following keys are used in Redis to track the pending downsample sets:
 
-- With the computed `time_slot`, rows in `pending_downsample_sets` are "upserted" with the `last_touch` as the current wall clock timestamp
+- `ingesting|<partition>|<slot>` : string
+- `pending|<partition>|<slot>` : set
+
+The ingestion process updates those entries as follows:
+- Compute `partition` as `hash(tenant, seriesSet) % partitions`
+- Compute `slot` as the timestamp of metric normalized to `timeSlotWidth`. It is encoded in the key as the epoch seconds.
+- Redis `SETEX "ingesting:<partition>:<slot>"` with expiration of 5 minutes (configurable)
+- Redis `SADD "pending:<partition>:<slot>" "<tenant>:<seriesSet>"`
+
+Notes:
+- Expiration could also take into consideration that a downsample time slot that overlaps with the current time should also wait to expire until the end of the time slot and add the configurable duration
 
 #### Downsample processing
 
-- The `time_slot` is the first of the clustering keys to order the retrieval of older raw data before newer raw data
-- This application will be replicated/scaled-out in order to accommodate the workload of the series-set cardinality
 - Each replica is configured with a distinct set of partition values that it will process
 - Downsample processing is an optional function of this application and can be disabled by not specifying any partitions to be owned and processed. This allows for deploying the same application code as both a cluster of ingest/query nodes, a cluster of downsample processors, or a combination thereof.
 
@@ -214,10 +215,18 @@ CK | granularity | String in [quantity unit form](https://cassandra.apache.org/d
 CK | ts | timestamp rounded down by granularity
 &nbsp; | value | 
 
-- On a periodic basis, each replica for each owned partition will query the `pending_downsample_sets` to get "ready" downsample sets
-    - A downsample time slot is considered ready when it meets the following criteria:
-        - The `time_slot` + slot width is less than the current wallclock timestamp
-        - The `last_touch` + a configurable "stability" duration is less than the current wallclock timestamp
+For each `partition`:
+- Schedule periodic retrieval of pending downsample set tracking info:
+  - Redis `SCAN <cursor> MATCH "pending:<partition>:*"`
+  - For each result
+    - Extract `slot` suffix from key
+    - If not `EXISTS "ingesting:<partition>:<slot>"`
+      - `SPOP "pending:<partition>:<slot>"`
+      - Process pending downsample since value popped contained `tenant` and `seriesSet`
+  - Repeat `SCAN` until cursor returns 0
+
+Note: `SPOP` removes the key when the last item is popped, so the iterative `SPOP` usage above  will take care of "self cleaning" the keys as work progresses through the downsample slots
+
 - Each ready downsample set is used to determine the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range.
 - The following aggregations are considered for each downsample:
     - min
@@ -235,7 +244,6 @@ CK | ts | timestamp rounded down by granularity
     - It's important that the aggregate data row be `UPDATE`d rather than `INSERT`ed to accommodate late arrival handling, describe below. To ruin the surprise, the aggregated metric values are upserted in order to allow for re-calculation later and re-upserting the new value.
     - The TTL used for each update-batch will be determined by the retention duration configured for that granularity. For example, 5m granularity might configured with 14 days retention and 1h with 1 year retention.
 - The `metric_names` table is also upserted with the original raw metric's name and the aggregators identified during the aggregation process. For example, a gauge with the name `cpu_idle` could start with an `aggregators` of only `{'raw'}`, but after aggregation processing would become `{'raw','min','max','avg'}`
-- Finally, the pending downsample set row is deleted to track that it has been processed
 
 #### Processing late arrivals
 
