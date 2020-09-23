@@ -20,7 +20,7 @@ import me.itzg.tsdbcassandra.downsample.TemporalNormalizer;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
 import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.DataDownsampled;
-import me.itzg.tsdbcassandra.entities.PendingDownsampleSet;
+import me.itzg.tsdbcassandra.model.PendingDownsampleSet;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -29,7 +29,6 @@ import org.springframework.core.env.Profiles;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 @Service
@@ -119,17 +118,6 @@ public class DownsampleProcessor {
 
     downsampleTrackingService
         .retrieveReadyOnes(partition)
-        // Each retrieval above does so with a row count limit, so the following requests
-        // a repeated subscription when the number of retrieved downsample sets is more than zero
-        .repeatWhen(retrievedCountFlux ->
-            retrievedCountFlux.flatMap(retrievedCount -> {
-              log.trace("Retrieved count={} pending downsample sets for partition={}", retrievedCount, partition);
-              return retrievedCount > 0 ?
-                  // add a slight delay in between each repetition to avoid saturating cassandra
-                  // with downsample updates given a large number of pending downsample sets
-                  Mono.delay(downsampleProperties.getPendingRetrieveRepeatDelay())
-                  : Mono.<Long>empty();
-            }))
         .flatMap(this::processDownsampleSet)
         .doOnError(throwable -> log.warn("Failed to process partition={}", partition, throwable))
         .subscribe();
@@ -157,11 +145,8 @@ public class DownsampleProcessor {
         aggregated
             .name("downsample")
             .metrics()
-            .then(
-                downsampleTrackingService.complete(pendingDownsampleSet)
-            )
             .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
-            .doOnSuccess(o -> log.debug("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnComplete(() -> log.debug("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
