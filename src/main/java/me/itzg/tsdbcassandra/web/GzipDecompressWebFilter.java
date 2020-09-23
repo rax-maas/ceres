@@ -32,19 +32,24 @@ public class GzipDecompressWebFilter implements WebFilter {
               .request(new ServerHttpRequestDecorator(serverWebExchange.getRequest()) {
                 @Override
                 public Flux<DataBuffer> getBody() {
-                  return serverWebExchange.getRequest().getBody()
-                      .map(inBuffer -> {
-                        final DataBuffer outBuffer = inBuffer.factory().allocateBuffer();
-                        try (GZIPInputStream gis = new GZIPInputStream(
-                            inBuffer.asInputStream())) {
-                          gis.transferTo(outBuffer.asOutputStream());
-                          return outBuffer;
-                        } catch (IOException e) {
-                          throw new WebServerException("Failed to gzip request body", e);
-                        } finally {
-                          DataBufferUtils.release(inBuffer);
-                        }
-                      });
+                  return Flux.from(
+                      // gzipped body might be split across several DataBuffers from the
+                      // request body's flux, so join those into a composite DataBuffer mono.
+                      DataBufferUtils.join(serverWebExchange.getRequest().getBody())
+                          // ...now decompress the joined DataBuffer
+                          .map(joinedBuffer -> {
+                            final DataBuffer outBuffer = joinedBuffer.factory().allocateBuffer();
+                            try (GZIPInputStream gis = new GZIPInputStream(joinedBuffer.asInputStream())) {
+                              gis.transferTo(outBuffer.asOutputStream());
+                              return outBuffer;
+                            } catch (IOException e) {
+                              throw new WebServerException("Failed to gzip request body", e);
+                            } finally {
+                              // releasing the joined/composite buffer will propagate to the original buffers
+                              DataBufferUtils.release(joinedBuffer);
+                            }
+                          })
+                  );
                 }
               })
               .build()
