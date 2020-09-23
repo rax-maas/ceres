@@ -117,7 +117,6 @@ public class DownsampleTrackingService {
 
   private static Publisher<?> notEmpty(Flux<Long> amountFlux) {
     return amountFlux.handle((amount, sink) -> {
-      log.info("amount={}", amount);
       if (amount > 0) {
         sink.next(true);
       } else {
