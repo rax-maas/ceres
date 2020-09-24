@@ -101,7 +101,7 @@ public class DownsampleTrackingService {
                 // ...has gone idle and been expired away
                 .filter(stillIngesting -> !stillIngesting)
                 // ...otherwise, expand by popping the downsample sets from that timeslot
-                .flatMapMany(stillIngesting -> popMany(pendingKey))
+                .flatMapMany(ready -> popMany(pendingKey))
         );
   }
 
