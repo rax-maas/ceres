@@ -221,8 +221,9 @@ For each `partition`:
   - For each result
     - Extract `slot` suffix from key
     - If not `EXISTS "ingesting:<partition>:<slot>"`
-      - `SPOP "pending:<partition>:<slot>"`
-      - Process pending downsample since value popped contained `tenant` and `seriesSet`
+      - `SSCAN "pending:<partition>:<slot>"` over entries in time slot
+      - Process pending downsample since value contained `tenant` and `seriesSet`
+      - `SREM` the value from the respective pending key, where last `SREM` will remove the entire key
   - Repeat `SCAN` until cursor returns 0
 
 Note: `SPOP` removes the key when the last item is popped, so the iterative `SPOP` usage above  will take care of "self cleaning" the keys as work progresses through the downsample slots

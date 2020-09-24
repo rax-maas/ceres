@@ -145,8 +145,11 @@ public class DownsampleProcessor {
         aggregated
             .name("downsample")
             .metrics()
+            .then(
+                downsampleTrackingService.complete(pendingDownsampleSet)
+            )
             .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
-            .doOnComplete(() -> log.debug("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o -> log.debug("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 

@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 public class PendingDownsampleSet {
+  int partition;
+
   Instant timeSlot;
 
   String tenant;

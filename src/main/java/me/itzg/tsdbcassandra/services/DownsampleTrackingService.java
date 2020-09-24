@@ -55,15 +55,10 @@ public class DownsampleTrackingService {
     final int partition = Hashing.consistentHash(hashCode, properties.getPartitions());
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
 
-    final String ingestingKey = PREFIX_INGESTING
-        + DELIM + partition
-        + DELIM + normalizedTimeSlot.getEpochSecond();
+    final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, normalizedTimeSlot);
 
-    final String pendingKey = PREFIX_PENDING
-        + DELIM + partition
-        + DELIM + normalizedTimeSlot.getEpochSecond();
-    final String pendingValue = tenant
-        + DELIM + seriesSet;
+    final String pendingKey = encodeKey(PREFIX_PENDING, partition, normalizedTimeSlot);
+    final String pendingValue = encodingPendingValue(tenant, seriesSet);
 
     return redisTemplate.opsForValue()
         .set(ingestingKey, "", properties.getLastTouchDelay())
@@ -71,17 +66,6 @@ public class DownsampleTrackingService {
             redisTemplate.opsForSet()
             .add(pendingKey, pendingValue)
         );
-  }
-
-  private static PendingDownsampleSet buildPending(String pendingKey, String pendingValue) {
-    final int splitValueAt = pendingValue.indexOf(DELIM);
-
-    return new PendingDownsampleSet()
-        .setTenant(pendingValue.substring(0, splitValueAt))
-        .setSeriesSet(pendingValue.substring(1+splitValueAt))
-        .setTimeSlot(Instant.ofEpochSecond(
-            Long.parseLong(pendingKey.substring(1 + pendingKey.lastIndexOf(DELIM)))
-        ));
   }
 
   public Flux<PendingDownsampleSet> retrieveReadyOnes(int partition) {
@@ -101,18 +85,46 @@ public class DownsampleTrackingService {
                 // ...has gone idle and been expired away
                 .filter(stillIngesting -> !stillIngesting)
                 // ...otherwise, expand by popping the downsample sets from that timeslot
-                .flatMapMany(ready -> popMany(pendingKey))
+                .flatMapMany(ready -> expandPendingSets(partition, pendingKey))
         );
   }
 
-  private Flux<PendingDownsampleSet> popMany(String pendingKey) {
-    return Flux.from(
-        redisTemplate.opsForSet()
-            .pop(pendingKey, properties.getPendingRetrievalLimit())
-            // repeat the
-            .repeatWhen(DownsampleTrackingService::notEmpty)
-            .map(pendingValue -> buildPending(pendingKey, pendingValue))
-    );
+  public Mono<?> complete(PendingDownsampleSet entry) {
+    return redisTemplate.opsForSet()
+        .remove(
+            encodeKey(PREFIX_PENDING, entry.getPartition(), entry.getTimeSlot()),
+            encodingPendingValue(entry.getTenant(), entry.getSeriesSet())
+        );
+  }
+
+  private static String encodingPendingValue(String tenant, String seriesSet) {
+    return tenant
+        + DELIM + seriesSet;
+  }
+
+  private static String encodeKey(String prefix, int partition, Instant timeSlot) {
+    return prefix
+        + DELIM + partition
+        + DELIM + timeSlot.getEpochSecond();
+  }
+
+  private static PendingDownsampleSet buildPending(int partition, String pendingKey,
+                                                   String pendingValue) {
+    final int splitValueAt = pendingValue.indexOf(DELIM);
+
+    return new PendingDownsampleSet()
+        .setPartition(partition)
+        .setTenant(pendingValue.substring(0, splitValueAt))
+        .setSeriesSet(pendingValue.substring(1+splitValueAt))
+        .setTimeSlot(Instant.ofEpochSecond(
+            Long.parseLong(pendingKey.substring(1 + pendingKey.lastIndexOf(DELIM)))
+        ));
+  }
+
+  private Flux<PendingDownsampleSet> expandPendingSets(int partition, String pendingKey) {
+    return redisTemplate.opsForSet()
+        .scan(pendingKey)
+        .map(pendingValue -> buildPending(partition, pendingKey, pendingValue));
   }
 
   private static Publisher<?> notEmpty(Flux<Long> amountFlux) {
