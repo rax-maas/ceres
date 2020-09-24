@@ -250,11 +250,11 @@ Note: `SPOP` removes the key when the last item is popped, so the iterative `SPO
 Late arrivals of metrics into `data_row` are an interesting case to confirm are covered by the strategy above. There are two versions of late arrivals:
 
 - No metrics at all showed up for a given tenant+series-set during a time slot. This case is handled by the design above since:
-    - The `pending_downsample_sets` row would not have been created at the original time
-    - When those metrics arrive later, the `pending_downsample_sets` row is created
+    - The redis ingesting/pending entries would not have been created at the original time
+    - When those metrics arrive later, the redis entries are created
     - Once the readiness of the downsample set is satisfied it is processed as normal
 - A subset of metrics showed up for a given tenant+series-set at the original time
     - The downsample processor won't know that there's a subset of the expected metrics; however, that's fine because all of the aggregations are mathematically correct for what values are present. For example, the "count" aggregation would be mathematically accurate, even if technically lower than a user would expect.
-    - When the remaining metrics arrive later, the `pending_downsample_sets` row is **re-created**
-    - Once the readiness of the downsample set is satisfied the downsample processor will pick up on the pending row at the next scheduled time, the re-query of that time slot's raw data will now retrieve all expected metrics entries. _This assumes the raw data for that queried time slot has not been TTL'ed away._
+    - When the remaining metrics arrive later, the redis entries are **re-created**
+    - Once the readiness of the downsample set is satisfied the downsample processor will pick up on the redis entries at the next scheduled time, the re-query of that time slot's raw data will now retrieve all expected metrics entries. _This assumes the raw data for that queried time slot has not been TTL'ed away._
     - The downsample processor will aggregate the granularities entries as described above and again upsert/UPDATE the resulting update-batches as usual. With the UPDATE the "partial" aggregation values will be replaced by the "complete" aggregation values
