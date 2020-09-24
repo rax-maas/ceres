@@ -1,14 +1,14 @@
-A simple multi-dimensional, time-series ingest and query service backed by Cassandra.
+A simple multi-dimensional, time-series ingest and query service backed by Cassandra. Redis is also used for tracking of downsample operations.
 
 ## Quickstart
 
-Startup a Cassandra container:
+Startup Cassandra and Redis containers:
 
 ```shell script
 docker-compose up -d
 ```
 
-Watch the container logs until it reports "Starting listening for CQL clients on /0.0.0.0:9042":
+Watch the Cassandra container logs until it reports "Starting listening for CQL clients on /0.0.0.0:9042":
 ```shell script
 docker-compose logs -f cassandra
 ```
