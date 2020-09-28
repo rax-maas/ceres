@@ -6,13 +6,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.springframework.data.cassandra.core.query.Criteria.where;
 
+import com.datastax.oss.driver.api.core.cql.Row;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import me.itzg.tsdbcassandra.CassandraContainerSetup;
-import me.itzg.tsdbcassandra.entities.DataRaw;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Nested;
@@ -23,8 +22,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
-import org.springframework.data.cassandra.core.query.Query;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -62,7 +60,7 @@ class DataWriteServiceTest {
   DataWriteService dataWriteService;
 
   @Autowired
-  ReactiveCassandraTemplate cassandraTemplate;
+  ReactiveCqlTemplate cqlTemplate;
 
   @Nested
   class ingest {
@@ -155,20 +153,17 @@ class DataWriteServiceTest {
     }
 
     private void assertViaQuery(String tenant, String seriesSet, Metric metric) {
-      final List<DataRaw> results = cassandraTemplate.select(
-          Query.query(
-              where("tenant").is(tenant),
-              where("seriesSet").is(seriesSet)
-          ),
-          DataRaw.class
+      final List<Row> results = cqlTemplate.queryForRows(
+          "SELECT ts, value FROM data_raw"
+              + " WHERE tenant = ? AND series_set = ?",
+          tenant, seriesSet
       ).collectList().block();
 
       assertThat(results).isNotNull();
       assertThat(results).hasSize(1);
-      assertThat(results.get(0).getTenant()).isEqualTo(tenant);
       // only millisecond resolution retained by cassandra
-      assertThat(results.get(0).getTs()).isEqualTo("2020-09-12T18:42:23.658Z");
-      assertThat(results.get(0).getValue()).isEqualTo(metric.getValue());
+      assertThat(results.get(0).getInstant(0)).isEqualTo("2020-09-12T18:42:23.658Z");
+      assertThat(results.get(0).getDouble(1)).isEqualTo(metric.getValue());
     }
 
   }

@@ -2,14 +2,10 @@ package me.itzg.tsdbcassandra.services;
 
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
-import me.itzg.tsdbcassandra.config.AppProperties;
-import me.itzg.tsdbcassandra.entities.DataDownsampled;
-import me.itzg.tsdbcassandra.entities.DataRaw;
+import me.itzg.tsdbcassandra.downsample.DataDownsampled;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.cassandra.core.InsertOptions;
-import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
-import org.springframework.data.cassandra.core.UpdateOptions;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -20,23 +16,23 @@ import reactor.util.function.Tuples;
 @Slf4j
 public class DataWriteService {
 
-  private final ReactiveCassandraTemplate cassandraTemplate;
+  private final ReactiveCqlTemplate cqlTemplate;
   private final SeriesSetService seriesSetService;
   private final MetadataService metadataService;
+  private final DataTablesStatements dataTablesStatements;
   private final DownsampleTrackingService downsampleTrackingService;
-  private final AppProperties appProperties;
 
   @Autowired
-  public DataWriteService(ReactiveCassandraTemplate cassandraTemplate,
+  public DataWriteService(ReactiveCqlTemplate cqlTemplate,
                           SeriesSetService seriesSetService,
                           MetadataService metadataService,
-                          DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties) {
-    this.cassandraTemplate = cassandraTemplate;
+                          DataTablesStatements dataTablesStatements,
+                          DownsampleTrackingService downsampleTrackingService) {
+    this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
+    this.dataTablesStatements = dataTablesStatements;
     this.downsampleTrackingService = downsampleTrackingService;
-    this.appProperties = appProperties;
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -57,28 +53,19 @@ public class DataWriteService {
   }
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSet) {
-    return cassandraTemplate.insert(
-        new DataRaw()
-            .setTenant(tenant)
-            .setSeriesSet(seriesSet)
-            .setTs(metric.getTimestamp())
-            .setValue(metric.getValue().doubleValue()),
-        InsertOptions.builder()
-            .ttl(appProperties.getRawTtl())
-            .build()
+    return cqlTemplate.execute(
+        dataTablesStatements.insertRaw(),
+        tenant, seriesSet, metric.getTimestamp(), metric.getValue().doubleValue()
     );
   }
 
   public Flux<Tuple2<DataDownsampled,Boolean>> storeDownsampledData(Flux<DataDownsampled> data, Duration ttl) {
-    return data.flatMap(entry -> cassandraTemplate.update(
-        entry,
-        UpdateOptions.builder()
-            .ttl(ttl)
-            .build()
+    return data.flatMap(entry -> cqlTemplate.execute(
+        dataTablesStatements.insertDownsampled(entry.getGranularity()),
+        entry.getTenant(), entry.getSeriesSet(), entry.getAggregator().name(),
+        entry.getTs(), entry.getValue()
         )
-    )
-        .doOnNext(result -> log
-            .trace("Stored downsampled={} applied={}", result.getEntity(), result.wasApplied()))
-        .map(result -> Tuples.of(result.getEntity(), result.wasApplied()));
+            .map(applied -> Tuples.of(entry, applied))
+    );
   }
 }

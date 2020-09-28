@@ -1,5 +1,6 @@
 package me.itzg.tsdbcassandra.config;
 
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.metadata.Node;
@@ -13,6 +14,9 @@ import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomi
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.cassandra.ReactiveSessionFactory;
+import org.springframework.data.cassandra.config.SchemaAction;
+import org.springframework.data.cassandra.config.SessionFactoryFactoryBean;
+import org.springframework.data.cassandra.core.convert.CassandraConverter;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 
 @Configuration
@@ -55,4 +59,17 @@ public class CassandraConfig {
       });
     };
   }
+
+  @Bean
+  public SessionFactoryFactoryBean cassandraSessionFactory(CqlSession session,
+                                                           CassandraConverter converter,
+                                                           DataTablesPopulator dataTablesPopulator) {
+    SessionFactoryFactoryBean sessionFactory = new SessionFactoryFactoryBean();
+    sessionFactory.setSession(session);
+    sessionFactory.setConverter(converter);
+    sessionFactory.setKeyspacePopulator(dataTablesPopulator);
+    sessionFactory.setSchemaAction(SchemaAction.CREATE_IF_NOT_EXISTS);
+    return sessionFactory;
+  }
+
 }

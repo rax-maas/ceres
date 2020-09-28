@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import me.itzg.tsdbcassandra.entities.Aggregator;
+import me.itzg.tsdbcassandra.downsample.Aggregator;
 import me.itzg.tsdbcassandra.model.QueryResult;
 import me.itzg.tsdbcassandra.services.QueryService;
 import org.springframework.beans.factory.annotation.Autowired;
