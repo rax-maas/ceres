@@ -3,10 +3,15 @@ package me.itzg.tsdbcassandra.services;
 import static me.itzg.tsdbcassandra.downsample.ValueSetCollectors.counterCollector;
 import static me.itzg.tsdbcassandra.downsample.ValueSetCollectors.gaugeCollector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
@@ -15,6 +20,8 @@ import javax.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.config.DownsampleProperties.Granularity;
+import me.itzg.tsdbcassandra.config.IntegerSet;
+import me.itzg.tsdbcassandra.config.StringToIntegerSetConverter;
 import me.itzg.tsdbcassandra.downsample.AggregatedValueSet;
 import me.itzg.tsdbcassandra.downsample.Aggregator;
 import me.itzg.tsdbcassandra.downsample.DataDownsampled;
@@ -36,32 +43,32 @@ import reactor.util.function.Tuple2;
 public class DownsampleProcessor {
 
   private final Environment env;
+  private final ObjectMapper objectMapper;
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
   private final TaskScheduler taskScheduler;
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
-  private final MetadataService metadataService;
   private List<ScheduledFuture<?>> scheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
+                             ObjectMapper objectMapper,
                              DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
                              @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
-                             DataWriteService dataWriteService,
-                             MetadataService metadataService) {
+                             DataWriteService dataWriteService) {
     this.env = env;
+    this.objectMapper = objectMapper;
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
     this.taskScheduler = taskScheduler;
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
-    this.metadataService = metadataService;
   }
 
   @PostConstruct
@@ -71,8 +78,8 @@ public class DownsampleProcessor {
       return;
     }
 
-    if (downsampleProperties.getPartitionsToProcess() == null ||
-        downsampleProperties.getPartitionsToProcess().isEmpty()) {
+    final IntegerSet partitionsToProcess = getPartitionsToProcess();
+    if (partitionsToProcess == null) {
       // just info level since this is the normal way to disable downsampling
       log.info("Downsample processing is disabled due to no partitions to process");
       return;
@@ -83,7 +90,7 @@ public class DownsampleProcessor {
       throw new IllegalStateException("Downsample partitions to process are configured, but not granularities");
     }
 
-    scheduled = downsampleProperties.getPartitionsToProcess().stream()
+    scheduled = partitionsToProcess.stream()
         .map(partition ->
             taskScheduler.scheduleAtFixedRate(
                 () -> processPartition(partition),
@@ -95,6 +102,40 @@ public class DownsampleProcessor {
         .collect(Collectors.toList());
 
     log.debug("Downsample processing is scheduled");
+  }
+
+  private IntegerSet getPartitionsToProcess() {
+    if (downsampleProperties.getPartitionsToProcess() != null &&
+        !downsampleProperties.getPartitionsToProcess().isEmpty()) {
+      return downsampleProperties.getPartitionsToProcess();
+    }
+
+    if (downsampleProperties.getPartitionsMappingFile() != null) {
+      try {
+        final Map<String, String> mappings = objectMapper.readValue(
+            downsampleProperties.getPartitionsMappingFile().toFile(),
+            new TypeReference<>() {}
+        );
+
+        final String ourHostname = InetAddress.getLocalHost().getHostName();
+        final String entry = mappings.get(ourHostname);
+
+        if (entry != null) {
+          log.debug("Loaded partitions to process for {} from {}",
+              ourHostname, downsampleProperties.getPartitionsMappingFile());
+          return new StringToIntegerSetConverter().convert(entry);
+        } else {
+          throw new IllegalStateException(String.format(
+              "Unable to locate partitions to process for %s in %s",
+                  ourHostname, downsampleProperties.getPartitionsMappingFile()
+              ));
+        }
+      } catch (IOException e) {
+        throw new IllegalStateException("Unable to read partitions mapping file", e);
+      }
+    }
+
+    return null;
   }
 
   private Duration randomizeInitialDelay() {

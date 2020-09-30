@@ -2,8 +2,8 @@
 - [ ] Implement error handling on downsample storage
 - [ ] More logging throughout, such as pending downsampler logs
 - [ ] Add Flux/Mono checkpoint() operators to improve stack traces
-- [ ] Metrics, especially in downsampler
-- [ ] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
+- [x] Metrics, especially in downsampler
+- [x] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
 - [ ] Enforce sanity bounds on ingested metric timestamps
 - [ ] Auto-detect if ingested timestamp is either seconds or milliseconds since OpenTSDB API docs allow for either
 - [ ] Add support for string "metrics"

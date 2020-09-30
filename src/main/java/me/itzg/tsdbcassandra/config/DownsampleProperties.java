@@ -1,5 +1,6 @@
 package me.itzg.tsdbcassandra.config;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -65,6 +66,13 @@ public class DownsampleProperties {
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
    */
   IntegerSet partitionsToProcess;
+
+  /**
+   * Can be used instead of <code>partitionsToProcess</code> to provide a shared JSON file
+   * that contains a map of hostname to comma separated list of partitions or ranges of partitions.
+   * This property is ignored if <code>partitionsToProcess</code> is configured.
+   */
+  Path partitionsMappingFile;
 
   /**
    * Target granularities to downsample from raw data.
