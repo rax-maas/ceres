@@ -37,7 +37,7 @@ PK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
 CK | ts | timestamp of ingested metric
 &nbsp; | value | Metric value as double
 
-To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is during metadata queries for tenants and metric names. Metadata queries for tag keys and values given tenant and metric name are resolved by the "series_sets" table. The "series_set" and "data_raw" tables are used in combination by data queries and "data_raw" is also used during downsampling.
+To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is read during metadata retrieval of tenants and metric names. Metadata queries for tag keys and values given tenant and metric name are resolved by the "series_sets" table. The "series_set" and "data_raw" tables are used in combination by data queries and "data_raw" is also used during downsampling.
 
 ### Series-Set
 
