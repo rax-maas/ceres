@@ -13,6 +13,7 @@ import me.itzg.tsdbcassandra.entities.SeriesSet;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -141,6 +142,26 @@ class MetadataServiceTest {
         .block();
 
     assertThat(result).containsExactlyInAnyOrderElementsOf(tenantIds);
+  }
+
+  @Test
+  void locateSeriesSets() {
+    Assertions.fail("TODO");
+  }
+
+  @Test
+  void getMetricNames() {
+    Assertions.fail("TODO");
+  }
+
+  @Test
+  void getTagKeys() {
+    Assertions.fail("TODO");
+  }
+
+  @Test
+  void getTagValues() {
+    Assertions.fail("TODO");
   }
 
   private SeriesSet seriesSet(String tenantId, String metricName, String tagKey, String tagValue,

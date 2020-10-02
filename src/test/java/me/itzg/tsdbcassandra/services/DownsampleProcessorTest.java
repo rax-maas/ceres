@@ -87,8 +87,13 @@ class DownsampleProcessorTest {
   }
 
   @Test
+  void setupSchedulers() {
+    Assertions.fail("TODO");
+  }
+
+  @Test
   void processDownsampleSet() {
-    Assertions.fail("needs a test");
+    Assertions.fail("TODO");
   }
 
   @Test
@@ -192,30 +197,6 @@ class DownsampleProcessorTest {
 
     verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
     verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
-
-/*
-    StepVerifier.create(
-        dataDownsampledCaptor.getAllValues().get(0)
-    )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.sum, 1.2),
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.min, 1.2),
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.max, 1.2),
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.avg, 1.2)
-        )
-        .verifyComplete();
-
-    StepVerifier.create(
-        dataDownsampledCaptor.getAllValues().get(1)
-    )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.sum, 1.2),
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.min, 1.2),
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.max, 1.2),
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.avg, 1.2)
-        )
-        .verifyComplete();
-*/
 
     verifyNoMoreInteractions(dataWriteService);
   }
