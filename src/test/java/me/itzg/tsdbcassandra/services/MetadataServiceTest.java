@@ -10,9 +10,6 @@ import java.util.stream.IntStream;
 import me.itzg.tsdbcassandra.CassandraContainerSetup;
 import me.itzg.tsdbcassandra.entities.MetricName;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
-import me.itzg.tsdbcassandra.entities.TagKey;
-import me.itzg.tsdbcassandra.entities.TagValue;
-import me.itzg.tsdbcassandra.entities.Tenant;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -58,10 +55,7 @@ class MetadataServiceTest {
 
   @AfterEach
   void tearDown() {
-    cassandraTemplate.truncate(Tenant.class)
-        .and(cassandraTemplate.truncate(MetricName.class))
-        .and(cassandraTemplate.truncate(TagKey.class))
-        .and(cassandraTemplate.truncate(TagValue.class))
+    cassandraTemplate.truncate(MetricName.class)
         .and(cassandraTemplate.truncate(SeriesSet.class))
         .block();
   }
@@ -100,11 +94,6 @@ class MetadataServiceTest {
     assertThat(cassandraTemplate.count(SeriesSet.class).block()).isEqualTo(9);
 
     assertThat(
-        cassandraTemplate.select("SELECT tenant FROM tenants", String.class).collectList()
-            .block()
-    ).containsExactly(tenantId);
-
-    assertThat(
         cassandraTemplate.select("SELECT metric_name FROM metric_names", String.class).collectList()
             .block()
     ).containsExactly(metricName);
@@ -141,7 +130,10 @@ class MetadataServiceTest {
 
     Flux.fromIterable(tenantIds)
         .flatMap(tenantId ->
-            cassandraTemplate.insert(new Tenant().setTenant(tenantId))
+            cassandraTemplate.insert(new MetricName()
+                .setTenant(tenantId)
+                .setMetricName(RandomStringUtils.randomAlphanumeric(5))
+            )
         )
         .blockLast();
 
