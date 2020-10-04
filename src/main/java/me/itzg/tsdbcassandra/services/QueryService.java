@@ -8,9 +8,9 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import me.itzg.tsdbcassandra.downsample.Aggregator;
 import me.itzg.tsdbcassandra.downsample.SingleValueSet;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
-import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.model.MetricNameAndTags;
 import me.itzg.tsdbcassandra.model.QueryResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,28 +25,31 @@ public class QueryService {
   private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
   private final SeriesSetService seriesSetService;
+  private final DataTablesStatements dataTablesStatements;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
                       MetadataService metadataService,
-                      SeriesSetService seriesSetService) {
+                      SeriesSetService seriesSetService,
+                      DataTablesStatements dataTablesStatements) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.seriesSetService = seriesSetService;
+    this.dataTablesStatements = dataTablesStatements;
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
                                     Map<String, String> queryTags,
                                     Instant start, Instant end) {
     return metadataService.locateSeriesSets(tenant, metricName, queryTags)
+        .name("queryRaw")
+        .metrics()
         .flatMapMany(Flux::fromIterable)
         .flatMap(seriesSet ->
             mapSeriesSetResult(tenant, seriesSet,
                 // TODO use repository and projections
                 cqlTemplate.queryForRows(
-                    "SELECT ts, value FROM data_raw"
-                        + " WHERE tenant = ? AND series_set = ?"
-                        + "  AND ts >= ? AND ts < ?",
+                    dataTablesStatements.queryRaw(),
                     tenant, seriesSet, start, end
                 )
             )
@@ -55,11 +58,8 @@ public class QueryService {
 
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
                                               Instant start, Instant end) {
-    // TODO use repository and projections
     return cqlTemplate.queryForRows(
-        "SELECT ts, value FROM data_raw"
-            + " WHERE tenant = ? AND series_set = ?"
-            + "  AND ts >= ? AND ts < ?",
+        dataTablesStatements.queryRaw(),
         tenant, seriesSet, start, end
     )
         .map(row ->
@@ -70,30 +70,17 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,
                                             Duration granularity, Map<String, String> queryTags,
                                             Instant start, Instant end) {
-    return metadataService.metricNameHasAggregator(tenant, metricName, aggregator)
-        .flatMap(exists -> exists ?
-            // continue
-            Mono.empty() :
-            Mono.error(new IllegalArgumentException("Requested metric name and aggregator is not available"))
-        )
-        .thenMany(
-            metadataService.locateSeriesSets(tenant, metricName, queryTags)
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(seriesSet ->
-                    mapSeriesSetResult(tenant, seriesSet,
-                        // TODO use repository and projections
-                        cqlTemplate.queryForRows(
-                            "SELECT ts, value FROM data_downsampled"
-                                + " WHERE"
-                                + "  tenant = ?"
-                                + "  AND series_set = ?"
-                                + "  AND aggregator = ?"
-                                + "  AND granularity = ?"
-                                + "  AND ts >= ? AND ts < ?",
-                            tenant, seriesSet, aggregator.name(), granularity.toString(), start, end
-                        )
-                    )
+    return metadataService.locateSeriesSets(tenant, metricName, queryTags)
+        .name("queryDownsampled")
+        .metrics()
+        .flatMapMany(Flux::fromIterable)
+        .flatMap(seriesSet ->
+            mapSeriesSetResult(tenant, seriesSet,
+                cqlTemplate.queryForRows(
+                    dataTablesStatements.queryDownsampled(granularity),
+                    tenant, seriesSet, aggregator.name(), start, end
                 )
+            )
         )
         .checkpoint();
   }

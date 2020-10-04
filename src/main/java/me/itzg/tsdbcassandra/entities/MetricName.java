@@ -1,6 +1,5 @@
 package me.itzg.tsdbcassandra.entities;
 
-import java.util.Set;
 import lombok.Data;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
@@ -21,5 +20,4 @@ public class MetricName {
       ordinal = 1)
   String metricName;
 
-  Set<Aggregator> aggregators;
 }

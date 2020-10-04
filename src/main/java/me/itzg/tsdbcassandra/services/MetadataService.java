@@ -1,24 +1,16 @@
 package me.itzg.tsdbcassandra.services;
 
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import me.itzg.tsdbcassandra.entities.Aggregator;
 import me.itzg.tsdbcassandra.entities.MetricName;
 import me.itzg.tsdbcassandra.entities.SeriesSet;
-import me.itzg.tsdbcassandra.entities.TagKey;
-import me.itzg.tsdbcassandra.entities.TagValue;
-import me.itzg.tsdbcassandra.entities.Tenant;
 import me.itzg.tsdbcassandra.model.Metric;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.cassandra.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -38,34 +30,13 @@ public class MetadataService {
 
   public Publisher<?> storeMetadata(String tenant, Metric metric, String seriesSet) {
     return
-        cassandraTemplate.update(
-            query(
-                where("tenant").is(tenant),
-                where("metricName").is(metric.getMetric())
-            ),
-            Update.empty().addTo("aggregators").append(Aggregator.raw),
-            MetricName.class
+        cassandraTemplate.insert(
+            new MetricName().setTenant(tenant).setMetricName(metric.getMetric())
         )
-            .and(
-                cassandraTemplate.insert(new Tenant().setTenant(tenant))
-            )
             .and(
                 Flux.fromIterable(metric.getTags().entrySet())
                     .flatMap(tagsEntry ->
                         Flux.concat(
-                            cassandraTemplate.insert(
-                                new TagKey()
-                                    .setTenant(tenant)
-                                    .setMetricName(metric.getMetric())
-                                    .setTagKey(tagsEntry.getKey())
-                            ),
-                            cassandraTemplate.insert(
-                                new TagValue()
-                                    .setTenant(tenant)
-                                    .setMetricName(metric.getMetric())
-                                    .setTagKey(tagsEntry.getKey())
-                                    .setTagValue(tagsEntry.getValue())
-                            ),
                             cassandraTemplate.insert(
                                 new SeriesSet()
                                     .setTenant(tenant)
@@ -81,7 +52,9 @@ public class MetadataService {
 
   public Mono<List<String>> getTenants() {
     return cqlTemplate.queryForFlux(
-        "SELECT tenant FROM tenants",
+        "SELECT tenant FROM metric_names"
+            // use GROUP BY since unable to SELECT DISTINCT on primary key column
+            + " GROUP BY tenant",
         String.class
     ).collectList();
   }
@@ -94,29 +67,12 @@ public class MetadataService {
     ).collectList();
   }
 
-  /**
-   * Determines if the requested metricName has the requested aggregator tracked with it.
-   * @param tenant tenant scope of the metric name
-   * @param metricName the metric name
-   * @param aggregator an aggregator to check
-   * @return true if the metric name exists and has requested aggregator
-   */
-  public Mono<Boolean> metricNameHasAggregator(String tenant, String metricName, Aggregator aggregator) {
-    return cassandraTemplate.exists(
-        query(
-            where("tenant").is(tenant),
-            where("metricName").is(metricName),
-            where("aggregators").contains(aggregator)
-        )
-            // for aggregators part
-            .withAllowFiltering(),
-        MetricName.class
-    );
-  }
-
   public Mono<List<String>> getTagKeys(String tenant, String metricName) {
     return cqlTemplate.queryForFlux(
-        "SELECT tag_key FROM tag_keys WHERE tenant = ? AND metric_name = ?",
+        "SELECT tag_key FROM series_sets"
+            + " WHERE tenant = ? AND metric_name = ?"
+            // use GROUP BY since unable to SELECT DISTINCT on primary key column
+            + " GROUP BY tag_key",
         String.class,
         tenant, metricName
     ).collectList();
@@ -124,8 +80,10 @@ public class MetadataService {
 
   public Mono<List<String>> getTagValues(String tenant, String metricName, String tagKey) {
     return cqlTemplate.queryForFlux(
-        "SELECT tag_value FROM tag_values"
-            + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?",
+        "SELECT tag_value FROM series_sets"
+            + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?"
+            // use GROUP BY since unable to SELECT DISTINCT on primary key column
+            + " GROUP BY tag_value",
         String.class,
         tenant, metricName, tagKey
     ).collectList();
@@ -160,14 +118,4 @@ public class MetadataService {
         );
   }
 
-  public Mono<?> updateMetricNames(String tenant, String metricName, Set<Aggregator> aggregators) {
-    return cassandraTemplate.update(
-        query(
-            where("tenant").is(tenant),
-            where("metricName").is(metricName)
-        ),
-        Update.empty().addTo("aggregators").appendAll(aggregators),
-        MetricName.class
-    );
-  }
 }

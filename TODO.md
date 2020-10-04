@@ -8,6 +8,7 @@
 - [ ] Auto-detect if ingested timestamp is either seconds or milliseconds since OpenTSDB API docs allow for either
 - [ ] Add support for string "metrics"
 - [ ] Extract metric name prefix and store in metric group table. For example, `diskio_iops_in_progress`, `diskio_merged_writes`, etc could be retrieved by metric group "diskio"
+- [ ] Validate downsampling `timeSlotWidth` property is a multiple of largest granularity width. Also need to validate that granularity `widths` are multiples of width smaller than each.
 - [x] End to end testing of DownsampleProcessor
 - [x] Implement OpenTSDB ingest HTTP API
 - [x] Implement simple query of downsampled data

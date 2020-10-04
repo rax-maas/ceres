@@ -9,3 +9,16 @@ server:
     include-message: always
   compression:
     enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: info, health, loggers, metrics, prometheus, threaddump
+  metrics:
+    export:
+      influx:
+        db: actuator-tsdb-cassandra
+        enabled: false
+  endpoint:
+    health:
+      show-components: always

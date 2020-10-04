@@ -41,10 +41,25 @@ public class DownsampleProperties {
   Duration lastTouchDelay = Duration.ofMinutes(5);
 
   /**
+   * The amount of time to wait after startup before the downsample processing starts.
+   * Each partition is staggered by up to an additional 50% of this duration.
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration initialProcessingDelay = Duration.ofMinutes(1);
+
+  /**
    * Specifies how often pending downsample sets will be retrieved and processed.
    */
   @DurationUnit(ChronoUnit.MINUTES)
   Duration downsampleProcessPeriod = Duration.ofMinutes(1);
+
+  /**
+   * The amount of time to wait in between pending downsample set retrievals. After no more are
+   * pending for the partition, then the regular schedule using <code>downsampleProcessPeriod</code>
+   * is resumed.
+   */
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration pendingRetrieveRepeatDelay = Duration.ofSeconds(1);
 
   /**
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"

@@ -1,4 +1,4 @@
-package me.itzg.tsdbcassandra.entities;
+package me.itzg.tsdbcassandra.downsample;
 
 public enum Aggregator {
   raw,

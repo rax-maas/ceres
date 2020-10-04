@@ -13,12 +13,12 @@ import java.time.Instant;
 import java.util.List;
 import me.itzg.tsdbcassandra.config.DownsampleProperties;
 import me.itzg.tsdbcassandra.config.DownsampleProperties.Granularity;
-import me.itzg.tsdbcassandra.config.IntegerSetConverter;
+import me.itzg.tsdbcassandra.config.StringToIntegerSetConverter;
 import me.itzg.tsdbcassandra.downsample.AggregatedValueSet;
+import me.itzg.tsdbcassandra.downsample.Aggregator;
+import me.itzg.tsdbcassandra.downsample.DataDownsampled;
 import me.itzg.tsdbcassandra.downsample.SingleValueSet;
 import me.itzg.tsdbcassandra.downsample.ValueSet;
-import me.itzg.tsdbcassandra.entities.Aggregator;
-import me.itzg.tsdbcassandra.entities.DataDownsampled;
 import me.itzg.tsdbcassandra.services.DownsampleProcessorTest.TestConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -26,20 +26,20 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.task.TaskSchedulerBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
 @SpringBootTest(classes = {
     TestConfig.class,
-    IntegerSetConverter.class,
+    StringToIntegerSetConverter.class,
     DownsampleProcessor.class
 }, properties = {
     "app.downsample.partitions-to-process=0,1,4-7"
@@ -51,8 +51,8 @@ class DownsampleProcessorTest {
   @TestConfiguration
   static class TestConfig {
     @Bean
-    public Scheduler downsampleScheduler() {
-      return Schedulers.immediate();
+    public TaskScheduler downsampleTaskScheduler() {
+      return new TaskSchedulerBuilder().build();
     }
   }
 
@@ -87,8 +87,13 @@ class DownsampleProcessorTest {
   }
 
   @Test
+  void setupSchedulers() {
+    Assertions.fail("TODO");
+  }
+
+  @Test
   void processDownsampleSet() {
-    Assertions.fail("needs a test");
+    Assertions.fail("TODO");
   }
 
   @Test
@@ -192,30 +197,6 @@ class DownsampleProcessorTest {
 
     verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
     verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
-
-/*
-    StepVerifier.create(
-        dataDownsampledCaptor.getAllValues().get(0)
-    )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.sum, 1.2),
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.min, 1.2),
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.max, 1.2),
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.avg, 1.2)
-        )
-        .verifyComplete();
-
-    StepVerifier.create(
-        dataDownsampledCaptor.getAllValues().get(1)
-    )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.sum, 1.2),
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.min, 1.2),
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.max, 1.2),
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.avg, 1.2)
-        )
-        .verifyComplete();
-*/
 
     verifyNoMoreInteractions(dataWriteService);
   }
