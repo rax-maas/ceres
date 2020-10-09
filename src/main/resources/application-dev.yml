@@ -1,4 +1,4 @@
-app:
+ceres:
   downsample:
     granularities:
       - width: 1m

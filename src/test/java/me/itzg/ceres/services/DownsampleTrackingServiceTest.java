@@ -45,10 +45,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest(properties = {
-    "app.downsample.enabled=true",
-    "app.downsample.partitions=64",
-    "app.downsample.time-slot-width=PT2H",
-    "app.downsample.last-touch-delay=PT2M",
+    "ceres.downsample.enabled=true",
+    "ceres.downsample.partitions=64",
+    "ceres.downsample.time-slot-width=PT2H",
+    "ceres.downsample.last-touch-delay=PT2M",
     "logging.level.cql=debug"
 }, classes = {
     TestConfig.class,

@@ -25,7 +25,7 @@ import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
-@ConfigurationProperties("app")
+@ConfigurationProperties("ceres")
 @Component
 @Data
 @Validated

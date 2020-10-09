@@ -58,7 +58,7 @@ import reactor.util.function.Tuples;
     StringToIntegerSetConverter.class,
     DownsampleProcessor.class
 }, properties = {
-    "app.downsample.partitions-to-process=0,1,4-7"
+    "ceres.downsample.partitions-to-process=0,1,4-7"
 })
 @ActiveProfiles("test")
 @EnableConfigurationProperties(DownsampleProperties.class)

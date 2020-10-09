@@ -30,7 +30,7 @@ import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
-@ConfigurationProperties("app.downsample")
+@ConfigurationProperties("ceres.downsample")
 @Component
 @Data
 @Validated
