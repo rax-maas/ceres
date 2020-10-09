@@ -43,6 +43,7 @@ import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.task.TaskSchedulerBuilder;
+import org.springframework.boot.test.autoconfigure.json.AutoConfigureJson;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -61,6 +62,7 @@ import reactor.util.function.Tuples;
     "ceres.downsample.partitions-to-process=0,1,4-7"
 })
 @ActiveProfiles("test")
+@AutoConfigureJson
 @EnableConfigurationProperties(DownsampleProperties.class)
 class DownsampleProcessorTest {
 
