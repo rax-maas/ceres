@@ -2,7 +2,7 @@
 
 ### Tables
 
-The Cassandra tables in the `tsdb` keyspace (by default) are organized into two categories:
+The Cassandra tables in the `ceres` keyspace (by default) are organized into two categories:
 - **metadata** : tables that enable metadata lookup directly or to enable queries
 - **data** : tables that store the timestamped values
 

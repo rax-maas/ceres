@@ -16,7 +16,7 @@ docker-compose logs -f cassandra
 Create the keyspace:
 ```shell script
 docker-compose exec cassandra \
-  cqlsh -e "CREATE KEYSPACE IF NOT EXISTS tsdb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"
+  cqlsh -e "CREATE KEYSPACE IF NOT EXISTS ceres WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"
 ```
 
 Start the ingest/query application:
@@ -111,7 +111,7 @@ Responds with query results per series-set, such as:
 
 ### Ingesting data from telegraf
 
-The following telegraf config snippet can be used to output metrics collected by telegraf into `tsdb-cassandra`:
+The following telegraf config snippet can be used to output metrics collected by telegraf into `ceres`:
 
 ```toml
 [[outputs.opentsdb]]

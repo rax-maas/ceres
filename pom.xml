@@ -6,16 +6,15 @@
 		<version>2.3.4.RELEASE</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>me.itzg</groupId>
-	<artifactId>tsdb-cassandra</artifactId>
+	<groupId>com.rackspace.monplat</groupId>
+	<artifactId>ceres</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>tsdb-cassandra</name>
 	<description>TSDB backed by Cassandra</description>
 
 	<properties>
 		<java.version>14</java.version>
 		<testcontainers.version>1.15.0-rc2</testcontainers.version>
-		<image.prefix>itzg/</image.prefix>
+		<image.prefix>racker/</image.prefix>
 	</properties>
 
 	<dependencies>
