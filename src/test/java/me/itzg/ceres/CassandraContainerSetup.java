@@ -51,7 +51,7 @@ public class CassandraContainerSetup {
     return cqlSessionBuilder -> {
       final Cluster cluster = cassandraContainer.getCluster();
       try (Session session = cluster.connect()) {
-        session.execute("CREATE KEYSPACE IF NOT EXISTS tsdb "
+        session.execute("CREATE KEYSPACE IF NOT EXISTS ceres "
             + "    WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}");
       }
 

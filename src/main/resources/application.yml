@@ -1,7 +1,7 @@
 spring:
   data:
     cassandra:
-      keyspace-name: tsdb
+      keyspace-name: ceres
       local-datacenter: datacenter1
       schema-action: create_if_not_exists
 server:
@@ -17,7 +17,7 @@ management:
   metrics:
     export:
       influx:
-        db: actuator-tsdb-cassandra
+        db: actuator-ceres
         enabled: false
   endpoint:
     health:
