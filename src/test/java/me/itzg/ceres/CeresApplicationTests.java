@@ -27,7 +27,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
 @Testcontainers
-class TsdbCassandraApplicationTests {
+class CeresApplicationTests {
 	@Container
 	public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>();
 	@TestConfiguration
