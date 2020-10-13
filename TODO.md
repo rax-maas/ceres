@@ -9,6 +9,9 @@
 - [ ] Add support for string "metrics"
 - [ ] Extract metric name prefix and store in metric group table. For example, `diskio_iops_in_progress`, `diskio_merged_writes`, etc could be retrieved by metric group "diskio"
 - [ ] Validate downsampling `timeSlotWidth` property is a multiple of largest granularity width. Also need to validate that granularity `widths` are multiples of width smaller than each.
+- [ ] Fix: when querying /metadata/tenants, warning `Aggregation query used without partition key`
+- [ ] Dynamic partition assignments for downsample processing
+- [ ] Use custom validator to validate downsample granularities when partitionsToProcess or partitionsMappingFile is configured
 - [x] End to end testing of DownsampleProcessor
 - [x] Implement OpenTSDB ingest HTTP API
 - [x] Implement simple query of downsampled data
