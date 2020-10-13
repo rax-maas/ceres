@@ -6,15 +6,15 @@
 		<version>2.3.4.RELEASE</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>me.itzg</groupId>
-	<artifactId>tsdb-cassandra</artifactId>
+	<groupId>com.rackspace.ceres</groupId>
+	<artifactId>ceres</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>tsdb-cassandra</name>
 	<description>TSDB backed by Cassandra</description>
 
 	<properties>
 		<java.version>14</java.version>
 		<testcontainers.version>1.15.0-rc2</testcontainers.version>
+		<image.prefix>racker/</image.prefix>
 	</properties>
 
 	<dependencies>
@@ -102,6 +102,20 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+
+			<plugin>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<version>2.5.2</version>
+				<configuration>
+					<from>
+						<image>openjdk:14</image>
+					</from>
+					<to>
+						<image>${image.prefix}${project.artifactId}</image>
+					</to>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

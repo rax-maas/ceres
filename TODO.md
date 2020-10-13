@@ -2,13 +2,16 @@
 - [ ] Implement error handling on downsample storage
 - [ ] More logging throughout, such as pending downsampler logs
 - [ ] Add Flux/Mono checkpoint() operators to improve stack traces
-- [ ] Metrics, especially in downsampler
-- [ ] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
+- [x] Metrics, especially in downsampler
+- [x] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
 - [ ] Enforce sanity bounds on ingested metric timestamps
 - [ ] Auto-detect if ingested timestamp is either seconds or milliseconds since OpenTSDB API docs allow for either
 - [ ] Add support for string "metrics"
 - [ ] Extract metric name prefix and store in metric group table. For example, `diskio_iops_in_progress`, `diskio_merged_writes`, etc could be retrieved by metric group "diskio"
 - [ ] Validate downsampling `timeSlotWidth` property is a multiple of largest granularity width. Also need to validate that granularity `widths` are multiples of width smaller than each.
+- [ ] Fix: when querying /metadata/tenants, warning `Aggregation query used without partition key`
+- [ ] Dynamic partition assignments for downsample processing
+- [ ] Use custom validator to validate downsample granularities when partitionsToProcess or partitionsMappingFile is configured
 - [x] End to end testing of DownsampleProcessor
 - [x] Implement OpenTSDB ingest HTTP API
 - [x] Implement simple query of downsampled data
