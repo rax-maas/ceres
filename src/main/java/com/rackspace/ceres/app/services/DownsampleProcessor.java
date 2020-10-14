@@ -106,13 +106,17 @@ public class DownsampleProcessor {
     }
 
     scheduled = partitionsToProcess.stream()
-        .map(partition ->
-            taskScheduler.scheduleAtFixedRate(
-                () -> processPartition(partition),
-                Instant.now()
-                    .plus(randomizeInitialDelay()),
-                downsampleProperties.getDownsampleProcessPeriod()
-            )
+        .map(partition -> {
+          final Duration initialDelay = randomizeInitialDelay();
+          log.debug("Scheduling partition={} after={} every={}",
+              partition, initialDelay, downsampleProperties.getDownsampleProcessPeriod());
+          return taskScheduler.scheduleAtFixedRate(
+                  () -> processPartition(partition),
+                  Instant.now()
+                      .plus(initialDelay),
+                  downsampleProperties.getDownsampleProcessPeriod()
+              );
+            }
         )
         .collect(Collectors.toList());
 
@@ -156,7 +160,7 @@ public class DownsampleProcessor {
   private Duration randomizeInitialDelay() {
     return downsampleProperties.getInitialProcessingDelay()
         .plus(
-            downsampleProperties.getInitialProcessingDelay().dividedBy(
+            downsampleProperties.getDownsampleProcessPeriod().dividedBy(
                 2 + new Random().nextInt(8)
             )
         );
@@ -180,7 +184,7 @@ public class DownsampleProcessor {
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
-    log.debug("Processing downsample set {}", pendingDownsampleSet);
+    log.trace("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSet());
 
@@ -205,7 +209,7 @@ public class DownsampleProcessor {
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
             .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
-            .doOnSuccess(o -> log.debug("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
