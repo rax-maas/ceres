@@ -207,8 +207,6 @@ For each `partition`:
       - `SREM` the value from the respective pending key, where last `SREM` will remove the entire key
   - Repeat `SCAN` until cursor returns 0
 
-Note: `SPOP` removes the key when the last item is popped, so the iterative `SPOP` usage above  will take care of "self cleaning" the keys as work progresses through the downsample slots
-
 - Each ready downsample set is used to determine the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range.
 - The following aggregations are considered for each downsample:
     - min
