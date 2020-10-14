@@ -19,10 +19,12 @@ package com.rackspace.ceres.app.services;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
 import java.time.Duration;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
@@ -56,8 +58,12 @@ public class DataWriteService {
   }
 
   public Mono<Metric> ingest(String tenant, Metric metric) {
+    cleanTags(metric.getTags());
+
     final String seriesSet = seriesSetService
         .buildSeriesSet(metric.getMetric(), metric.getTags());
+
+    log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
     return
         storeRawData(tenant, metric, seriesSet)
@@ -66,6 +72,13 @@ public class DataWriteService {
             .and(metadataService.storeMetadata(tenant, metric, seriesSet))
             .and(downsampleTrackingService.track(tenant, seriesSet, metric.getTimestamp()))
             .then(Mono.just(metric));
+  }
+
+  private void cleanTags(Map<String, String> tags) {
+    tags.entrySet()
+        .removeIf(entry ->
+            !StringUtils.hasText(entry.getKey()) ||
+            !StringUtils.hasText(entry.getValue()));
   }
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSet) {
