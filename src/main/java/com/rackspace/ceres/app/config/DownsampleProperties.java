@@ -71,14 +71,6 @@ public class DownsampleProperties {
   Duration downsampleProcessPeriod = Duration.ofMinutes(1);
 
   /**
-   * The amount of time to wait in between pending downsample set retrievals. After no more are
-   * pending for the partition, then the regular schedule using <code>downsampleProcessPeriod</code>
-   * is resumed.
-   */
-  @DurationUnit(ChronoUnit.SECONDS)
-  Duration pendingRetrieveRepeatDelay = Duration.ofSeconds(1);
-
-  /**
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
    */
   IntegerSet partitionsToProcess;
