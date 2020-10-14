@@ -164,3 +164,12 @@ GET http://localhost:8080/api/query?
 ## Design
 
 Design documentation is available in [DESIGN.md](DESIGN.md).
+
+## Running with Skaffold / Cloud Code
+
+The [Cloud Code plugin for IntelliJ / VS Code](https://cloud.google.com/code) or [Skaffold](https://skaffold.dev/) by itself can be used to deploy a development instance of this application to a kubernetes cluster.
+
+With Cloud Code, create a "Cloud Code: Kubernetes" run config with at least the following settings:
+- Container image storage set to a repo path that you have write-access
+- "Run -> Deployment -> Switch context and deploy to" enabled and set to a specific kube config context
+- "Build / Deploy -> Skaffold configuration" set to the `skaffold.yaml` located in this module

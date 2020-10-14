@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres
+spec:
+  selector:
+    app: ceres
+  ports:
+    - port: 8080
+      name: http
+    - port: 8081
+      name: actuator
