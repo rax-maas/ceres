@@ -16,6 +16,8 @@
 
 package com.rackspace.ceres.app.config;
 
+import static com.rackspace.ceres.app.services.DataTablesStatements.TABLE_NAME_RAW;
+
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
@@ -104,7 +106,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
 
   private CreateTableSpecification dataRawTableSpec(Duration ttl) {
     return CreateTableSpecification
-        .createTable(dataTablesStatements.tableNameRaw())
+        .createTable(TABLE_NAME_RAW)
         .ifNotExists()
         .partitionKeyColumn(DataTablesStatements.TENANT, DataTypes.TEXT)
         .partitionKeyColumn(DataTablesStatements.SERIES_SET, DataTypes.TEXT)

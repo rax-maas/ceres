@@ -16,6 +16,8 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.services.DataTablesStatements.INSERT_RAW;
+
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
 import java.time.Duration;
@@ -83,14 +85,14 @@ public class DataWriteService {
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSet) {
     return cqlTemplate.execute(
-        dataTablesStatements.insertRaw(),
+        INSERT_RAW,
         tenant, seriesSet, metric.getTimestamp(), metric.getValue().doubleValue()
     );
   }
 
   public Flux<Tuple2<DataDownsampled,Boolean>> storeDownsampledData(Flux<DataDownsampled> data, Duration ttl) {
     return data.flatMap(entry -> cqlTemplate.execute(
-        dataTablesStatements.insertDownsampled(entry.getGranularity()),
+        dataTablesStatements.downsampleInsert(entry.getGranularity()),
         entry.getTenant(), entry.getSeriesSet(), entry.getAggregator().name(),
         entry.getTs(), entry.getValue()
         )

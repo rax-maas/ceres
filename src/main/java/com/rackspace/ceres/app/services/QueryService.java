@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.services.DataTablesStatements.QUERY_RAW;
 import static java.util.Objects.requireNonNull;
 
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -65,7 +66,7 @@ public class QueryService {
             mapSeriesSetResult(tenant, seriesSet,
                 // TODO use repository and projections
                 cqlTemplate.queryForRows(
-                    dataTablesStatements.queryRaw(),
+                    QUERY_RAW,
                     tenant, seriesSet, start, end
                 )
             )
@@ -75,7 +76,7 @@ public class QueryService {
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
                                               Instant start, Instant end) {
     return cqlTemplate.queryForRows(
-        dataTablesStatements.queryRaw(),
+        QUERY_RAW,
         tenant, seriesSet, start, end
     )
         .map(row ->

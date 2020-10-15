@@ -16,11 +16,14 @@
 
 package com.rackspace.ceres.app.config;
 
-import org.springframework.cache.annotation.EnableCaching;
+import com.github.benmanes.caffeine.cache.AsyncCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableCaching
 public class CacheConfig {
 
 }
