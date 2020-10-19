@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: ceres
+  name: ceres
+spec:
+  replicas: 4
+  serviceName: ceres
+  selector:
+    matchLabels:
+      app: ceres
+  template:
+    metadata:
+      labels:
+        app: ceres
+        prometheus/scrape-type: actuator
+    spec:
+      containers:
+        - image: ceres
+          name: ceres
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: -Xmx2G
+#              value: -XX:+PrintFlagsFinal
+            - name: SPRING_CONFIG_ADDITIONALLOCATION
+              value: /config/
+            - name: SPRING_REDIS_HOST
+              value: loadtest-redis-master
+            - name: SPRING_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: loadtest-redis
+                  key: redis-password
+            - name: SPRING_DATA_CASSANDRA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: loadtest-superuser
+                  key: username
+            - name: SPRING_DATA_CASSANDRA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: loadtest-superuser
+                  key: password
+            - name: SPRING_DATA_CASSANDRA_LOCALDATACENTER
+              value: dc1
+            - name: SPRING_DATA_CASSANDRA_CONTACTPOINTS
+              value: loadtest-seed-service
+            - name: SPRING_DATA_CASSANDRA_REQUEST_TIMEOUT
+              value: 10s
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: actuator
+          resources:
+            requests:
+              cpu: 5000m
+              memory: 3Gi
+            limits:
+              cpu: 6000m
+              memory: 3Gi
+          volumeMounts:
+            - mountPath: /config
+              name: ceres-config
+      volumes:
+        - name: ceres-config
+          configMap:
+            name: ceres

@@ -2,8 +2,10 @@ spring:
   data:
     cassandra:
       keyspace-name: ceres
-      local-datacenter: datacenter1
       schema-action: create_if_not_exists
+  cache:
+    # we have redis, but really just want in-memory caching
+    type: simple
 server:
   error:
     include-message: always
@@ -22,3 +24,5 @@ management:
   endpoint:
     health:
       show-components: always
+  server:
+    port: 8081

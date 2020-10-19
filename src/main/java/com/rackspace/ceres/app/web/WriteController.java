@@ -21,9 +21,11 @@ import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.services.DataWriteService;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +39,7 @@ import reactor.util.function.Tuples;
 
 @RestController
 @RequestMapping("/api")
+@Slf4j
 public class WriteController {
 
   private final DataWriteService dataWriteService;
@@ -56,13 +59,18 @@ public class WriteController {
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
             .map(metric -> {
-              if (tenantHeader != null) {
-                return Tuples.of(tenantHeader, metric);
+              String tenant;
+              if (StringUtils.hasText(tenantHeader)) {
+                tenant = tenantHeader;
+              } else {
+                tenant = metric.getTags().remove(appProperties.getTenantTag());
+
+                if (!StringUtils.hasText(tenant)) {
+                  tenant = appProperties.getDefaultTenant();
+                }
               }
 
-              final String tenant = metric.getTags().remove(appProperties.getTenantTag());
-
-              return Tuples.of(tenant != null ? tenant : appProperties.getDefaultTenant(), metric);
+              return Tuples.of(tenant, metric);
             })
     );
 

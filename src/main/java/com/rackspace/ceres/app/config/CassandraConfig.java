@@ -17,13 +17,9 @@
 package com.rackspace.ceres.app.config;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
-import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.metadata.Node;
-import com.datastax.oss.driver.api.core.session.Request;
-import com.datastax.oss.driver.api.core.tracker.RequestTracker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.datastax.oss.driver.api.core.metadata.NodeStateListenerBase;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +30,7 @@ import org.springframework.data.cassandra.core.convert.CassandraConverter;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 
 @Configuration
+@Slf4j
 public class CassandraConfig {
 
   @Bean
@@ -45,30 +42,26 @@ public class CassandraConfig {
 
   @Bean
   public CqlSessionBuilderCustomizer cqlLoggingCustomizer() {
-    final Logger cqlLogger = LoggerFactory.getLogger("cql");
     return cqlSessionBuilder -> {
-      cqlSessionBuilder.withRequestTracker(new RequestTracker() {
+      cqlSessionBuilder.withNodeStateListener(new NodeStateListenerBase() {
         @Override
-        public void onSuccess(Request request, long latencyNanos,
-                              DriverExecutionProfile executionProfile, Node node,
-                              String requestLogPrefix) {
-          if (request instanceof SimpleStatement) {
-            cqlLogger.trace("Executed query: {}", ((SimpleStatement) request).getQuery());
-          }
+        public void onAdd(Node node) {
+          log.debug("Node={} ADD", node);
         }
 
         @Override
-        public void onError(Request request, Throwable error, long latencyNanos,
-                            DriverExecutionProfile executionProfile, Node node,
-                            String requestLogPrefix) {
-          if (request instanceof SimpleStatement) {
-            cqlLogger.warn("Query failed: {}", ((SimpleStatement) request).getQuery(), error);
-          }
+        public void onUp(Node node) {
+          log.debug("Node={} UP", node);
         }
 
         @Override
-        public void close() throws Exception {
+        public void onDown(Node node) {
+          log.debug("Node={} DOWN", node);
+        }
 
+        @Override
+        public void onRemove(Node node) {
+          log.debug("Node={} REMOVE", node);
         }
       });
     };

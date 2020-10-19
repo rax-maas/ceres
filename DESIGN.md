@@ -14,7 +14,15 @@ The Cassandra tables in the `ceres` keyspace (by default) are organized into two
 ---|---|---
 PK | tenant |
 CK | metric_name | 
-&nbsp; | aggregators | `set<text>` of one or more of raw,min,max,sum,count,avg
+
+`series_set_hashes`
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+CK | series_set_hash | Hash as base64 text
+&nbsp; | metric_name | 
+&nbsp; | tags | map<text,text>
 
 `series_sets`:
 
@@ -24,7 +32,7 @@ PK | tenant |
 PK | metric_name | 
 CK | tag_key |
 CK | tag_value |
-CK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
+CK | series_set_hash | 
 
 #### Data
 
@@ -33,7 +41,7 @@ CK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
 &nbsp; | Name | Notes
 ---|---|---
 PK | tenant |
-PK | series_set | As `{metric_name},{tagK}={tagV},...` with tagK sorted
+PK | series_set_hash | 
 CK | ts | timestamp of ingested metric
 &nbsp; | value | Metric value as double
 
@@ -41,70 +49,82 @@ To be a bit more explicit, all these tables are updated/inserted on ingest.  The
 
 ### Series-Set
 
-Each series is identified by a "series-set" which is a compact, textual, stable representation of a series.
+Each metric value is identified by a combination of timestamp, tenant, and series-set. A series-set is a combination of the metric name and tags where the tags are sorted by tag key to ensure consistent evaluation.
 
-The syntax is:
-```
-{metric_name},{tag_key}={tag_value},{tag_key}={tag_value},...
-```
+Since the textual encoding of a series-set could vary greatly in length due to the number and complexity of tags in the ingested data, most of the tables store a hash string of the series-set, named as `series_set_hash`. The stored hash string is computed as follows:
+1. Sort the tags by key
+2. Compute a 128-bit murmur3 hash of the metric name and sorted tags
+3. Convert the 128-bit hash value into a Base64 string of 24 characters
 
-where the tag key-value pairs are sorted by tag key to ensure a stable and deterministic structure.
-
-The `series_sets` table is effectively an index of each `tag_key`-`tag_value` pair to the one or more series sets that contain that tag pair.
+The series-sets metadata is tracked using a combination of the `series_sets` and `series_set_hashes` tables where the two tables cross-index into each other in order to satisfy various metadata retrievals.
 
 ### Ingest
 
 When ingesting a metric, the following actions occur:
-1. A series-set is computed from the metric name and tags, [as described above](#series-set)
-2. The data value itself is inserted
-3. The metadata of the metric series is "upserted". 
-   - Cassandra doesn't have first-class support for upserts; however, the metadata tables consist entirely of primary key columns and a CQL `INSERT` differs from SQL in that it will ensure "the row is created if none existed before, and updated otherwise"
-   - Four tables are involved in the metadata upsert in order to accommodate the denormalized/NoSQL nature of Cassandra and enable metadata retrieval by each facet
-   - Since ingest works with raw metrics, the `raw` column, and only that column, of `metric_names` will be updated to a value `true`
+1. A series-set hash is computed from the metric name and tags, [as described above](#series-set)
+2. The data value itself is inserted into `data_raw`
+3. The metadata is updated, as follows:
+   - With the series-set hash and its constituent parts, the `series_set_hashes` table is `INSERT`ed using an `IF NOT EXISTS` qualifier. **NOTE** the result of this operation is cached since `IF NOT EXISTS` incurs a non-negligible performance cost since it requires the use of the [Paxos consensus protocol](https://www.datastax.com/blog/2013/07/lightweight-transactions-cassandra-20)
+   - If that operation resulted in a new row being applied, as conveyed by the query response, then the following metadata is also inserted:
+     - A row for each tag key-value is inserted into `series_set`
+     - A row for the metric name is inserted into `metric_names`
 
 ### Data Query
 
 The goal of a data query is to provide the data for the requested tenant, metric name, and one or more tags whose timestamped values fall within the requested time range
 
-Such a query is performed in two steps:
-- query the series_set table to retrieve the metadata for the requested tenant, metric name, and tags 
-- use that metadata to query the data_raw table to retrieve the values that fall within the requested time range
+Such a query is performed using the following steps:
+- Given the tenant, metric name, and tags, query the `series_sets` table to retrieve the applicable series-set hashes 
+- Use the series-set hashes to query the `data_raw` table to retrieve the values that fall within the requested time range
+- For each matching series-set, the response includes a result set composed of
+  - A list of timestamp-value pairs
+  - The metric name
+  - The full tags from the series-set. The `series_set_hashes` table is used to locate those tags given the hash from the first step
 
-The first step is achieved by retrieving the list of series-sets for each request tag (key-value). For example, let's say the query is requesting the metric `cpu_idle` and results for the tags `os=linux` and `deployment=prod`. A metadata retrieval of series-sets for each tag would be:
+As an example, let's say the user's query is requesting the metric `cpu_idle` for Linux servers in production by specifying the tags `os=linux` and `deployment=prod`. 
 
-For `os=linux`:
+A retrieval from `series_sets` for `os=linux` could be:
+
+| tenant | metric\_name | tag\_key | tag\_value | series\_set\_hash |
+| :--- | :--- | :--- | :--- | :--- |
+| t-1 | cpu\_idle | os | linux | hash3 |
+| t-1 | cpu\_idle | os | linux | hash1 |
+| t-1 | cpu\_idle | os | linux | hash4 |
+
+> NOTE: the hash strings would not normally look like "hash3", etc but instead would be Base64 encoded strings
+
+...and for `deployment=prod` could be:
 
 | tenant | metric\_name | tag\_key | tag\_value | series\_set |
 | :--- | :--- | :--- | :--- | :--- |
-| t-1 | cpu\_idle | os | linux | cpu\_idle,deployment=dev,host=h-3,os=linux |
-| t-1 | cpu\_idle | os | linux | cpu\_idle,deployment=prod,host=h-1,os=linux |
-| t-1 | cpu\_idle | os | linux | cpu\_idle,deployment=prod,host=h-4,os=linux |
+| t-1 | cpu\_idle | deployment | prod | hash1 |
+| t-1 | cpu\_idle | deployment | prod | hash2 |
+| t-1 | cpu\_idle | deployment | prod | hash4 |
 
-For `deployment=prod`:
+The series-sets to retrieve from the data table can then be computed by finding the intersection of the resulting hashes. With the example above, that intersection would be:
 
-| tenant | metric\_name | tag\_key | tag\_value | series\_set |
-| :--- | :--- | :--- | :--- | :--- |
-| t-1 | cpu\_idle | deployment | prod | cpu\_idle,deployment=prod,host=h-1,os=linux |
-| t-1 | cpu\_idle | deployment | prod | cpu\_idle,deployment=prod,host=h-2,os=windows |
-| t-1 | cpu\_idle | deployment | prod | cpu\_idle,deployment=prod,host=h-4,os=linux |
+- `hash1`
+- `hash4`
 
-The series-sets to retrieve from the data table can then be computed by finding the intersection of `series_set` from all of the tag retrievals. With the example above, that intersection would be:
-
-- `cpu_idle,deployment=prod,host=h-1,os=linux`
-- `cpu_idle,deployment=prod,host=h-4,os=linux`
-
-The second step of the query is achieved by iterating over each series-set and querying the data table by tenant, series-set, and the requested time-range. Continuing the example, those rows from `data_raw` would be:
+The next step is achieved by querying the data table for each series-set hash, tenant, and the requested time-range. Continuing the example, those rows from `data_raw` could be:
 
 | tenant | series\_set | ts | value |
 | :--- | :--- | :--- | :--- |
-| t-1 | cpu\_idle,deployment=prod,host=h-4,os=linux | 2020-08-24 16:34:05.000 | 477 |
-| t-1 | cpu\_idle,deployment=prod,host=h-1,os=linux | 2020-08-24 15:51:15.000 | 186 |
-| t-1 | cpu\_idle,deployment=prod,host=h-1,os=linux | 2020-08-24 16:23:54.000 | 828 |
-| t-1 | cpu\_idle,deployment=prod,host=h-1,os=linux | 2020-08-24 16:23:58.000 | 842 |
-| t-1 | cpu\_idle,deployment=prod,host=h-1,os=linux | 2020-08-24 16:26:52.000 | 832 |
-| t-1 | cpu\_idle,deployment=prod,host=h-1,os=linux | 2020-08-24 16:34:05.000 | 436 |
+| t-1 | hash4 | 2020-08-24 16:34:05.000 | 477 |
+| t-1 | hash1 | 2020-08-24 15:51:15.000 | 186 |
+| t-1 | hash1 | 2020-08-24 16:23:54.000 | 828 |
+| t-1 | hash1 | 2020-08-24 16:23:58.000 | 842 |
+| t-1 | hash1 | 2020-08-24 16:26:52.000 | 832 |
+| t-1 | hash1 | 2020-08-24 16:34:05.000 | 436 |
 
-The resulting JSON structure derives the metric name and tag-map by decomposing the series-sets of the results and combining each with the timestamp-values. For example:
+Finally, the full set of tags to include in the result sets are queried from `series_set_hashs`, such as:
+
+| tenant | series\_set\_hash | metric\_name | tags |
+| :--- | :--- | :--- | :--- |
+| t-1 | hash4 | cpu\_idle | {deployment=prod, host=h-4, os=linux} |
+| t-1 | hash4 | cpu\_idle | {deployment=prod, host=h-1, os=linux} |
+
+The user's query response would then be rendered as:
 
 ```json
 [
@@ -183,16 +203,15 @@ The following diagram shows the high level relationship of raw metrics in a give
 > The timeline is marked with an example granularity set of 5 minutes (5m) and 1 hour (1h).
 > The segment markers below the timeline indicate target granularities, where the bottom-most, solid segment indicates the downsample time slot width to be processed.
 
-The following introduces the table structure for `data_downsampled`, which is the destination of the process described next.
+The following introduces the table structure for each downsampled data table. The `{granularity}` in the table name is the granularity's ISO-8601 format as a lowercase string, such as `pt5m`. A separate table is used per granularity in order to ensure Cassandra efficiently processes the default TTL per table using the [Time Window Compaction Strategy](https://cassandra.apache.org/doc/latest/operating/compaction/twcs.html#twcs).
 
-`data_downsampled` table:
+`data_{granularity}` table, where  is a lowercased duration string, such :
 
 &nbsp; | Name | Notes
 -------|------|------
 PK | tenant | 
-PK | series_set | Same as original raw series_set
+PK | series_set_hash | 
 CK | aggregator | One of min,max,sum,count,avg
-CK | granularity | String in [quantity unit form](https://cassandra.apache.org/doc/latest/cql/types.html#working-with-durations)
 CK | ts | timestamp rounded down by granularity
 &nbsp; | value | 
 
@@ -206,8 +225,6 @@ For each `partition`:
       - Process pending downsample since value contained `tenant` and `seriesSet`
       - `SREM` the value from the respective pending key, where last `SREM` will remove the entire key
   - Repeat `SCAN` until cursor returns 0
-
-Note: `SPOP` removes the key when the last item is popped, so the iterative `SPOP` usage above  will take care of "self cleaning" the keys as work progresses through the downsample slots
 
 - Each ready downsample set is used to determine the raw data query to perform since it includes tenant, series-set, `time_slot` as the start of the time range and `time_slot` + slot width as end of time range.
 - The following aggregations are considered for each downsample:

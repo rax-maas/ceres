@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -166,6 +167,11 @@ class DataWriteServiceTest {
       verify(downsampleTrackingService).track(tenant2, seriesSet2, metric2.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+    }
+
+    @Test
+    void emptyTagValue() {
+      Assertions.fail("TODO");
     }
 
     private void assertViaQuery(String tenant, String seriesSet, Metric metric) {

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceres
+data:
+  partitions.json: |-
+    {
+      "ceres-0": "0-15",
+      "ceres-1": "16-31",
+      "ceres-2": "32-47",
+      "ceres-3": "48-63"
+    }
+  application.yml: |-
+    ceres:
+      downsample:
+        downsample-process-period: 10m
+        granularities:
+          - width: 5m
+            ttl: 14d
+          - width: 1h
+            ttl: 365d
+        partitions: 64
+        partitions-mapping-file: /config/partitions.json
+        # must be multiple of max granularity width
+        time-slot-width: 1h
+      raw-ttl: 48h
+      tenant-tag: tenant_id
+    logging:
+      level:
+        com.rackspace.ceres.app: debug

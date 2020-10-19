@@ -1,0 +1,26 @@
+# This file is used to help identify properties that need to be configured in typical deployments
+ceres:
+  downsample:
+    downsample-process-period: 10m
+    granularities:
+      - width: 5m
+        ttl: 14d
+      - width: 1h
+        ttl: 365d
+    partitions: 64
+    partitions-mapping-file: /config/partitions.json
+    # must be multiple of max granularity width
+    time-slot-width: 1h
+  raw-ttl: 48h
+spring:
+  data:
+    cassandra:
+      username: ${cassandra-username}
+      password: ${cassandra-password}
+      local-datacenter: ${cassandra-dc}
+      contact-points: ${cassandra-contact-points}
+      request:
+        timeout: ${cassandra-request-timeout}
+  redis:
+    host: ${redis-host}
+    password: ${redis-password}
