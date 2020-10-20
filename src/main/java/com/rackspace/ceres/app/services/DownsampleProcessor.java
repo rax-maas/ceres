@@ -186,18 +186,18 @@ public class DownsampleProcessor {
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
     log.trace("Processing downsample set {}", pendingDownsampleSet);
 
-    final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSet());
+    final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
     final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
         pendingDownsampleSet.getTenant(),
-        pendingDownsampleSet.getSeriesSet(),
+        pendingDownsampleSet.getSeriesSetHash(),
         pendingDownsampleSet.getTimeSlot(),
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
     );
 
     final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateData(data,
         pendingDownsampleSet.getTenant(),
-        pendingDownsampleSet.getSeriesSet(),
+        pendingDownsampleSet.getSeriesSetHash(),
         downsampleProperties.getGranularities().iterator(), isCounter
     );
 
@@ -286,6 +286,6 @@ public class DownsampleProcessor {
         .setTs(agg.getTimestamp())
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
-        .setSeriesSet(seriesSet);
+        .setSeriesSetHash(seriesSet);
   }
 }

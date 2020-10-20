@@ -62,17 +62,18 @@ public class DataWriteService {
   public Mono<Metric> ingest(String tenant, Metric metric) {
     cleanTags(metric.getTags());
 
-    final String seriesSet = seriesSetService
-        .buildSeriesSet(metric.getMetric(), metric.getTags());
+    final String seriesSetHash = seriesSetService
+        .hash(metric.getMetric(), metric.getTags());
 
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
     return
-        storeRawData(tenant, metric, seriesSet)
+        storeRawData(tenant, metric, seriesSetHash)
             .name("ingest")
             .metrics()
-            .and(metadataService.storeMetadata(tenant, metric, seriesSet))
-            .and(downsampleTrackingService.track(tenant, seriesSet, metric.getTimestamp()))
+            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
+                metric.getTags()))
+            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
             .then(Mono.just(metric));
   }
 
@@ -83,17 +84,17 @@ public class DataWriteService {
             !StringUtils.hasText(entry.getValue()));
   }
 
-  private Mono<?> storeRawData(String tenant, Metric metric, String seriesSet) {
+  private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
     return cqlTemplate.execute(
         INSERT_RAW,
-        tenant, seriesSet, metric.getTimestamp(), metric.getValue().doubleValue()
+        tenant, seriesSetHash, metric.getTimestamp(), metric.getValue().doubleValue()
     );
   }
 
   public Flux<Tuple2<DataDownsampled,Boolean>> storeDownsampledData(Flux<DataDownsampled> data, Duration ttl) {
     return data.flatMap(entry -> cqlTemplate.execute(
         dataTablesStatements.downsampleInsert(entry.getGranularity()),
-        entry.getTenant(), entry.getSeriesSet(), entry.getAggregator().name(),
+        entry.getTenant(), entry.getSeriesSetHash(), entry.getAggregator().name(),
         entry.getTs(), entry.getValue()
         )
             .map(applied -> Tuples.of(entry, applied))

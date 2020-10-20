@@ -23,7 +23,6 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.QueryResult;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,7 +57,7 @@ public class QueryService {
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
                                     Map<String, String> queryTags,
                                     Instant start, Instant end) {
-    return metadataService.locateSeriesSets(tenant, metricName, queryTags)
+    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         .name("queryRaw")
         .metrics()
         .flatMapMany(Flux::fromIterable)
@@ -87,7 +86,7 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,
                                             Duration granularity, Map<String, String> queryTags,
                                             Instant start, Instant end) {
-    return metadataService.locateSeriesSets(tenant, metricName, queryTags)
+    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         .name("queryDownsampled")
         .metrics()
         .flatMapMany(Flux::fromIterable)
@@ -112,17 +111,18 @@ public class QueryService {
         // collect the ts->value entries into an ordered, LinkedHashMap
         .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new)
         .filter(values -> !values.isEmpty())
-        .map(values -> buildQueryResult(tenant, seriesSet, values));
+        .flatMap(values -> buildQueryResult(tenant, seriesSet, values));
   }
 
-  private QueryResult buildQueryResult(String tenant, String seriesSet,
-                                       Map<Instant, Double> values) {
-    final MetricNameAndTags metricNameAndTags = seriesSetService.expandSeriesSet(seriesSet);
-
-    return new QueryResult()
-        .setTenant(tenant)
-        .setMetricName(metricNameAndTags.getMetricName())
-        .setTags(metricNameAndTags.getTags())
-        .setValues(values);
+  private Mono<QueryResult> buildQueryResult(String tenant, String seriesSet,
+                                             Map<Instant, Double> values) {
+    return metadataService.resolveSeriesSetHash(tenant, seriesSet)
+        .map(metricNameAndTags ->
+            new QueryResult()
+                .setTenant(tenant)
+                .setMetricName(metricNameAndTags.getMetricName())
+                .setTags(metricNameAndTags.getTags())
+                .setValues(values)
+        );
   }
 }

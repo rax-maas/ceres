@@ -16,27 +16,27 @@
 
 package com.rackspace.ceres.app.entities;
 
+import java.util.Map;
 import lombok.Data;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
+import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
 import org.springframework.data.cassandra.core.mapping.Table;
 
+@Table("series_set_hashes")
 @Data
-@Table("series_sets")
-public class SeriesSet {
+public class SeriesSetHash {
+  public static final String COL_TENANT = "tenant";
+  public static final String COL_SERIES_SET_HASH = "series_set_hash";
 
-  @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 0)
+  @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 0, name = COL_TENANT)
   String tenant;
 
-  @PrimaryKeyColumn(value = "metric_name", type = PrimaryKeyType.PARTITIONED, ordinal = 1)
+  @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1, name = COL_SERIES_SET_HASH)
+  String seriesSetHash;
+
+  @Column("metric_name")
   String metricName;
 
-  @PrimaryKeyColumn(value = "tag_key", type = PrimaryKeyType.CLUSTERED, ordinal = 2)
-  String tagKey;
-
-  @PrimaryKeyColumn(value = "tag_value", type = PrimaryKeyType.CLUSTERED, ordinal = 3)
-  String tagValue;
-
-  @PrimaryKeyColumn(value = "series_set_hash", type = PrimaryKeyType.CLUSTERED, ordinal = 4)
-  String seriesSetHash;
+  Map<String,String> tags;
 }

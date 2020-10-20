@@ -276,7 +276,7 @@ class DownsampleProcessorTest {
     return new DataDownsampled()
         .setTs(Instant.parse(timestamp))
         .setTenant(tenant)
-        .setSeriesSet(seriesSet)
+        .setSeriesSetHash(seriesSet)
         .setGranularity(Duration.ofMinutes(granularityMinutes))
         .setAggregator(aggregator)
         .setValue(value);

@@ -27,5 +27,5 @@ public class PendingDownsampleSet {
 
   String tenant;
 
-  String seriesSet;
+  String seriesSetHash;
 }

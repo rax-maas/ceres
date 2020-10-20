@@ -21,8 +21,10 @@ spec:
           name: ceres
           env:
             - name: JAVA_TOOL_OPTIONS
-              value: -Xmx2G
+              value: -Xmx3G
 #              value: -XX:+PrintFlagsFinal
+            - name: CERES_SERIESSETCACHESIZE
+              value: "5000000"
             - name: SPRING_CONFIG_ADDITIONALLOCATION
               value: /config/
             - name: SPRING_REDIS_HOST
@@ -56,10 +58,20 @@ spec:
           resources:
             requests:
               cpu: 5000m
-              memory: 3Gi
+              memory: 6Gi
             limits:
               cpu: 6000m
-              memory: 3Gi
+              memory: 6Gi
+          readinessProbe:
+            httpGet:
+              port: 8081
+              path: /actuator/health/readiness
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet:
+              port: 8081
+              path: /actuator/health/liveness
+            initialDelaySeconds: 10
           volumeMounts:
             - mountPath: /config
               name: ceres-config

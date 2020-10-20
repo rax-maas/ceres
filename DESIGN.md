@@ -45,7 +45,7 @@ PK | series_set_hash |
 CK | ts | timestamp of ingested metric
 &nbsp; | value | Metric value as double
 
-To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is read during metadata retrieval of tenants and metric names. Metadata queries for tag keys and values given tenant and metric name are resolved by the "series_sets" table. The "series_set" and "data_raw" tables are used in combination by data queries and "data_raw" is also used during downsampling.
+To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is read during metadata retrieval of tenants and metric names. Metadata queries for tag keys and values given tenant and metric name are resolved by the "series_sets" table. The "series_sets" and "data_raw" tables are used in combination by data queries and "data_raw" is also used during downsampling.
 
 ### Series-Set
 
@@ -58,16 +58,27 @@ Since the textual encoding of a series-set could vary greatly in length due to t
 
 The series-sets metadata is tracked using a combination of the `series_sets` and `series_set_hashes` tables where the two tables cross-index into each other in order to satisfy various metadata retrievals.
 
+It is worth noting that Ceres follows the simpler metric-value philosophy that is used by [Prometheus](https://prometheus.io/docs/concepts/data_model/), [OpenTSDB](http://opentsdb.net/docs/build/html/user_guide/writing/index.html#metrics-and-tags), and others. Even Grafana's query retrieval works with a metric-value at a time.
+                                                                          
+This approach tends to be most portable, because metric-field-value structured metrics, like telegraf's/InfluxDB can  be denormalized into metric-value by forming a concatenated `{metric}_{field}` named metric. For example, looking at [telegraf's cpu metrics](https://github.com/influxdata/telegraf/tree/master/plugins/inputs/cpu), the qualified metric names become `cpu_time_user`, `cpu_time_system`, ... `cpu_usage_guest_nice`.
+
 ### Ingest
 
 When ingesting a metric, the following actions occur:
 1. A series-set hash is computed from the metric name and tags, [as described above](#series-set)
-2. The data value itself is inserted into `data_raw`
+2. The data value itself is inserted into the `data_raw` table
 3. The metadata is updated, as follows:
-   - With the series-set hash and its constituent parts, the `series_set_hashes` table is `INSERT`ed using an `IF NOT EXISTS` qualifier. **NOTE** the result of this operation is cached since `IF NOT EXISTS` incurs a non-negligible performance cost since it requires the use of the [Paxos consensus protocol](https://www.datastax.com/blog/2013/07/lightweight-transactions-cassandra-20)
-   - If that operation resulted in a new row being applied, as conveyed by the query response, then the following metadata is also inserted:
-     - A row for each tag key-value is inserted into `series_set`
+   - An in-memory cache is consulted given the key tenant + series-set hash. If that cache entry is present, then (referring to the last step, below) related metadata must already be present in cassandra and the following steps are skipped
+   - A Redis [`SETNX`](https://redis.io/commands/setnx) (SET if Not eXists) operation is performed given the tenant + series-set hash. If the key was present, then the following steps are skipped.
+     
+     NOTE: Redis is used as an intermediate caching layer to ensure that rolling upgrades of Ceres replicas can share the previous lookups as the in-memory cache is warmed up in each replica
+   - With the series-set hash and its constituent parts, the `series_set_hashes` table is `INSERT`ed
+   - The following metadata is also `INSERT`ed:
+     - A row for each tag key-value is inserted into `series_sets`
      - A row for the metric name is inserted into `metric_names`
+     
+     NOTE: even if cache misses of both in-memory and Redis were false indications, then re-insertion of metadata is harmless since Cassandra will resolve an INSERT into an existing row as if it was an UPDATE
+   - The steps above result the tenant + series-set hash entry to be populated in the in-memory cache 
 
 ### Data Query
 
@@ -182,10 +193,10 @@ The following keys are used in Redis to track the pending downsample sets:
 - `pending|<partition>|<slot>` : set
 
 The ingestion process updates those entries as follows:
-- Compute `partition` as `hash(tenant, seriesSet) % partitions`
+- Compute `partition` as `hash(tenant, seriesSetHash) % partitions`
 - Compute `slot` as the timestamp of metric normalized to `timeSlotWidth`. It is encoded in the key as the epoch seconds.
 - Redis `SETEX "ingesting:<partition>:<slot>"` with expiration of 5 minutes (configurable)
-- Redis `SADD "pending:<partition>:<slot>" "<tenant>:<seriesSet>"`
+- Redis `SADD "pending:<partition>:<slot>" "<tenant>:<seriesSetHash>"`
 
 Notes:
 - Expiration could also take into consideration that a downsample time slot that overlaps with the current time should also wait to expire until the end of the time slot and add the configurable duration
@@ -222,7 +233,7 @@ For each `partition`:
     - Extract `slot` suffix from key
     - If not `EXISTS "ingesting:<partition>:<slot>"`
       - `SSCAN "pending:<partition>:<slot>"` over entries in time slot
-      - Process pending downsample since value contained `tenant` and `seriesSet`
+      - Process pending downsample since value contained `tenant` and `seriesSetHash`
       - `SREM` the value from the respective pending key, where last `SREM` will remove the entire key
   - Repeat `SCAN` until cursor returns 0
 

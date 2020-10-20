@@ -14,23 +14,12 @@
  * limitations under the License.
  */
 
-package com.rackspace.ceres.app.downsample;
+package com.rackspace.ceres.app.model;
 
-import java.time.Duration;
-import java.time.Instant;
 import lombok.Data;
 
 @Data
-public class DataDownsampled {
-  String tenant;
-
-  String seriesSetHash;
-
-  Aggregator aggregator;
-
-  Duration granularity;
-
-  Instant ts;
-
-  double value;
+public class SeriesSetCacheKey {
+  final String tenant;
+  final String seriesSetHash;
 }

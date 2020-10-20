@@ -29,7 +29,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 class CeresApplicationTests {
 	@Container
-	public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>();
+	public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
+			CassandraContainerSetup.DOCKER_IMAGE);
 	@TestConfiguration
 	@Import(CassandraContainerSetup.class)
 	public static class TestConfig {

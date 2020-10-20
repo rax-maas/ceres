@@ -19,6 +19,8 @@ package com.rackspace.ceres.app.config;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,4 +28,27 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class CacheConfig {
 
+  private final MeterRegistry meterRegistry;
+  private final AppProperties appProperties;
+
+  @Autowired
+  public CacheConfig(MeterRegistry meterRegistry,
+                     AppProperties appProperties) {
+    this.meterRegistry = meterRegistry;
+    this.appProperties = appProperties;
+  }
+
+  @Bean
+  public AsyncCache<SeriesSetCacheKey,Boolean/*exists*/> seriesSetExistenceCache() {
+    final AsyncCache<SeriesSetCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(appProperties.getSeriesSetCacheSize())
+        .recordStats()
+        .buildAsync();
+
+    // hook up to micrometer since we're not going through Spring Cache
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "seriesSetExistence");
+
+    return cache;
+  }
 }

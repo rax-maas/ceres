@@ -57,6 +57,9 @@ Content-Type: application/json
 
 
 ###
+GET http://localhost:8080/api/metadata/tenants
+
+###
 GET http://localhost:8080/api/metadata/metricNames?tenant=t-1
 
 ###

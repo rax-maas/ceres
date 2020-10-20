@@ -16,41 +16,47 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import java.util.HashMap;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Base64.Encoder;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
+@SuppressWarnings("UnstableApiUsage") // due to guava
 @Service
 public class SeriesSetService {
+  private static final Charset CHARSET = StandardCharsets.UTF_8;
+  private final HashFunction hashFunction;
+  private final Encoder base64Encoder;
 
-  public String buildSeriesSet(String metricName, Map<String, String> tags) {
-    return metricName + "," +
-        tags.entrySet().stream()
-            .sorted(Entry.comparingByKey())
-            .map(tagsEntry -> tagsEntry.getKey() + "=" + tagsEntry.getValue())
-            .collect(Collectors.joining(","));
+  public SeriesSetService() {
+    hashFunction = Hashing.murmur3_128();
+    base64Encoder = Base64.getUrlEncoder();
   }
 
-  public String metricNameFromSeriesSet(String seriesSet) {
-    final String[] parts = seriesSet.split(",");
-    return parts[0];
-  }
+  public String hash(String metricName, Map<String, String> tags) {
+    final Hasher hasher = hashFunction.newHasher()
+        .putString(metricName, CHARSET);
+    tags.entrySet().stream()
+        .sorted(Entry.comparingByKey())
+        .forEach(entry ->
+            hasher.putString(entry.getKey(), CHARSET)
+                .putString(entry.getValue(), CHARSET)
+        );
 
-  public MetricNameAndTags expandSeriesSet(String seriesSet) {
-    final String[] pairs = seriesSet.split(",");
-    final String metricName = pairs[0];
-    final Map<String, String> tags = new HashMap<>(pairs.length - 1);
-    for (int i = 1; i < pairs.length; i++) {
-      final String[] kv = pairs[i].split("=", 2);
-      tags.put(kv[0], kv[1]);
-    }
+    final HashCode hashCode = hasher.hash();
 
-    return new MetricNameAndTags()
-        .setMetricName(metricName)
-        .setTags(tags);
+    return base64Encoder.encodeToString(hashCode.asBytes())
+        // base64 pads length to multiple of 3, such as
+        // r4oa9hFoLqxF3eAXYrLb6g==
+        // so two trailing padding characters are not useful for our string encoding needs
+        .substring(0,22);
   }
 
   public boolean isCounter(String seriesSet) {

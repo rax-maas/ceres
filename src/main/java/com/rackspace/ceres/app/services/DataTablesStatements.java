@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 public class DataTablesStatements {
 
   public static final String TENANT = "tenant";
-  public static final String SERIES_SET = "series_set";
+  public static final String SERIES_SET_HASH = "series_set_hash";
   public static final String AGGREGATOR = "aggregator";
   public static final String TIMESTAMP = "ts";
   public static final String VALUE = "value";
@@ -41,22 +41,22 @@ public class DataTablesStatements {
 
   /**
    * INSERT CQL statement with placeholders
-   * tenant, seriesSet, timestamp, value
+   * tenant, seriesSetHash, timestamp, value
    */
   public static final String INSERT_RAW = "INSERT INTO " + TABLE_NAME_RAW
-      + " (" + String.join(",", TENANT, SERIES_SET, TIMESTAMP, VALUE) + ")"
+      + " (" + String.join(",", TENANT, SERIES_SET_HASH, TIMESTAMP, VALUE) + ")"
       + " VALUES (?, ?, ?, ?)";
 
   /**
    * A SELECT CQL statement with placeholders
-   * tenant, seriesSet, starting timestamp, ending timestamp
+   * tenant, seriesSetHash, starting timestamp, ending timestamp
    * and returns timestamp, value
    */
   public static final String QUERY_RAW = "SELECT " + String.join(",", TIMESTAMP, VALUE)
       + " FROM " + TABLE_NAME_RAW
       + " WHERE"
       + "  " + TENANT + " = ?"
-      + "  AND " + SERIES_SET + " = ?"
+      + "  AND " + SERIES_SET_HASH + " = ?"
       + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
 
   private final Map<Duration, String> downsampleInserts = new HashMap<>();
@@ -78,7 +78,7 @@ public class DataTablesStatements {
 
           downsampleInserts.put(granularity,
             "INSERT INTO " + tableNameDownsampled(granularity)
-                + " (" + String.join(",", TENANT, SERIES_SET, AGGREGATOR, TIMESTAMP, VALUE) + ")"
+                + " (" + String.join(",", TENANT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE) + ")"
                 + " VALUES (?, ?, ?, ?, ?)"
           );
 
@@ -87,7 +87,7 @@ public class DataTablesStatements {
                   + " FROM " + tableNameDownsampled(granularity)
                   + " WHERE"
                   + "  " + TENANT + " = ?"
-                  + "  AND " + SERIES_SET + " = ?"
+                  + "  AND " + SERIES_SET_HASH + " = ?"
                   + "  AND " + AGGREGATOR + " = ?"
                   + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?"
               );
@@ -100,7 +100,7 @@ public class DataTablesStatements {
 
   /**
    * @return an INSERT CQL statement with placeholders
-   * tenant, seriesSet, aggregator, timestamp, value
+   * tenant, seriesSetHash, aggregator, timestamp, value
    */
   public String downsampleInsert(Duration granularity) {
     return downsampleInserts.get(granularity);
@@ -108,7 +108,7 @@ public class DataTablesStatements {
 
   /**
    * @return a SELECT CQL statement with placeholders
-   * tenant, seriesSet, aggregator, starting timestamp, ending timestamp
+   * tenant, seriesSetHash, aggregator, starting timestamp, ending timestamp
    * and returns timestamp, value
    */
   public String queryDownsampled(Duration granularity) {
