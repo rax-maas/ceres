@@ -52,6 +52,8 @@ public class SeriesSetService {
 
     final HashCode hashCode = hasher.hash();
 
+    // String encoding size of the murmur3 128-bit hashing is calculated as
+    // (128 murmur hash bits) / (6 bits per base64 char) = 21.3; rounded up to the next integer = 22
     return base64Encoder.encodeToString(hashCode.asBytes())
         // base64 pads length to multiple of 3, such as
         // r4oa9hFoLqxF3eAXYrLb6g==
