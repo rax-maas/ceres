@@ -1,3 +1,6 @@
 .git
 .idea
 *.iml
+*.md
+*.cql
+*.http

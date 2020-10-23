@@ -8,5 +8,9 @@ spec:
   ports:
     - port: 8080
       name: http
+    # only for dev testing:
     - port: 8081
       name: actuator
+    # only for dev testing:
+    - port: 7091
+      name: jmx
