@@ -16,7 +16,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: info, health, loggers, metrics, prometheus, threaddump
+        include: info, health, loggers, metrics, prometheus, threaddump, configprops
   metrics:
     export:
       influx:
