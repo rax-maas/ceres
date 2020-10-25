@@ -1,0 +1,5 @@
+logging:
+  level:
+    com.rackspace.ceres.app: debug
+    # load balancing policies happen to log node up/down activity
+    com.datastax.oss.driver.internal.core.loadbalancing: debug
