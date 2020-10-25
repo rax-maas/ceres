@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
@@ -48,8 +49,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.util.function.Tuple2;
 
@@ -179,8 +182,23 @@ public class DownsampleProcessor {
     downsampleTrackingService
         .retrieveReadyOnes(partition)
         .flatMap(this::processDownsampleSet)
-        .doOnError(throwable -> log.warn("Failed to process partition={}", partition, throwable))
-        .subscribe();
+        .subscribe(o -> {}, throwable -> {
+          if (Exceptions.isRetryExhausted(throwable)) {
+            throwable = throwable.getCause();
+          }
+          if (isNoNodeAvailable(throwable)) {
+            log.warn("Failed to process partition={}: {}", partition, throwable.getMessage());
+          } else {
+            log.warn("Failed to process partition={}", partition, throwable);
+          }
+        });
+  }
+
+  private static boolean isNoNodeAvailable(Throwable throwable) {
+    if (throwable instanceof CassandraConnectionFailureException) {
+      return throwable.getCause() instanceof NoNodeAvailableException;
+    }
+    return false;
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
@@ -208,7 +226,6 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-            .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
             .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
