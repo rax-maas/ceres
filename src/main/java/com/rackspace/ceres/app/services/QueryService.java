@@ -20,6 +20,7 @@ import static com.rackspace.ceres.app.services.DataTablesStatements.QUERY_RAW;
 import static java.util.Objects.requireNonNull;
 
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
@@ -40,18 +41,18 @@ public class QueryService {
 
   private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
-  private final SeriesSetService seriesSetService;
   private final DataTablesStatements dataTablesStatements;
+  private final AppProperties appProperties;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
                       MetadataService metadataService,
-                      SeriesSetService seriesSetService,
-                      DataTablesStatements dataTablesStatements) {
+                      DataTablesStatements dataTablesStatements,
+                      AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
-    this.seriesSetService = seriesSetService;
     this.dataTablesStatements = dataTablesStatements;
+    this.appProperties = appProperties;
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
@@ -78,9 +79,11 @@ public class QueryService {
         QUERY_RAW,
         tenant, seriesSet, start, end
     )
+        .retryWhen(appProperties.getRetryQueryForDownsample().build())
         .map(row ->
             new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
-        );
+        )
+        .checkpoint();
   }
 
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,

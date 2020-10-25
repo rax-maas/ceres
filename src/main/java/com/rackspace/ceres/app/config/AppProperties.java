@@ -58,4 +58,19 @@ public class AppProperties {
    */
   @Min(0)
   long seriesSetCacheSize = 5000;
+
+  @NotNull
+  RetrySpec retryInsertRaw = new RetrySpec()
+      .setMaxAttempts(5)
+      .setMinBackoff(Duration.ofMillis(100));
+
+  @NotNull
+  RetrySpec retryInsertDownsampled = new RetrySpec()
+      .setMaxAttempts(5)
+      .setMinBackoff(Duration.ofMillis(100));
+
+  @NotNull
+  RetrySpec retryQueryForDownsample = new RetrySpec()
+      .setMaxAttempts(5)
+      .setMinBackoff(Duration.ofMillis(100));
 }

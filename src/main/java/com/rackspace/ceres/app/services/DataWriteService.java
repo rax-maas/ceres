@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.services;
 
 import static com.rackspace.ceres.app.services.DataTablesStatements.INSERT_RAW;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
 import java.time.Duration;
@@ -41,18 +42,21 @@ public class DataWriteService {
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
   private final DownsampleTrackingService downsampleTrackingService;
+  private final AppProperties appProperties;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
                           SeriesSetService seriesSetService,
                           MetadataService metadataService,
                           DataTablesStatements dataTablesStatements,
-                          DownsampleTrackingService downsampleTrackingService) {
+                          DownsampleTrackingService downsampleTrackingService,
+                          AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.downsampleTrackingService = downsampleTrackingService;
+    this.appProperties = appProperties;
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -88,16 +92,21 @@ public class DataWriteService {
     return cqlTemplate.execute(
         INSERT_RAW,
         tenant, seriesSetHash, metric.getTimestamp(), metric.getValue().doubleValue()
-    );
+    )
+        .retryWhen(appProperties.getRetryInsertRaw().build())
+        .checkpoint();
   }
 
   public Flux<Tuple2<DataDownsampled,Boolean>> storeDownsampledData(Flux<DataDownsampled> data, Duration ttl) {
-    return data.flatMap(entry -> cqlTemplate.execute(
-        dataTablesStatements.downsampleInsert(entry.getGranularity()),
-        entry.getTenant(), entry.getSeriesSetHash(), entry.getAggregator().name(),
-        entry.getTs(), entry.getValue()
+    return data.flatMap(entry ->
+        cqlTemplate.execute(
+            dataTablesStatements.downsampleInsert(entry.getGranularity()),
+            entry.getTenant(), entry.getSeriesSetHash(), entry.getAggregator().name(),
+            entry.getTs(), entry.getValue()
         )
+            .retryWhen(appProperties.getRetryInsertDownsampled().build())
             .map(applied -> Tuples.of(entry, applied))
-    );
+    )
+        .checkpoint();
   }
 }
