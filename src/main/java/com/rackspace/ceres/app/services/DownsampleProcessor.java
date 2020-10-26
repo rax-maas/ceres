@@ -54,7 +54,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
-import reactor.util.function.Tuple2;
+import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
@@ -213,14 +213,12 @@ public class DownsampleProcessor {
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
     );
 
-    final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateData(data,
-        pendingDownsampleSet.getTenant(),
-        pendingDownsampleSet.getSeriesSetHash(),
-        downsampleProperties.getGranularities().iterator(), isCounter
-    );
-
     return
-        aggregated
+        downsampleData(data,
+            pendingDownsampleSet.getTenant(),
+            pendingDownsampleSet.getSeriesSetHash(),
+            downsampleProperties.getGranularities().iterator(), isCounter
+        )
             .name("downsample")
             .metrics()
             .then(
@@ -231,7 +229,7 @@ public class DownsampleProcessor {
   }
 
   /**
-   * Aggregates the given data into the next granularity, schedules the storage of that data,
+   * Downsamples the given data into the next granularity, stores that data,
    * and recurses until the remaining granularities are processed.
    * @param data a flux of either raw {@link SingleValueSet}s or
    * aggregated {@link AggregatedValueSet}s from the prior granularity.
@@ -239,16 +237,16 @@ public class DownsampleProcessor {
    * @param seriesSet the series-set of the pending downsample set
    * @param granularities remaining granularties to process
    * @param isCounter indicates if the original metric is a counter or gauge
-   * @return a flux of the stored downsamples along with the "applied" indicator from Cassandra
+   * @return a mono that completes when the aggregated data has been stored
    */
-  public Flux<Tuple2<DataDownsampled, Boolean>> aggregateData(Flux<? extends ValueSet> data,
-                                                              String tenant,
-                                                              String seriesSet,
-                                                              Iterator<Granularity> granularities,
-                                                              boolean isCounter) {
+  public Mono<?> downsampleData(Flux<? extends ValueSet> data,
+                                String tenant,
+                                String seriesSet,
+                                Iterator<Granularity> granularities,
+                                boolean isCounter) {
     if (!granularities.hasNext()) {
       // end of the recursion so pop back out
-      return Flux.empty();
+      return Mono.empty();
     }
 
     final Granularity granularity = granularities.next();
@@ -266,16 +264,15 @@ public class DownsampleProcessor {
                     : ValueSetCollectors.gaugeCollector(granularity.getWidth())
             ));
 
+    // expand the aggregated volue-sets into individual data points to be stored
     final Flux<DataDownsampled> expanded = expandAggregatedData(
         aggregated, tenant, seriesSet, isCounter);
 
     return
-        // store this granularity of aggregated downsamples providing the TTL/retention configured
-        // for this granularity
-        dataWriteService.storeDownsampledData(expanded, granularity.getTtl())
-            .concatWith(
+        dataWriteService.storeDownsampledData(expanded)
+            .then(
                 // ...and recurse into remaining granularities
-                aggregateData(aggregated, tenant, seriesSet, granularities, isCounter)
+                downsampleData(aggregated, tenant, seriesSet, granularities, isCounter)
             )
             .checkpoint();
   }
