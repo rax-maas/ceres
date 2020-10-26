@@ -16,6 +16,8 @@
 
 package com.rackspace.ceres.app.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -23,13 +25,17 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
 
+import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.CacheConfig;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
+import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +76,14 @@ public class MetadataServiceCachingTest {
 
   @Autowired
   MetadataService metadataService;
+
+  @Autowired
+  AsyncCache<SeriesSetCacheKey,Boolean/*exists*/> seriesSetExistenceCache;
+
+  @AfterEach
+  void tearDown() {
+    seriesSetExistenceCache.synchronous().invalidateAll();
+  }
 
   @Test
   void writeThruToCassandraAtFirst() {
@@ -167,20 +181,45 @@ public class MetadataServiceCachingTest {
     final String tagV = randomAlphanumeric(5);
     final Map<String, String> tags = Map.of(tagK, tagV);
 
+    assertThat(seriesSetExistenceCache.synchronous().estimatedSize()).isEqualTo(0);
+
     Mono.from(
         metadataService.storeMetadata(tenant, seriesSetHash1, metricName, tags)
     ).block();
-    verify(opsForValue)
-        .setIfAbsent(String.format("seriesSetHashes|%s|%s", tenant, seriesSetHash1), "");
+
+    await().atMost(Duration.ofSeconds(1)).untilAsserted(() ->
+        assertThat(seriesSetExistenceCache.synchronous().estimatedSize()).isEqualTo(1)
+    );
 
     // store the same again, but it should hit cache and not redis
     Mono.from(
+        metadataService.storeMetadata(tenant, seriesSetHash1, metricName, tags)
+    ).block();
+
+    await().atMost(Duration.ofSeconds(1)).untilAsserted(() ->
+        assertThat(seriesSetExistenceCache.synchronous().estimatedSize()).isEqualTo(1)
+    );
+
+    // store a different one to displace the one cache entry
+    Mono.from(
         metadataService.storeMetadata(tenant, seriesSetHash2, metricName, tags)
     ).block();
+
+    await().atMost(Duration.ofSeconds(1)).untilAsserted(() ->
+        assertThat(seriesSetExistenceCache.synchronous().estimatedSize()).isEqualTo(1)
+    );
+
+    // and back to the first to confirm another cache miss
+    Mono.from(
+        metadataService.storeMetadata(tenant, seriesSetHash1, metricName, tags)
+    ).block();
+
+    verify(opsForValue, times(2))
+        .setIfAbsent(String.format("seriesSetHashes|%s|%s", tenant, seriesSetHash1), "");
     verify(opsForValue)
         .setIfAbsent(String.format("seriesSetHashes|%s|%s", tenant, seriesSetHash2), "");
 
-    verify(redisTemplate, times(2)).opsForValue();
+    verify(redisTemplate, times(3)).opsForValue();
 
     verifyNoMoreInteractions(cqlTemplate, cassandraTemplate, redisTemplate, opsForValue);
   }
