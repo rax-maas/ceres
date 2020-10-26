@@ -13,7 +13,7 @@ data:
   application.yml: |-
     ceres:
       downsample:
-        downsample-process-period: 10m
+        downsample-process-period: 15m
         granularities:
           - width: 5m
             ttl: 14d
@@ -23,8 +23,10 @@ data:
         partitions-mapping-file: /config/partitions.json
         # must be multiple of max granularity width
         time-slot-width: 1h
+        processing-threads: 2
       raw-ttl: 48h
       tenant-tag: tenant_id
+      series-set-cache-size: 2000000
     logging:
       level:
         com.rackspace.ceres.app: debug

@@ -33,8 +33,8 @@ spec:
                 -Dcom.sun.management.jmxremote.ssl=false
                 -Dcom.sun.management.jmxremote.host=0.0.0.0
                 -Djava.rmi.server.hostname=0.0.0.0
-            - name: CERES_SERIESSETCACHESIZE
-              value: "2000000"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "debug"
             - name: SPRING_CONFIG_ADDITIONALLOCATION
               value: /config/
             - name: SPRING_REDIS_HOST
@@ -69,11 +69,11 @@ spec:
               name: jmx
           resources:
             requests:
-              cpu: 5000m
-              memory: 6Gi
+              cpu: 4000m
+              memory: 4Gi
             limits:
-              cpu: 6000m
-              memory: 6Gi
+              cpu: 5000m
+              memory: 4Gi
           readinessProbe:
             httpGet:
               port: 8081
