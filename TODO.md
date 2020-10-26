@@ -1,7 +1,7 @@
 - [ ] Implement `SeriesSetService.isCounter` by matching configured suffixes
-- [ ] Add more Flux/Mono checkpoint() operators to improve stack traces
 - [ ] Enforce sanity bounds on ingested metric timestamps
 - [ ] Auto-detect if ingested timestamp is either seconds or milliseconds since OpenTSDB API docs allow for either
+- [ ] Implement the unit tests failing with TODO
 - [ ] Add support for string "metrics"
 - [ ] Extract metric name prefix and store in metric group table. For example, `diskio_iops_in_progress`, `diskio_merged_writes`, etc could be retrieved by metric group "diskio"
 - [ ] Validate downsampling `timeSlotWidth` property is a multiple of largest granularity width. Also need to validate that granularity `widths` are multiples of width smaller than each.
@@ -13,6 +13,7 @@
 - [ ] Handle stale metadata where "staleness" probably needs to be determined by largest retention period of the downsample granularities
 - [ ] Configurable tag key exclusions to avoid high cardinality noise
 - [ ] Detect high cardinality tags. Could use a paging query of `SELECT tenant, metric_name, COUNT(*) FROM series_sets GROUP BY tenant, metric_name` and then drill into the top-N of those results to find the tag keys with the top-M distinct values using `SELECT tag_key, tag_value FROM series_sets WHERE tenant = ? AND metric_name = ? GROUP BY tag_key, tag_value`
+- [x] Add more Flux/Mono checkpoint() operators to improve stack traces
 - [x] Metrics, especially in downsampler
 - [x] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
 - [x] Implement error handling on downsample storage
