@@ -165,6 +165,10 @@ public class MetadataServiceCachingTest {
     verifyNoMoreInteractions(cqlTemplate, cassandraTemplate, redisTemplate, opsForValue);
   }
 
+  /**
+   * The SpringBootTest at the top sets the cache limit to 1 and this unit test confirms
+   * that entries are cached and evicted, as configured.
+   */
   @Test
   void confirmMaxCacheConfig() {
     when(redisTemplate.opsForValue())
