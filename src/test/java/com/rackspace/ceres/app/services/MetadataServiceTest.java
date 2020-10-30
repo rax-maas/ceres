@@ -111,7 +111,7 @@ class MetadataServiceTest {
   void storeMetadata() {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = randomAlphabetic(5);
-    // NOTE: the series sets are normally encoded as a hash in the seriestSetHash field, but
+    // NOTE: the series sets are normally encoded as a hash in the seriesSetHash field, but
     // using metric,tagK=tagV encoding for ease of debugging test failures
     final String seriesSet1 = unhashedSeriesSet(metricName, Map.of(
         "host", "h-1",
