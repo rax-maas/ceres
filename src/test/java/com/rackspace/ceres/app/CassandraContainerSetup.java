@@ -23,12 +23,14 @@ import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomi
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * To be imported from a unit test that <code>@Testcontainers</code> activated. For example:
  * <pre>
  &#64;Container
- public static CassandraContainer&lt;?&gt; cassandraContainer = new CassandraContainer&lt;&gt;();
+ public static CassandraContainer&lt;?&gt; cassandraContainer = new CassandraContainer&lt;&gt;(
+     CassandraContainerSetup#DOCKER_IMAGE);
  &#64;TestConfiguration
  &#64;Import(CassandraContainerSetup.class)
  public static class TestConfig {
@@ -41,6 +43,7 @@ import org.testcontainers.containers.CassandraContainer;
  */
 @TestConfiguration
 public class CassandraContainerSetup {
+  public static final DockerImageName DOCKER_IMAGE = DockerImageName.parse("cassandra:3.11");
 
   @Bean
   public CqlSessionBuilderCustomizer cqlSessionBuilderCustomizer(CassandraContainer<?> cassandraContainer) {

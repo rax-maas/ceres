@@ -21,8 +21,20 @@ spec:
           name: ceres
           env:
             - name: JAVA_TOOL_OPTIONS
-              value: -Xmx2G
-#              value: -XX:+PrintFlagsFinal
+              value: >
+                -XX:MaxDirectMemorySize=1G
+                -XX:NativeMemoryTracking=summary
+                -XX:FlightRecorderOptions=stackdepth=128
+                -Xmx3G
+                -Dcom.sun.management.jmxremote.local.only=false
+                -Dcom.sun.management.jmxremote.port=7091
+                -Dcom.sun.management.jmxremote.rmi.port=7091
+                -Dcom.sun.management.jmxremote.authenticate=false
+                -Dcom.sun.management.jmxremote.ssl=false
+                -Dcom.sun.management.jmxremote.host=0.0.0.0
+                -Djava.rmi.server.hostname=0.0.0.0
+            - name: SPRING_PROFILES_ACTIVE
+              value: "debug"
             - name: SPRING_CONFIG_ADDITIONALLOCATION
               value: /config/
             - name: SPRING_REDIS_HOST
@@ -45,7 +57,7 @@ spec:
             - name: SPRING_DATA_CASSANDRA_LOCALDATACENTER
               value: dc1
             - name: SPRING_DATA_CASSANDRA_CONTACTPOINTS
-              value: loadtest-seed-service
+              value: loadtest-dc1-service
             - name: SPRING_DATA_CASSANDRA_REQUEST_TIMEOUT
               value: 10s
           ports:
@@ -53,13 +65,25 @@ spec:
               name: http
             - containerPort: 8081
               name: actuator
+            - containerPort: 7091
+              name: jmx
           resources:
             requests:
-              cpu: 5000m
-              memory: 3Gi
+              cpu: 4000m
+              memory: 4Gi
             limits:
-              cpu: 6000m
-              memory: 3Gi
+              cpu: 5000m
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              port: 8081
+              path: /actuator/health/readiness
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet:
+              port: 8081
+              path: /actuator/health/liveness
+            initialDelaySeconds: 10
           volumeMounts:
             - mountPath: /config
               name: ceres-config

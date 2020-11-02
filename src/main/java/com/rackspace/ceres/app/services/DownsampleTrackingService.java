@@ -59,14 +59,14 @@ public class DownsampleTrackingService {
     hashFunction = Hashing.murmur3_32();
   }
 
-  public Publisher<?> track(String tenant, String seriesSet, Instant timestamp) {
+  public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
     if (!properties.isTrackingEnabled()) {
       return Mono.empty();
     }
 
     final HashCode hashCode = hashFunction.newHasher()
         .putString(tenant, HASHING_CHARSET)
-        .putString(seriesSet, HASHING_CHARSET)
+        .putString(seriesSetHash, HASHING_CHARSET)
         .hash();
     final int partition = Hashing.consistentHash(hashCode, properties.getPartitions());
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
@@ -74,7 +74,7 @@ public class DownsampleTrackingService {
     final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, normalizedTimeSlot);
 
     final String pendingKey = encodeKey(PREFIX_PENDING, partition, normalizedTimeSlot);
-    final String pendingValue = encodingPendingValue(tenant, seriesSet);
+    final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
 
     return redisTemplate.opsForValue()
         .set(ingestingKey, "", properties.getLastTouchDelay())
@@ -109,7 +109,7 @@ public class DownsampleTrackingService {
     return redisTemplate.opsForSet()
         .remove(
             encodeKey(PREFIX_PENDING, entry.getPartition(), entry.getTimeSlot()),
-            encodingPendingValue(entry.getTenant(), entry.getSeriesSet())
+            encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash())
         );
   }
 
@@ -131,7 +131,7 @@ public class DownsampleTrackingService {
     return new PendingDownsampleSet()
         .setPartition(partition)
         .setTenant(pendingValue.substring(0, splitValueAt))
-        .setSeriesSet(pendingValue.substring(1+splitValueAt))
+        .setSeriesSetHash(pendingValue.substring(1+splitValueAt))
         .setTimeSlot(Instant.ofEpochSecond(
             Long.parseLong(pendingKey.substring(1 + pendingKey.lastIndexOf(DELIM)))
         ));
@@ -143,13 +143,4 @@ public class DownsampleTrackingService {
         .map(pendingValue -> buildPending(partition, pendingKey, pendingValue));
   }
 
-  private static Publisher<?> notEmpty(Flux<Long> amountFlux) {
-    return amountFlux.handle((amount, sink) -> {
-      if (amount > 0) {
-        sink.next(true);
-      } else {
-        sink.complete();
-      }
-    });
-  }
 }

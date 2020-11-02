@@ -3,7 +3,7 @@ POST http://localhost:8080/api/put
 Content-Type: application/json
 
 {
-  "metric": "cpu_idle",
+  "metric": "memory_free",
   "tags": {
     "tenant": "t-1",
     "os": "linux",
@@ -20,7 +20,7 @@ Content-Type: application/json
 
 [
 {
-  "metric": "cpu_idle",
+  "metric": "memory_free",
   "tags": {
     "tenant": "t-1",
     "os": "linux",
@@ -32,7 +32,7 @@ Content-Type: application/json
 },
 {
   "tenant": "t-1",
-  "metric": "cpu_idle",
+  "metric": "memory_free",
   "tags": {
     "tenant": "t-1",
     "os": "windows",
@@ -43,7 +43,7 @@ Content-Type: application/json
   "value": {{$randomInt}}
 },
 {
-  "metric": "cpu_idle",
+  "metric": "memory_free",
   "tags": {
     "tenant": "t-1",
     "os": "linux",
@@ -57,33 +57,34 @@ Content-Type: application/json
 
 
 ###
+GET http://localhost:8080/api/metadata/tenants
+
+###
 GET http://localhost:8080/api/metadata/metricNames?tenant=t-1
 
 ###
-GET http://localhost:8080/api/metadata/tagKeys?tenant=t-1&metricName=cpu_idle
+GET http://localhost:8080/api/metadata/tagKeys?tenant=t-1&metricName=memory_free
 
 ###
 GET http://localhost:8080/api/metadata/tagValues?
   tenant=t-1
-  &metricName=cpu_idle
-  &tagKey=os
+  &metricName=memory_free
+  &tagKey=resource
 
 ### raw
 GET http://localhost:8080/api/query?
   tenant=t-1
-  &metricName=cpu_idle
-  &tag=os=linux
-  &tag=deployment=prod
-  &start=2020-09-15T16:00:00Z
-  &end=2020-09-15T17:00:00Z
+  &metricName=memory_free
+  &tag=resource=bb9ac298-bb4b-47fc-ab13-7352d0262c83
+  &start=2020-10-23T16:00:00Z
+  &end=2020-10-23T23:00:00Z
 
 ### downsampled
 GET http://localhost:8080/api/query?
   tenant=t-1
-  &metricName=cpu_idle
+  &metricName=memory_free
+  &tag=resource=bb9ac298-bb4b-47fc-ab13-7352d0262c83
+  &start=2020-10-23T16:00:00Z
+  &end=2020-10-23T23:00:00Z
   &aggregator=min
-  &granularity=PT2M
-  &tag=os=linux
-  &tag=deployment=prod
-  &start=2020-09-15T16:00:00Z
-  &end=2020-09-15T17:00:00Z
+  &granularity=PT1H

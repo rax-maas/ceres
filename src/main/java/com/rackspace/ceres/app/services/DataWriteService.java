@@ -16,9 +16,14 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.services.DataTablesStatements.INSERT_RAW;
+
+import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.BatchType;
+import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
-import java.time.Duration;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +33,6 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 @Service
 @Slf4j
@@ -39,18 +43,21 @@ public class DataWriteService {
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
   private final DownsampleTrackingService downsampleTrackingService;
+  private final AppProperties appProperties;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
                           SeriesSetService seriesSetService,
                           MetadataService metadataService,
                           DataTablesStatements dataTablesStatements,
-                          DownsampleTrackingService downsampleTrackingService) {
+                          DownsampleTrackingService downsampleTrackingService,
+                          AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.downsampleTrackingService = downsampleTrackingService;
+    this.appProperties = appProperties;
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -60,17 +67,18 @@ public class DataWriteService {
   public Mono<Metric> ingest(String tenant, Metric metric) {
     cleanTags(metric.getTags());
 
-    final String seriesSet = seriesSetService
-        .buildSeriesSet(metric.getMetric(), metric.getTags());
+    final String seriesSetHash = seriesSetService
+        .hash(metric.getMetric(), metric.getTags());
 
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
     return
-        storeRawData(tenant, metric, seriesSet)
+        storeRawData(tenant, metric, seriesSetHash)
             .name("ingest")
             .metrics()
-            .and(metadataService.storeMetadata(tenant, metric, seriesSet))
-            .and(downsampleTrackingService.track(tenant, seriesSet, metric.getTimestamp()))
+            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
+                metric.getTags()))
+            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
             .then(Mono.just(metric));
   }
 
@@ -81,20 +89,46 @@ public class DataWriteService {
             !StringUtils.hasText(entry.getValue()));
   }
 
-  private Mono<?> storeRawData(String tenant, Metric metric, String seriesSet) {
+  private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
     return cqlTemplate.execute(
-        dataTablesStatements.insertRaw(),
-        tenant, seriesSet, metric.getTimestamp(), metric.getValue().doubleValue()
-    );
+        INSERT_RAW,
+        tenant, seriesSetHash, metric.getTimestamp(), metric.getValue().doubleValue()
+    )
+        .retryWhen(appProperties.getRetryInsertRaw().build())
+        .checkpoint();
   }
 
-  public Flux<Tuple2<DataDownsampled,Boolean>> storeDownsampledData(Flux<DataDownsampled> data, Duration ttl) {
-    return data.flatMap(entry -> cqlTemplate.execute(
-        dataTablesStatements.insertDownsampled(entry.getGranularity()),
-        entry.getTenant(), entry.getSeriesSet(), entry.getAggregator().name(),
-        entry.getTs(), entry.getValue()
+  /**
+   * Stores a batch of downsampled data where it is assumed the flux contains data
+   * of the same tenant, series-set, and granularity.
+   * @param data flux of data to be stored in a downsampled data table
+   * @return a mono that completes when the batch is stored
+   */
+  public Mono<?> storeDownsampledData(Flux<DataDownsampled> data) {
+    return data
+        // convert each data point to an insert-statement
+        .map(entry ->
+            new SimpleStatementBuilder(
+                dataTablesStatements.downsampleInsert(entry.getGranularity())
+            )
+                .addPositionalValues(
+                    entry.getTenant(), entry.getSeriesSetHash(), entry.getAggregator().name(),
+                    entry.getTs(), entry.getValue()
+                )
+                .build()
         )
-            .map(applied -> Tuples.of(entry, applied))
-    );
+        .collectList()
+        // ...and create a batch statement containing those
+        .map(statements -> {
+          final BatchStatementBuilder batchStatementBuilder = new BatchStatementBuilder(
+              BatchType.LOGGED);
+          // NOTE: tried addStatements, but unable to cast iterables
+          statements.forEach(batchStatementBuilder::addStatement);
+          return batchStatementBuilder.build();
+        })
+        // ...and execute the batch
+        .flatMap(cqlTemplate::execute)
+        .retryWhen(appProperties.getRetryInsertDownsampled().build())
+        .checkpoint();
   }
 }

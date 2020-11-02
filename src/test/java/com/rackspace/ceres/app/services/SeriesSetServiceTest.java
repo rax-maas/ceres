@@ -18,7 +18,6 @@ package com.rackspace.ceres.app.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.rackspace.ceres.app.model.MetricNameAndTags;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,27 +32,43 @@ class SeriesSetServiceTest {
   SeriesSetService seriesSetService;
 
   @Test
-  void buildSeriesSet() {
-    final String result = seriesSetService.buildSeriesSet("name_here", Map.of(
+  void hash() {
+    String result = seriesSetService.hash("cpu_idle", Map.of(
         "os", "linux",
-        "host", "server-1",
         "deployment", "prod"
     ));
+    assertThat(result).isEqualTo("r4oa9hFoLqxF3eAXYrLb6g");
 
-    assertThat(result).isEqualTo("name_here,deployment=prod,host=server-1,os=linux");
-  }
+    // vary one thing to confirm differing hash
+    result = seriesSetService.hash("cpu_idle", Map.of(
+        "os", "linux",
+        // ...this tag value
+        "deployment", "dev"
+    ));
+    assertThat(result).isEqualTo("tRhKuFybAMGyRdS4Cw9GPg");
 
-  @Test
-  void expandSeriesSet() {
-    final MetricNameAndTags result = seriesSetService
-        .expandSeriesSet("name_here,deployment=prod,host=server-1,os=linux");
+    // vary one thing to confirm differing hash
+    result = seriesSetService.hash(
+        // ...this metric name
+        "cpu_used", Map.of(
+        "os", "linux",
+        "deployment", "prod"
+    ));
+    assertThat(result).isEqualTo("EXx07xG1KTb2_SGR0JFQOQ");
 
-    assertThat(result).isNotNull();
-    assertThat(result.getMetricName()).isEqualTo("name_here");
-    assertThat(result.getTags()).containsOnly(
-        Map.entry("deployment", "prod"),
-        Map.entry("host", "server-1"),
-        Map.entry("os", "linux")
-    );
+    result = seriesSetService.hash("cpu_idle", Map.of(
+        // ...this tag key
+        "operating_system", "linux",
+        "deployment", "prod"
+    ));
+    assertThat(result).isEqualTo("hInPoxD4-l_bpG4Vp9F9DA");
+
+    result = seriesSetService.hash("cpu_idle", Map.of(
+        // ...reordering of tags
+        "deployment", "prod",
+        "os", "linux"
+    ));
+    // produces same hash
+    assertThat(result).isEqualTo("r4oa9hFoLqxF3eAXYrLb6g");
   }
 }

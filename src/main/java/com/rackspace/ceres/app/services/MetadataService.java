@@ -16,17 +16,29 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
+
+import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
-import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.entities.SeriesSetHash;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -34,36 +46,91 @@ import reactor.core.publisher.Mono;
 @Service
 public class MetadataService {
 
+  private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
+  private static final String DELIM = "|";
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
+  private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
+  private final ReactiveStringRedisTemplate redisTemplate;
+  private final Counter redisHit;
+  private final Counter redisMiss;
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
-                         ReactiveCassandraTemplate cassandraTemplate) {
+                         ReactiveCassandraTemplate cassandraTemplate,
+                         AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
+                         ReactiveStringRedisTemplate redisTemplate,
+                         MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
+    this.seriesSetExistenceCache = seriesSetExistenceCache;
+    this.redisTemplate = redisTemplate;
+
+    redisHit = meterRegistry.counter("seriesSetHash.redisCache", "result", "hit");
+    redisMiss = meterRegistry.counter("seriesSetHash.redisCache", "result", "miss");
   }
 
-  public Publisher<?> storeMetadata(String tenant, Metric metric, String seriesSet) {
-    return
-        cassandraTemplate.insert(
-            new MetricName().setTenant(tenant).setMetricName(metric.getMetric())
-        )
-            .and(
-                Flux.fromIterable(metric.getTags().entrySet())
-                    .flatMap(tagsEntry ->
-                        Flux.concat(
-                            cassandraTemplate.insert(
-                                new SeriesSet()
-                                    .setTenant(tenant)
-                                    .setMetricName(metric.getMetric())
-                                    .setTagKey(tagsEntry.getKey())
-                                    .setTagValue(tagsEntry.getValue())
-                                    .setSeriesSet(seriesSet)
+  public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
+                                    String metricName, Map<String, String> tags) {
+    final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
+        new SeriesSetCacheKey(tenant, seriesSetHash),
+        (key, executor) ->
+            redisTemplate.opsForValue()
+                .setIfAbsent(
+                    PREFIX_SERIES_SET_HASHES + DELIM + key.getTenant() + DELIM + key
+                        .getSeriesSetHash(),
+                    ""
+                )
+                .doOnNext(inserted -> {
+                  if (inserted) {
+                    redisMiss.increment();
+                  } else {
+                    redisHit.increment();
+                  }
+                })
+                // already cached in redis?
+                .flatMap(inserted -> !inserted ? Mono.just(true) :
+                    // not cached, so store the metadata to be sure
+                    storeMetadataInCassandra(tenant, seriesSetHash, metricName,
+                        tags
+                    )
+                        .map(it -> true))
+                .toFuture()
+    );
+
+    return Mono.fromFuture(result);
+  }
+
+  private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,
+                                           String metricName, Map<String, String> tags) {
+    return cassandraTemplate.insert(
+        new SeriesSetHash()
+            .setTenant(tenant)
+            .setSeriesSetHash(seriesSetHash)
+            .setMetricName(metricName)
+            .setTags(tags)
+    )
+        .and(
+            cassandraTemplate.insert(
+                new MetricName().setTenant(tenant)
+                    .setMetricName(metricName)
+            )
+                .and(
+                    Flux.fromIterable(tags.entrySet())
+                        .flatMap(tagsEntry ->
+                            Flux.concat(
+                                cassandraTemplate.insert(
+                                    new SeriesSet()
+                                        .setTenant(tenant)
+                                        .setMetricName(metricName)
+                                        .setTagKey(tagsEntry.getKey())
+                                        .setTagValue(tagsEntry.getValue())
+                                        .setSeriesSetHash(seriesSetHash)
+                                )
                             )
                         )
-                    )
-            );
+                )
+        );
   }
 
   public Mono<List<String>> getTenants() {
@@ -113,13 +180,13 @@ public class MetadataService {
    * @param queryTags series-sets are located by and'ing these tag key-value pairs
    * @return the matching series-sets
    */
-  public Mono<Set<String>> locateSeriesSets(String tenant, String metricName,
-                                            Map<String, String> queryTags) {
+  public Mono<Set<String>> locateSeriesSetHashes(String tenant, String metricName,
+                                                 Map<String, String> queryTags) {
     return Flux.fromIterable(queryTags.entrySet())
         // find the series-sets for each query tag
         .flatMap(tagEntry ->
             cqlTemplate.queryForFlux(
-                "SELECT series_set FROM series_sets"
+                "SELECT series_set_hash FROM series_sets"
                     + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?",
                 String.class,
                 tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
@@ -134,4 +201,23 @@ public class MetadataService {
         );
   }
 
+
+  public Mono<MetricNameAndTags> resolveSeriesSetHash(String tenant, String seriesSetHash) {
+    return cassandraTemplate.selectOne(
+        query(
+            where(COL_TENANT).is(tenant),
+            where(COL_SERIES_SET_HASH).is(seriesSetHash)
+        ),
+        SeriesSetHash.class
+    )
+        .switchIfEmpty(Mono.error(
+            new IllegalStateException("Unable to resolve series-set from hash \""+seriesSetHash+"\"")
+        ))
+        .map(result ->
+            new MetricNameAndTags()
+                .setMetricName(result.getMetricName())
+                .setTags(result.getTags())
+        );
+
+  }
 }

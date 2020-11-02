@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-package com.rackspace.ceres.app.downsample;
+package com.rackspace.ceres.app.config;
 
 import java.time.Duration;
-import java.time.Instant;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 import lombok.Data;
+import reactor.util.retry.Retry;
 
 @Data
-public class DataDownsampled {
-  String tenant;
+public class RetrySpec {
+  @Min(1)
+  int maxAttempts;
 
-  String seriesSetHash;
+  @NotNull
+  Duration minBackoff;
 
-  Aggregator aggregator;
-
-  Duration granularity;
-
-  Instant ts;
-
-  double value;
+  public Retry build() {
+    return Retry.backoff(maxAttempts, minBackoff);
+  }
 }

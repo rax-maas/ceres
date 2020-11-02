@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
@@ -48,10 +49,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
-import reactor.util.function.Tuple2;
+import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
@@ -179,42 +182,54 @@ public class DownsampleProcessor {
     downsampleTrackingService
         .retrieveReadyOnes(partition)
         .flatMap(this::processDownsampleSet)
-        .doOnError(throwable -> log.warn("Failed to process partition={}", partition, throwable))
-        .subscribe();
+        .subscribe(o -> {}, throwable -> {
+          if (Exceptions.isRetryExhausted(throwable)) {
+            throwable = throwable.getCause();
+          }
+          if (isNoNodeAvailable(throwable)) {
+            log.warn("Failed to process partition={}: {}", partition, throwable.getMessage());
+          } else {
+            log.warn("Failed to process partition={}", partition, throwable);
+          }
+        });
+  }
+
+  private static boolean isNoNodeAvailable(Throwable throwable) {
+    if (throwable instanceof CassandraConnectionFailureException) {
+      return throwable.getCause() instanceof NoNodeAvailableException;
+    }
+    return false;
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
     log.trace("Processing downsample set {}", pendingDownsampleSet);
 
-    final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSet());
+    final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
     final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
         pendingDownsampleSet.getTenant(),
-        pendingDownsampleSet.getSeriesSet(),
+        pendingDownsampleSet.getSeriesSetHash(),
         pendingDownsampleSet.getTimeSlot(),
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
     );
 
-    final Flux<Tuple2<DataDownsampled, Boolean>> aggregated = aggregateData(data,
-        pendingDownsampleSet.getTenant(),
-        pendingDownsampleSet.getSeriesSet(),
-        downsampleProperties.getGranularities().iterator(), isCounter
-    );
-
     return
-        aggregated
+        downsampleData(data,
+            pendingDownsampleSet.getTenant(),
+            pendingDownsampleSet.getSeriesSetHash(),
+            downsampleProperties.getGranularities().iterator(), isCounter
+        )
             .name("downsample")
             .metrics()
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-            .doOnError(throwable -> log.warn("Failed to downsample {}", pendingDownsampleSet, throwable))
             .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
   /**
-   * Aggregates the given data into the next granularity, schedules the storage of that data,
+   * Downsamples the given data into the next granularity, stores that data,
    * and recurses until the remaining granularities are processed.
    * @param data a flux of either raw {@link SingleValueSet}s or
    * aggregated {@link AggregatedValueSet}s from the prior granularity.
@@ -222,16 +237,16 @@ public class DownsampleProcessor {
    * @param seriesSet the series-set of the pending downsample set
    * @param granularities remaining granularties to process
    * @param isCounter indicates if the original metric is a counter or gauge
-   * @return a flux of the stored downsamples along with the "applied" indicator from Cassandra
+   * @return a mono that completes when the aggregated data has been stored
    */
-  public Flux<Tuple2<DataDownsampled, Boolean>> aggregateData(Flux<? extends ValueSet> data,
-                                                              String tenant,
-                                                              String seriesSet,
-                                                              Iterator<Granularity> granularities,
-                                                              boolean isCounter) {
+  public Mono<?> downsampleData(Flux<? extends ValueSet> data,
+                                String tenant,
+                                String seriesSet,
+                                Iterator<Granularity> granularities,
+                                boolean isCounter) {
     if (!granularities.hasNext()) {
       // end of the recursion so pop back out
-      return Flux.empty();
+      return Mono.empty();
     }
 
     final Granularity granularity = granularities.next();
@@ -249,16 +264,15 @@ public class DownsampleProcessor {
                     : ValueSetCollectors.gaugeCollector(granularity.getWidth())
             ));
 
+    // expand the aggregated volue-sets into individual data points to be stored
     final Flux<DataDownsampled> expanded = expandAggregatedData(
         aggregated, tenant, seriesSet, isCounter);
 
     return
-        // store this granularity of aggregated downsamples providing the TTL/retention configured
-        // for this granularity
-        dataWriteService.storeDownsampledData(expanded, granularity.getTtl())
-            .concatWith(
+        dataWriteService.storeDownsampledData(expanded)
+            .then(
                 // ...and recurse into remaining granularities
-                aggregateData(aggregated, tenant, seriesSet, granularities, isCounter)
+                downsampleData(aggregated, tenant, seriesSet, granularities, isCounter)
             )
             .checkpoint();
   }
@@ -286,6 +300,6 @@ public class DownsampleProcessor {
         .setTs(agg.getTimestamp())
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
-        .setSeriesSet(seriesSet);
+        .setSeriesSetHash(seriesSet);
   }
 }

@@ -1,17 +1,23 @@
 - [ ] Implement `SeriesSetService.isCounter` by matching configured suffixes
-- [ ] Implement error handling on downsample storage
-- [ ] More logging throughout, such as pending downsampler logs
-- [ ] Add Flux/Mono checkpoint() operators to improve stack traces
-- [x] Metrics, especially in downsampler
-- [x] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
 - [ ] Enforce sanity bounds on ingested metric timestamps
 - [ ] Auto-detect if ingested timestamp is either seconds or milliseconds since OpenTSDB API docs allow for either
+- [ ] Implement the unit tests failing with TODO
 - [ ] Add support for string "metrics"
 - [ ] Extract metric name prefix and store in metric group table. For example, `diskio_iops_in_progress`, `diskio_merged_writes`, etc could be retrieved by metric group "diskio"
 - [ ] Validate downsampling `timeSlotWidth` property is a multiple of largest granularity width. Also need to validate that granularity `widths` are multiples of width smaller than each.
 - [ ] Fix: when querying /metadata/tenants, warning `Aggregation query used without partition key`
 - [ ] Dynamic partition assignments for downsample processing
 - [ ] Use custom validator to validate downsample granularities when partitionsToProcess or partitionsMappingFile is configured
+- [ ] Add actuator metric of the queried time span and related behavior to help operators to know what downsample granularities are actually used by end users
+- [ ] Add actuator metric of the delta between current time and downsampled timeslot. If that value grows beyond the timeslot width + processing interval then it indicates downsample processing might be running too slow
+- [ ] Handle stale metadata where "staleness" probably needs to be determined by largest retention period of the downsample granularities
+- [ ] Configurable tag key exclusions to avoid high cardinality noise
+- [ ] Detect high cardinality tags. Could use a paging query of `SELECT tenant, metric_name, COUNT(*) FROM series_sets GROUP BY tenant, metric_name` and then drill into the top-N of those results to find the tag keys with the top-M distinct values using `SELECT tag_key, tag_value FROM series_sets WHERE tenant = ? AND metric_name = ? GROUP BY tag_key, tag_value`
+- [x] Add more Flux/Mono checkpoint() operators to improve stack traces
+- [x] Metrics, especially in downsampler
+- [x] Option to read partition assignments from a shared config file. The config file would contain a map of hostname to partitions to process, where hostname is the current hostname with an entry in the file. This allows for a Kubernetes StatefulSet deployment where the pod's hostname is used to index into the shared config.
+- [x] Implement error handling on downsample storage
+- [x] More logging throughout, such as pending downsampler logs
 - [x] End to end testing of DownsampleProcessor
 - [x] Implement OpenTSDB ingest HTTP API
 - [x] Implement simple query of downsampled data

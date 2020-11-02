@@ -54,7 +54,8 @@ import reactor.util.function.Tuples;
 class DataWriteServiceTest {
 
   @Container
-  public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>();
+  public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
+      CassandraContainerSetup.DOCKER_IMAGE);
   @TestConfiguration
   @Import(CassandraContainerSetup.class)
   public static class TestConfig {
@@ -85,9 +86,14 @@ class DataWriteServiceTest {
     void single() {
       final String tenantId = RandomStringUtils.randomAlphanumeric(10);
       final String metricName = RandomStringUtils.randomAlphabetic(5);
-      final String seriesSet = metricName + ",deployment=prod,host=h-1,os=linux";
+      final Map<String, String> tags = Map.of(
+          "os", "linux",
+          "host", "h-1",
+          "deployment", "prod"
+      );
+      final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-      when(metadataService.storeMetadata(any(), any(), any()))
+      when(metadataService.storeMetadata(any(), any(), any(), any()))
           .thenReturn(Mono.empty());
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
@@ -99,21 +105,18 @@ class DataWriteServiceTest {
               .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
               .setValue(Math.random())
               .setMetric(metricName)
-              .setTags(Map.of(
-                  "os", "linux",
-                  "host", "h-1",
-                  "deployment", "prod"
-              ))
+              .setTags(tags)
       )
           .block();
 
       assertThat(metric).isNotNull();
 
-      assertViaQuery(tenantId, seriesSet, metric);
+      assertViaQuery(tenantId, seriesSetHash, metric);
 
-      verify(metadataService).storeMetadata(tenantId, metric, seriesSet);
+      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
+          metric.getTags());
 
-      verify(downsampleTrackingService).track(tenantId, seriesSet, metric.getTimestamp());
+      verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -124,10 +127,15 @@ class DataWriteServiceTest {
       final String tenant2 = RandomStringUtils.randomAlphanumeric(10);
       final String metricName1 = RandomStringUtils.randomAlphabetic(5);
       final String metricName2 = RandomStringUtils.randomAlphabetic(5);
-      final String seriesSet1 = metricName1 + ",deployment=prod,host=h-1,os=linux";
-      final String seriesSet2 = metricName2 + ",deployment=prod,host=h-1,os=linux";
+      final Map<String, String> tags = Map.of(
+          "os", "linux",
+          "host", "h-1",
+          "deployment", "prod"
+      );
+      final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
+      final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
 
-      when(metadataService.storeMetadata(any(), any(), any()))
+      when(metadataService.storeMetadata(any(), any(), any(), any()))
           .thenReturn(Mono.empty());
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
@@ -137,34 +145,28 @@ class DataWriteServiceTest {
           .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
           .setValue(Math.random())
           .setMetric(metricName1)
-          .setTags(Map.of(
-              "os", "linux",
-              "host", "h-1",
-              "deployment", "prod"
-          ));
+          .setTags(tags);
       final Metric metric2 = new Metric()
           .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
           .setValue(Math.random())
           .setMetric(metricName2)
-          .setTags(Map.of(
-              "os", "linux",
-              "host", "h-1",
-              "deployment", "prod"
-          ));
+          .setTags(tags);
 
       dataWriteService.ingest(Flux.just(
           Tuples.of(tenant1, metric1),
           Tuples.of(tenant2, metric2)
       )).then().block();
 
-      assertViaQuery(tenant1, seriesSet1, metric1);
-      assertViaQuery(tenant2, seriesSet2, metric2);
+      assertViaQuery(tenant1, seriesSetHash1, metric1);
+      assertViaQuery(tenant2, seriesSetHash2, metric2);
 
-      verify(metadataService).storeMetadata(tenant1, metric1, seriesSet1);
-      verify(metadataService).storeMetadata(tenant2, metric2, seriesSet2);
+      verify(metadataService).storeMetadata(tenant1, seriesSetHash1, metric1.getMetric(),
+          metric1.getTags());
+      verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2.getMetric(),
+          metric2.getTags());
 
-      verify(downsampleTrackingService).track(tenant1, seriesSet1, metric1.getTimestamp());
-      verify(downsampleTrackingService).track(tenant2, seriesSet2, metric2.getTimestamp());
+      verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
+      verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -174,11 +176,11 @@ class DataWriteServiceTest {
       Assertions.fail("TODO");
     }
 
-    private void assertViaQuery(String tenant, String seriesSet, Metric metric) {
+    private void assertViaQuery(String tenant, String seriesSetHash, Metric metric) {
       final List<Row> results = cqlTemplate.queryForRows(
           "SELECT ts, value FROM data_raw"
-              + " WHERE tenant = ? AND series_set = ?",
-          tenant, seriesSet
+              + " WHERE tenant = ? AND series_set_hash = ?",
+          tenant, seriesSetHash
       ).collectList().block();
 
       assertThat(results).isNotNull();

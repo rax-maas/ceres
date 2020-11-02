@@ -19,7 +19,7 @@ package com.rackspace.ceres.app.services;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -51,8 +51,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import reactor.util.function.Tuples;
 
 @SpringBootTest(classes = {
     TestConfig.class,
@@ -116,17 +116,14 @@ class DownsampleProcessorTest {
 
   @Test
   void aggregateSomeRawData() {
-    when(dataWriteService.storeDownsampledData(any(), any()))
-        .then(invocationOnMock -> {
-          final Flux<DataDownsampled> data = invocationOnMock.getArgument(0);
-          return data.map(dataDownsampled -> Tuples.of(dataDownsampled, true));
-        });
+    when(dataWriteService.storeDownsampledData(any()))
+        .thenReturn(Mono.empty());
 
     final String tenant = randomAlphanumeric(10);
     final String seriesSet = randomAlphanumeric(10)+",host=h-1";
 
     StepVerifier.create(
-        downsampleProcessor.aggregateData(
+        downsampleProcessor.downsampleData(
             Flux.just(
                 singleValue("2007-12-03T10:01:23.00Z", 1.2),
                 singleValue("2007-12-03T10:16:11.00Z", 1.5),
@@ -136,14 +133,10 @@ class DownsampleProcessorTest {
             List.of(granularity(15, 12), granularity(60, 24)).iterator(),
             false
         )
-            // just count them since actual values verified within calls below
-            .count()
     )
-        .expectNext(20L)
         .verifyComplete();
 
-    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
-    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
+    verify(dataWriteService, times(2)).storeDownsampledData(dataDownsampledCaptor.capture());
 
     StepVerifier.create(
         dataDownsampledCaptor.getAllValues().get(0)
@@ -190,31 +183,42 @@ class DownsampleProcessorTest {
 
   @Test
   void aggregateOneRawData() {
-    when(dataWriteService.storeDownsampledData(any(), any()))
-        .then(invocationOnMock -> {
-          final Flux<DataDownsampled> data = invocationOnMock.getArgument(0);
-          return data.map(dataDownsampled -> Tuples.of(dataDownsampled, true));
-        });
+    when(dataWriteService.storeDownsampledData(any()))
+        .thenReturn(Mono.empty());
 
     final String tenant = randomAlphanumeric(10);
     final String seriesSet = randomAlphanumeric(10)+",host=h-1";
 
     StepVerifier.create(
-        downsampleProcessor.aggregateData(
+        downsampleProcessor.downsampleData(
             Flux.just(
                 singleValue("2007-12-03T10:01:23.00Z", 1.2)
             ), tenant, seriesSet,
             List.of(granularity(1, 12), granularity(2, 24)).iterator(),
             false
         )
-            // just count them since actual values verified within calls below
-            .count()
     )
-        .expectNext(8L)
         .verifyComplete();
 
-    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(12)));
-    verify(dataWriteService).storeDownsampledData(dataDownsampledCaptor.capture(), eq(Duration.ofHours(24)));
+    verify(dataWriteService, times(2)).storeDownsampledData(dataDownsampledCaptor.capture());
+
+    assertThat(dataDownsampledCaptor.getAllValues().get(0).toIterable())
+        .containsExactly(
+            // normalized to the 1-minute slot at 10:01
+            // all values match since aggregate of single value is the value
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.sum, 1.2),
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.min, 1.2),
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.max, 1.2),
+            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, Aggregator.avg, 1.2)
+        );
+    assertThat(dataDownsampledCaptor.getAllValues().get(1).toIterable())
+        .containsExactly(
+            // same values, just normalized down to the 2-minute slot at 10:00
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.sum, 1.2),
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.min, 1.2),
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.max, 1.2),
+            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, Aggregator.avg, 1.2)
+        );
 
     verifyNoMoreInteractions(dataWriteService);
   }
@@ -276,7 +280,7 @@ class DownsampleProcessorTest {
     return new DataDownsampled()
         .setTs(Instant.parse(timestamp))
         .setTenant(tenant)
-        .setSeriesSet(seriesSet)
+        .setSeriesSetHash(seriesSet)
         .setGranularity(Duration.ofMinutes(granularityMinutes))
         .setAggregator(aggregator)
         .setValue(value);

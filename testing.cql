@@ -19,7 +19,7 @@ WHERE tenant = 't-1'
   AND metric_name = 'cpu_idle'
   AND tag_key = 'os';
 
-SELECT series_set
+SELECT series_set_hash
 FROM series_sets
 WHERE tenant = 't-1'
   AND metric_name = 'cpu_idle'
@@ -32,7 +32,7 @@ FROM data_raw;
 SELECT *
 FROM data_raw
 WHERE tenant = 't-1'
-  AND series_set = 'cpu_idle,deployment=dev,host=h-3,os=linux';
+  AND series_set_hash = 'cpu_idle,deployment=dev,host=h-3,os=linux';
 
 
 // From generated DDL
@@ -40,10 +40,10 @@ WHERE tenant = 't-1'
 create table data_raw
 (
     tenant text,
-    series_set text,
+    series_set_hash text,
     ts timestamp,
     value double,
-    primary key ((tenant, series_set), ts)
+    primary key ((tenant, series_set_hash), ts)
 )
     with caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
      and compaction = {'max_threshold': '32', 'min_threshold': '4', 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy'}
@@ -67,8 +67,8 @@ create table series_sets
     metric_name text,
     tag_key text,
     tag_value text,
-    series_set text,
-    primary key ((tenant, metric_name), tag_key, tag_value, series_set)
+    series_set_hash text,
+    primary key ((tenant, metric_name), tag_key, tag_value, series_set_hash)
 )
     with caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
      and compaction = {'max_threshold': '32', 'min_threshold': '4', 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy'}

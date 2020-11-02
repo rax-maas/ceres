@@ -16,6 +16,8 @@
 
 package com.rackspace.ceres.app.config;
 
+import static com.rackspace.ceres.app.services.DataTablesStatements.TABLE_NAME_RAW;
+
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
@@ -94,7 +96,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .createTable(dataTablesStatements.tableNameDownsampled(width))
         .ifNotExists()
         .partitionKeyColumn(DataTablesStatements.TENANT, DataTypes.TEXT)
-        .partitionKeyColumn(DataTablesStatements.SERIES_SET, DataTypes.TEXT)
+        .partitionKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
         .partitionKeyColumn(DataTablesStatements.AGGREGATOR, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
@@ -104,10 +106,10 @@ public class DataTablesPopulator implements KeyspacePopulator {
 
   private CreateTableSpecification dataRawTableSpec(Duration ttl) {
     return CreateTableSpecification
-        .createTable(dataTablesStatements.tableNameRaw())
+        .createTable(TABLE_NAME_RAW)
         .ifNotExists()
         .partitionKeyColumn(DataTablesStatements.TENANT, DataTypes.TEXT)
-        .partitionKeyColumn(DataTablesStatements.SERIES_SET, DataTypes.TEXT)
+        .partitionKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)

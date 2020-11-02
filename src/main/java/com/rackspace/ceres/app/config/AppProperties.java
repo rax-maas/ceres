@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.config;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -51,4 +52,25 @@ public class AppProperties {
    * the default.
    */
   String defaultTenant = "default";
+
+  /**
+   * Maximum size of the cache that tracks series-sets that have been persisted into Cassandra.
+   */
+  @Min(0)
+  long seriesSetCacheSize = 5000;
+
+  @NotNull
+  RetrySpec retryInsertRaw = new RetrySpec()
+      .setMaxAttempts(5)
+      .setMinBackoff(Duration.ofMillis(100));
+
+  @NotNull
+  RetrySpec retryInsertDownsampled = new RetrySpec()
+      .setMaxAttempts(5)
+      .setMinBackoff(Duration.ofMillis(100));
+
+  @NotNull
+  RetrySpec retryQueryForDownsample = new RetrySpec()
+      .setMaxAttempts(5)
+      .setMinBackoff(Duration.ofMillis(100));
 }

@@ -3,6 +3,7 @@ spring:
     cassandra:
       keyspace-name: ceres
       schema-action: create_if_not_exists
+      local-datacenter: datacenter1
   cache:
     # we have redis, but really just want in-memory caching
     type: simple
@@ -15,7 +16,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: info, health, loggers, metrics, prometheus, threaddump
+        include: info, health, loggers, metrics, prometheus, threaddump, configprops
   metrics:
     export:
       influx:

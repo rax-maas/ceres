@@ -17,10 +17,7 @@
 package com.rackspace.ceres.app.config;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.metadata.Node;
-import com.datastax.oss.driver.api.core.metadata.NodeStateListenerBase;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.cassandra.CqlSessionBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.cassandra.ReactiveSessionFactory;
@@ -38,33 +35,6 @@ public class CassandraConfig {
     // following pattern of
     // org.springframework.boot.autoconfigure.data.cassandra.CassandraReactiveDataAutoConfiguration.reactiveCassandraTemplate
     return new ReactiveCqlTemplate(reactiveSessionFactory);
-  }
-
-  @Bean
-  public CqlSessionBuilderCustomizer cqlLoggingCustomizer() {
-    return cqlSessionBuilder -> {
-      cqlSessionBuilder.withNodeStateListener(new NodeStateListenerBase() {
-        @Override
-        public void onAdd(Node node) {
-          log.debug("Node={} ADD", node);
-        }
-
-        @Override
-        public void onUp(Node node) {
-          log.debug("Node={} UP", node);
-        }
-
-        @Override
-        public void onDown(Node node) {
-          log.debug("Node={} DOWN", node);
-        }
-
-        @Override
-        public void onRemove(Node node) {
-          log.debug("Node={} REMOVE", node);
-        }
-      });
-    };
   }
 
   @Bean

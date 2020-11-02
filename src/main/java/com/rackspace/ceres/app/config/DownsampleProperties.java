@@ -65,6 +65,13 @@ public class DownsampleProperties {
   Duration initialProcessingDelay = Duration.ofMinutes(1);
 
   /**
+   * The number of threads allocated to process downsampling partitions.
+   * The default uses number of available processors reported by the JVM.
+   */
+  @Min(1)
+  int processingThreads = Runtime.getRuntime().availableProcessors();
+
+  /**
    * Specifies how often pending downsample sets will be retrieved and processed.
    */
   @DurationUnit(ChronoUnit.MINUTES)

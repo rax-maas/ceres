@@ -16,81 +16,102 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import java.time.Duration;
-import org.springframework.cache.annotation.Cacheable;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Provides a caching layer for insert and query statements that execute against the configuration-driven
+ * Provides a consolidated declaration of insert and query statements that execute against the configuration-driven
  * data tables schema.
  */
 @Component
 public class DataTablesStatements {
 
   public static final String TENANT = "tenant";
-  public static final String SERIES_SET = "series_set";
+  public static final String SERIES_SET_HASH = "series_set_hash";
   public static final String AGGREGATOR = "aggregator";
   public static final String TIMESTAMP = "ts";
   public static final String VALUE = "value";
+  public static final String TABLE_NAME_RAW = "data_raw";
+  private static final String TABLE_PREFIX_DOWNSAMPLED = "data_";
 
-  public String tableNameRaw() {
-    return "data_raw";
+  /**
+   * INSERT CQL statement with placeholders
+   * tenant, seriesSetHash, timestamp, value
+   */
+  public static final String INSERT_RAW = "INSERT INTO " + TABLE_NAME_RAW
+      + " (" + String.join(",", TENANT, SERIES_SET_HASH, TIMESTAMP, VALUE) + ")"
+      + " VALUES (?, ?, ?, ?)";
+
+  /**
+   * A SELECT CQL statement with placeholders
+   * tenant, seriesSetHash, starting timestamp, ending timestamp
+   * and returns timestamp, value
+   */
+  public static final String QUERY_RAW = "SELECT " + String.join(",", TIMESTAMP, VALUE)
+      + " FROM " + TABLE_NAME_RAW
+      + " WHERE"
+      + "  " + TENANT + " = ?"
+      + "  AND " + SERIES_SET_HASH + " = ?"
+      + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+
+  private final Map<Duration, String> downsampleInserts = new HashMap<>();
+  private final Map<Duration, String> downsampleQueries = new HashMap<>();
+
+  @Autowired
+  public DataTablesStatements(DownsampleProperties downsampleProperties) {
+    buildDownsampleStatements(downsampleProperties);
+  }
+
+  private void buildDownsampleStatements(DownsampleProperties downsampleProperties) {
+    if (downsampleProperties.getGranularities() == null) {
+      return;
+    }
+
+    downsampleProperties.getGranularities().stream()
+        .map(Granularity::getWidth)
+        .forEach(granularity -> {
+
+          downsampleInserts.put(granularity,
+            "INSERT INTO " + tableNameDownsampled(granularity)
+                + " (" + String.join(",", TENANT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE) + ")"
+                + " VALUES (?, ?, ?, ?, ?)"
+          );
+
+          downsampleQueries.put(granularity,
+              "SELECT " + String.join(",", TIMESTAMP, VALUE)
+                  + " FROM " + tableNameDownsampled(granularity)
+                  + " WHERE"
+                  + "  " + TENANT + " = ?"
+                  + "  AND " + SERIES_SET_HASH + " = ?"
+                  + "  AND " + AGGREGATOR + " = ?"
+                  + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?"
+              );
+        });
   }
 
   public String tableNameDownsampled(Duration granularity) {
-    return "data_" + granularity.toString().toLowerCase();
+    return TABLE_PREFIX_DOWNSAMPLED + granularity.toString().toLowerCase();
   }
 
   /**
    * @return an INSERT CQL statement with placeholders
-   * tenant, seriesSet, timestamp, value
+   * tenant, seriesSetHash, aggregator, timestamp, value
    */
-  @Cacheable("insertRaw")
-  public String insertRaw() {
-    return "INSERT INTO " + tableNameRaw()
-        + " (" + String.join(",", TENANT, SERIES_SET, TIMESTAMP, VALUE) + ")"
-        + " VALUES (?, ?, ?, ?)";
-  }
-
-  /**
-   * @return an INSERT CQL statement with placeholders
-   * tenant, seriesSet, aggregator, timestamp, value
-   */
-  @Cacheable("insertDownsampled")
-  public String insertDownsampled(Duration granularity) {
-    return "INSERT INTO " + tableNameDownsampled(granularity)
-        + " (" + String.join(",", TENANT, SERIES_SET, AGGREGATOR, TIMESTAMP, VALUE) + ")"
-        + " VALUES (?, ?, ?, ?, ?)";
+  public String downsampleInsert(Duration granularity) {
+    return downsampleInserts.get(granularity);
   }
 
   /**
    * @return a SELECT CQL statement with placeholders
-   * tenant, seriesSet, starting timestamp, ending timestamp
+   * tenant, seriesSetHash, aggregator, starting timestamp, ending timestamp
    * and returns timestamp, value
    */
-  @Cacheable("queryRaw")
-  public String queryRaw() {
-    return "SELECT " + String.join(",", TIMESTAMP, VALUE)
-        + " FROM " + tableNameRaw()
-        + " WHERE"
-        + "  " + TENANT + " = ?"
-        + "  AND " + SERIES_SET + " = ?"
-        + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
-  }
-
-  /**
-   * @return a SELECT CQL statement with placeholders
-   * tenant, seriesSet, aggregator, starting timestamp, ending timestamp
-   * and returns timestamp, value
-   */
-  @Cacheable("queryDownsampled")
   public String queryDownsampled(Duration granularity) {
-    return "SELECT " + String.join(",", TIMESTAMP, VALUE)
-        + " FROM " + tableNameDownsampled(granularity)
-        + " WHERE"
-        + "  " + TENANT + " = ?"
-        + "  AND " + SERIES_SET + " = ?"
-        + "  AND " + AGGREGATOR + " = ?"
-        + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+    return downsampleQueries.get(granularity);
   }
 }

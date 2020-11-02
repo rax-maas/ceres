@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.services.DownsampleTrackingServiceTest.TestConfig;
+import com.rackspace.ceres.app.services.DownsampleTrackingServiceTest.RedisEnvInit;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -31,31 +31,33 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest(properties = {
     "ceres.downsample.enabled=true",
     "ceres.downsample.partitions=64",
     "ceres.downsample.time-slot-width=PT2H",
-    "ceres.downsample.last-touch-delay=PT2M",
-    "logging.level.cql=debug"
+    "ceres.downsample.last-touch-delay=PT2M"
 }, classes = {
-    TestConfig.class,
+    RedisAutoConfiguration.class,
+    RedisReactiveAutoConfiguration.class,
     DownsampleTrackingService.class
 })
 @EnableConfigurationProperties(DownsampleProperties.class)
-@ActiveProfiles("test")
+@ContextConfiguration(initializers = RedisEnvInit.class)
 @Testcontainers
 class DownsampleTrackingServiceTest {
 
@@ -63,24 +65,18 @@ class DownsampleTrackingServiceTest {
 
   @Container
   public static GenericContainer<?> redisContainer =
-      new GenericContainer<>("redis:6.0")
+      new GenericContainer<>(DockerImageName.parse( "redis:6.0"))
           .withExposedPorts(REDIS_PORT);
 
-  @TestConfiguration
-  public static class TestConfig {
+  public static class RedisEnvInit implements
+      ApplicationContextInitializer<ConfigurableApplicationContext> {
 
-    @Bean
-    ReactiveRedisConnectionFactory redisConnectionFactory() {
-      return new LettuceConnectionFactory(
-          redisContainer.getHost(),
-          redisContainer.getFirstMappedPort()
-      );
-    }
-
-    @Bean
-    ReactiveStringRedisTemplate reactiveStringRedisTemplate(
-        ReactiveRedisConnectionFactory connectionFactory) {
-      return new ReactiveStringRedisTemplate(connectionFactory);
+    @Override
+    public void initialize(ConfigurableApplicationContext ctx) {
+      TestPropertyValues.of(
+          "spring.redis.host=" + redisContainer.getHost(),
+          "spring.redis.port=" + redisContainer.getMappedPort(REDIS_PORT)
+      ).applyTo(ctx.getEnvironment());
     }
   }
 
@@ -102,32 +98,33 @@ class DownsampleTrackingServiceTest {
 
   @Test
   void track() {
-    // need stable value to keep partition result stable for assertion
+    // need stable values to keep partition result stable for assertion
     final String tenantId = "tenant-1";
+    final String seriesSetHash = "some_metric,some_tags";
     final String metricName = "some_metric";
-    final String seriesSet = metricName + ",deployment=prod,host=h-1,os=linux";
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod"
+    );
 
     final Instant normalizedTimeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
     final Metric metric = new Metric()
         .setTimestamp(Instant.parse("2020-09-12T19:42:23.658447900Z"))
         .setValue(Math.random())
         .setMetric(metricName)
-        .setTags(Map.of(
-            "os", "linux",
-            "host", "h-1",
-            "deployment", "prod"
-        ));
+        .setTags(tags);
     Mono.from(
         downsampleTrackingService.track(
             tenantId,
-            seriesSet, metric.getTimestamp()
+            seriesSetHash, metric.getTimestamp()
         )
     ).block();
 
     final List<String> keys = redisTemplate.scan().collectList().block();
 
-    final String ingestingKey = "ingesting|50|" + normalizedTimeSlot.getEpochSecond();
-    final String pendingKey = "pending|50|" + normalizedTimeSlot.getEpochSecond();
+    final String ingestingKey = "ingesting|61|" + normalizedTimeSlot.getEpochSecond();
+    final String pendingKey = "pending|61|" + normalizedTimeSlot.getEpochSecond();
     assertThat(keys).containsExactlyInAnyOrder(
         pendingKey,
         ingestingKey
@@ -138,7 +135,7 @@ class DownsampleTrackingServiceTest {
 
     final List<String> pending = redisTemplate.opsForSet().scan(pendingKey).collectList().block();
     assertThat(pending).containsExactlyInAnyOrder(
-        tenantId + "|" + seriesSet
+        tenantId + "|" + seriesSetHash
     );
   }
 
@@ -302,13 +299,13 @@ class DownsampleTrackingServiceTest {
     return new PendingDownsampleSet()
         .setPartition(partition)
         .setTenant(RandomStringUtils.randomAlphanumeric(10))
-        .setSeriesSet(
+        .setSeriesSetHash(
             RandomStringUtils.randomAlphabetic(5) + ",deployment=prod,host=h-1,os=linux")
         .setTimeSlot(timeSlot);
   }
 
   private String buildPendingValue(PendingDownsampleSet pending) {
-    return pending.getTenant() + "|" + pending.getSeriesSet();
+    return pending.getTenant() + "|" + pending.getSeriesSetHash();
   }
 
 }
