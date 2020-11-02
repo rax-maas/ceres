@@ -1,5 +1,11 @@
 ## Design
 
+### System Diagram
+
+The following diagram summarizes the internal and external aspects of the Ceres application. The three color bands highlight the major functions of Ceres. A single instance of Ceres can be deployed to fulfill all three functions or any combination of replicas can be deployed to selectively scale to and serve each function.
+
+![](docs/ceres-internal-system-overview.drawio.png)
+
 ### Tables
 
 The Cassandra tables in the `ceres` keyspace (by default) are organized into two categories:
