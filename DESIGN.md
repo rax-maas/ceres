@@ -274,3 +274,20 @@ Late arrivals of metrics into `data_row` are an interesting case to confirm are 
     - When the remaining metrics arrive later, the redis entries are **re-created**
     - Once the readiness of the downsample set is satisfied the downsample processor will pick up on the redis entries at the next scheduled time, the re-query of that time slot's raw data will now retrieve all expected metrics entries. _This assumes the raw data for that queried time slot has not been TTL'ed away._
     - The downsample processor will aggregate the granularities entries as described above and again upsert/UPDATE the resulting update-batches as usual. With the UPDATE the "partial" aggregation values will be replaced by the "complete" aggregation values
+
+## Spring Webflux / Project Reactor Overview
+
+The Ceres application makes heavy use of Reactive Spring features including:
+- Spring Webflux for serving API calls
+- Reactive Spring Data Cassandra
+- Reactive Spring Data Redis
+
+The following are some helpful links to learn about the concepts used in Ceres:
+- [Spring Boot Webflux docs](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-webflux)
+- [Core Spring Webflux docs](https://docs.spring.io/spring-framework/docs/current/reference/html/web-reactive.html#spring-webflux)
+- [Spring Data Cassandra, Reactive support](https://docs.spring.io/spring-data/cassandra/docs/current/reference/html/#cassandra.reactive)
+- [Spring Data Redis, Reactive support](https://docs.spring.io/spring-data/redis/docs/current/reference/html/#redis:reactive)
+- [Project Reactor reference docs](https://projectreactor.io/docs/core/release/reference/)
+- [Project Reactor operator summary](https://projectreactor.io/docs/core/release/reference/docs/index.html#which-operator)
+- [Flux](https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Flux.html) - and [Mono](https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Mono.html) javadoc
+- [Reactive Streams](https://www.reactive-streams.org/) APIs all boil down to [publisher](https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/org/reactivestreams/Publisher.html) and [subscriber](https://www.reactive-streams.org/reactive-streams-1.0.3-javadoc/org/reactivestreams/Subscriber.html)
