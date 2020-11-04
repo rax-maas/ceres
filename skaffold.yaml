@@ -1,12 +1,12 @@
-apiVersion: skaffold/v2beta4
+apiVersion: skaffold/v2beta8
 kind: Config
 build:
   artifacts:
   - image: ceres
     jib:
       args:
-        - -DskipTests=true
+      - -DskipTests=true
 deploy:
   kubectl:
     manifests:
-      - k8s/*.yaml
+    - k8s/*.yaml
