@@ -97,7 +97,7 @@ paths:
                       "failed": 0,
                       "success": 5
                     }
-                detailsWithError:
+                detailsWithoutErrors:
                   value: |
                     {
                         "errors": [],
