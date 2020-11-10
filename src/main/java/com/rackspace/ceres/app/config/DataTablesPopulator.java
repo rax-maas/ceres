@@ -22,6 +22,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ import org.springframework.data.cassandra.core.cql.session.init.KeyspacePopulato
 import org.springframework.data.cassandra.core.cql.session.init.ScriptException;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Handles the configuration-driven creation of data table schemas with corresponding table
@@ -73,6 +75,13 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
         .subscribe();
+  }
+
+  public Mono<List<String>> render() {
+    return dataDownsampledTableSpecs()
+        .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
+        .map(CreateTableCqlGenerator::toCql)
+        .collectList();
   }
 
   private Flux<CreateTableSpecification> dataDownsampledTableSpecs() {
