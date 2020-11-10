@@ -49,13 +49,15 @@ public class QueryController {
                                  @RequestParam(defaultValue = "raw") Aggregator aggregator,
                                  @RequestParam(required = false) Duration granularity,
                                  @RequestParam List<String> tag,
-                                 @RequestParam Instant start,
-                                 @RequestParam Instant end) {
+                                 @RequestParam String start,
+                                 @RequestParam(required = false) String end) {
 
+    Instant startTime = queryService.getStartTime(start);
+    Instant endTime = queryService.getEndTime(end);
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
       return queryService.queryRaw(tenant, metricName,
           convertPairsListToMap(tag),
-          start, end
+          startTime, endTime
       );
     } else {
       if (granularity == null) {
@@ -67,7 +69,7 @@ public class QueryController {
             aggregator,
             granularity,
             convertPairsListToMap(tag),
-            start, end
+            startTime, endTime
         );
       }
     }
