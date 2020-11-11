@@ -57,7 +57,8 @@ public class DateTimeUtilsTest {
 
   @Test
   public void parseInstantTestWithNull() {
-    assertThat(DateTimeUtils.parseInstant(null)).isNotNull();
+    assertThat(Duration.between(DateTimeUtils.parseInstant(null), Instant.now()).getSeconds())
+        .isLessThanOrEqualTo(1);
   }
 
   @Test
