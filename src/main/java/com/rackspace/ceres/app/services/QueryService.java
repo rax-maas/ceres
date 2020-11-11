@@ -25,7 +25,6 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.QueryResult;
-import com.rackspace.ceres.app.utils.DateTimeUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -44,19 +43,16 @@ public class QueryService {
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
   private final AppProperties appProperties;
-  private final DateTimeUtils dateTimeUtils;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
                       MetadataService metadataService,
                       DataTablesStatements dataTablesStatements,
-                      AppProperties appProperties,
-                      DateTimeUtils dateTimeUtils) {
+                      AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.appProperties = appProperties;
-    this.dateTimeUtils = dateTimeUtils;
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
@@ -131,43 +127,5 @@ public class QueryService {
                 .setTags(metricNameAndTags.getTags())
                 .setValues(values)
         );
-  }
-
-  /**
-   * Gets the start time based on the format in startTime.
-   *
-   * @param startTime
-   * @return
-   */
-  public Instant getStartTime(String startTime) {
-    if (dateTimeUtils.isValidInstantInstance(startTime)) {
-      return Instant.parse(startTime);
-    } else if (dateTimeUtils.isValidEpochMillis(startTime)) {
-      return Instant.ofEpochMilli(Long.parseLong(startTime));
-    } else if (dateTimeUtils.isValidEpochSeconds(startTime)) {
-      return Instant.ofEpochSecond(Long.parseLong(startTime));
-    } else {
-      return dateTimeUtils.getAbsoluteTimeFromRelativeTime(startTime);
-    }
-  }
-
-  /**
-   * Gets the end time based on the format in endTime.
-   *
-   * @param endTime
-   * @return
-   */
-  public Instant getEndTime(String endTime) {
-    if(endTime==null) {
-      return  Instant.now();
-    }
-    if (dateTimeUtils.isValidInstantInstance(endTime)) {
-      return Instant.parse(endTime);
-    } else if (dateTimeUtils.isValidEpochMillis(endTime)) {
-      return Instant.ofEpochMilli(Long.parseLong(endTime));
-    } else if (dateTimeUtils.isValidEpochSeconds(endTime)) {
-      return Instant.ofEpochSecond(Long.parseLong(endTime));
-    }
-    throw new IllegalArgumentException("End time format is invalid");
   }
 }

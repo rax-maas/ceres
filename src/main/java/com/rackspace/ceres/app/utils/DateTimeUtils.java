@@ -5,9 +5,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.stereotype.Service;
 
-@Service
 public class DateTimeUtils {
 
   public static final String RELATIVE_TIME_PATTERN = "([0-9]+)(ms|s|m|h|d|w|n|y)-ago";
@@ -20,18 +18,18 @@ public class DateTimeUtils {
    * @param relativeTime
    * @return
    */
-  public Instant getAbsoluteTimeFromRelativeTime(String relativeTime) {
+  public static Instant getAbsoluteTimeFromRelativeTime(String relativeTime) {
     Matcher match = Pattern.compile(RELATIVE_TIME_PATTERN).matcher(relativeTime);
     int timeValue = 0;
     String timeUnit = null;
-    if (match.find()) {
+    if (match.matches()) {
       timeValue = Integer.parseInt(match.group(1));
       timeUnit = match.group(2);
     }
     if(timeUnit!=null && timeValue!=0)
       return Instant.now().minus(timeValue, RelativeTime.valueOf(timeUnit).getValue());
     else
-      throw new IllegalArgumentException("Start time format is invalid");
+      throw new IllegalArgumentException("Invalid relative time format");
   }
 
   /**
@@ -40,7 +38,7 @@ public class DateTimeUtils {
    * @param time
    * @return
    */
-  public boolean isValidInstantInstance(String time) {
+  public static boolean isValidInstantInstance(String time) {
     try {
       Instant.parse(time);
       return true;
@@ -55,9 +53,9 @@ public class DateTimeUtils {
    * @param time
    * @return
    */
-  public boolean isValidEpochMillis(String time) {
+  public static boolean isValidEpochMillis(String time) {
     Matcher match = Pattern.compile(DateTimeUtils.EPOCH_MILLIS_PATTERN).matcher(time);
-    if(match.find()) {
+    if(match.matches()) {
       return true;
     }
     return false;
@@ -69,11 +67,32 @@ public class DateTimeUtils {
    * @param time
    * @return
    */
-  public boolean isValidEpochSeconds(String time) {
+  public static boolean isValidEpochSeconds(String time) {
     Matcher match = Pattern.compile(DateTimeUtils.EPOCH_SECONDS_PATTERN).matcher(time);
-    if(match.find()) {
+    if(match.matches()) {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Gets the instance of Instant based on the format of argument.
+   *
+   * @param instant
+   * @return
+   */
+  public static Instant parseInstant(String instant) {
+    if(instant==null) {
+      return  Instant.now();
+    }
+    if (isValidInstantInstance(instant)) {
+      return Instant.parse(instant);
+    } else if (isValidEpochMillis(instant)) {
+      return Instant.ofEpochMilli(Long.parseLong(instant));
+    } else if (isValidEpochSeconds(instant)) {
+      return Instant.ofEpochSecond(Long.parseLong(instant));
+    } else {
+      return getAbsoluteTimeFromRelativeTime(instant);
+    }
   }
 }

@@ -21,6 +21,7 @@ import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -52,8 +53,8 @@ public class QueryController {
                                  @RequestParam String start,
                                  @RequestParam(required = false) String end) {
 
-    Instant startTime = queryService.getStartTime(start);
-    Instant endTime = queryService.getEndTime(end);
+    Instant startTime = DateTimeUtils.parseInstant(start);
+    Instant endTime = DateTimeUtils.parseInstant(end);
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
       return queryService.queryRaw(tenant, metricName,
           convertPairsListToMap(tag),
