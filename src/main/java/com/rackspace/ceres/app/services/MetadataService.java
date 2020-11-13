@@ -22,6 +22,7 @@ import static org.springframework.data.cassandra.core.query.Criteria.where;
 import static org.springframework.data.cassandra.core.query.Query.query;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
@@ -54,13 +55,15 @@ public class MetadataService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final Counter redisHit;
   private final Counter redisMiss;
+  private final AppProperties appProperties;
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
                          ReactiveCassandraTemplate cassandraTemplate,
                          AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
                          ReactiveStringRedisTemplate redisTemplate,
-                         MeterRegistry meterRegistry) {
+                         MeterRegistry meterRegistry,
+                         AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
@@ -68,6 +71,7 @@ public class MetadataService {
 
     redisHit = meterRegistry.counter("seriesSetHash.redisCache", "result", "hit");
     redisMiss = meterRegistry.counter("seriesSetHash.redisCache", "result", "miss");
+    this.appProperties = appProperties;
   }
 
   public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
@@ -110,11 +114,17 @@ public class MetadataService {
             .setMetricName(metricName)
             .setTags(tags)
     )
+        .retryWhen(
+            appProperties.getRetryInsertMetadata().build()
+        )
         .and(
             cassandraTemplate.insert(
                 new MetricName().setTenant(tenant)
                     .setMetricName(metricName)
             )
+                .retryWhen(
+                    appProperties.getRetryInsertMetadata().build()
+                )
                 .and(
                     Flux.fromIterable(tags.entrySet())
                         .flatMap(tagsEntry ->
@@ -127,6 +137,9 @@ public class MetadataService {
                                         .setTagValue(tagsEntry.getValue())
                                         .setSeriesSetHash(seriesSetHash)
                                 )
+                                    .retryWhen(
+                                        appProperties.getRetryInsertMetadata().build()
+                                    )
                             )
                         )
                 )
