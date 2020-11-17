@@ -106,7 +106,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .ifNotExists()
         .partitionKeyColumn(DataTablesStatements.TENANT, DataTypes.TEXT)
         .partitionKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
-        .partitionKeyColumn(DataTablesStatements.AGGREGATOR, DataTypes.TEXT)
+        .clusteredKeyColumn(DataTablesStatements.AGGREGATOR, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
