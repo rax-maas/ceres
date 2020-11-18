@@ -86,7 +86,7 @@ public class WriteControllerTest {
   }
 
   @Test
-  public  void testPutMetric_MissingDetailsParam() {
+  public  void testPutMetric_JustSummaryParam() {
     Metric metric = new Metric().setMetric("metricA").setTags(
         Map.of("tenant", "t-1", "os", "linux")).setTimestamp(Instant.now()).setValue(123);
     when(dataWriteService.ingest(any())).thenReturn(Flux.just(metric));
