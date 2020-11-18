@@ -2,13 +2,16 @@ package com.rackspace.ceres.app.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -32,20 +35,16 @@ public class QueryControllerTest {
   @Test
   public void testQueryApi() {
 
-    Map<String, String> queryTags = new HashMap<>();
-    queryTags.put("os", "linux");
-    queryTags.put("deployment", "dev");
-    queryTags.put("host", "h-1");
+    Map<String, String> queryTags = Map.of("os", "linux", "deployment", "dev", "host", "h-1");
 
-    Map<Instant, Double> values = new HashMap<>();
-    values.put(Instant.now(), 111.0);
+    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
-    List<QueryResult> queryResults = new ArrayList<>();
-    queryResults.add(new QueryResult().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-        .setValues(values));
+    List<QueryResult> queryResults = List
+        .of(new QueryResult().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
+            .setValues(values));
 
     when(queryService.queryRaw(anyString(), anyString(), any(), any(), any()))
-        .thenReturn(Flux.just(queryResults.get(0)));
+        .thenReturn(Flux.fromIterable(queryResults));
 
     webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
@@ -61,33 +60,35 @@ public class QueryControllerTest {
   @Test
   public void testQueryApiWithAggregator() {
 
-    Map<String, String> queryTags = new HashMap<>();
-    queryTags.put("os", "linux");
-    queryTags.put("deployment", "dev");
-    queryTags.put("host", "h-1");
+    Map<String, String> queryTags = Map.of("os", "linux", "deployment", "dev", "host", "h-1");
 
-    Map<Instant, Double> values = new HashMap<>();
-    values.put(Instant.now(), 111.0);
+    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
-    List<QueryResult> queryResults = new ArrayList<>();
-    queryResults.add(new QueryResult().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-        .setValues(values));
+    List<QueryResult> queryResults = List
+        .of(new QueryResult().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
+            .setValues(values));
 
     when(queryService.queryDownsampled(anyString(), anyString(), any(), any(), any(), any(), any()))
-        .thenReturn(Flux.just(queryResults.get(0)));
+        .thenReturn(Flux.fromIterable(queryResults));
 
     webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
-            .queryParam("tag", "os=linux")
-            .queryParam("start", "1d-ago")
-            .queryParam("end", "1605117336")
+            .queryParam("tag", "os=linux,deployment=dev,host=h-1,")
+            .queryParam("start", "1605611015")
+            .queryParam("end", "1605697439")
             .queryParam("aggregator", "min")
             .queryParam("granularity", "pt1m")
             .build())
         .exchange().expectStatus().isOk()
         .expectBodyList(QueryResult.class).isEqualTo(queryResults);
+
+    verify(queryService)
+        .queryDownsampled("t-1", "cpu-idle", Aggregator.min, Duration.ofMinutes(1), queryTags,
+            Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
+
+    verifyNoMoreInteractions(queryService);
   }
 
   @Test
@@ -107,5 +108,6 @@ public class QueryControllerTest {
         .jsonPath("$.status").isEqualTo(500)
         .jsonPath("$.message").isEqualTo("granularity is required when using aggregator");
 
+    verifyNoInteractions(queryService);
   }
 }

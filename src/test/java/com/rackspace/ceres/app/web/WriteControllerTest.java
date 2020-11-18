@@ -1,6 +1,8 @@
 package com.rackspace.ceres.app.web;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.config.AppProperties;
@@ -10,7 +12,11 @@ import com.rackspace.ceres.app.services.DataWriteService;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -18,6 +24,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 @ActiveProfiles("test")
 @WebFluxTest(WriteController.class)
@@ -30,6 +40,9 @@ public class WriteControllerTest {
   @Autowired
   WebTestClient webTestClient;
 
+  @Captor
+  ArgumentCaptor<Flux<Tuple2<String, Metric>>> metrics;
+
   @Test
   public void testPutMetrics() {
 
@@ -39,6 +52,14 @@ public class WriteControllerTest {
 
     webTestClient.post().uri("/api/put").body(Flux.just(metric), Metric.class).exchange()
         .expectStatus().isNoContent();
+
+    verify(dataWriteService).ingest(metrics.capture());
+
+    //verify tenant is default when not present in header or tagsMap
+    StepVerifier.create(metrics.getValue()).expectNext(Tuples.of("default", metric))
+        .expectComplete().verify();
+
+    verifyNoMoreInteractions(dataWriteService);
   }
 
   @Test
@@ -50,16 +71,39 @@ public class WriteControllerTest {
 
     //Tests for details and summary both true
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/put").queryParam("details", true)
-        .queryParam("summary", true).build()).body(Flux.just(metric), Metric.class)
+        .queryParam("summary", true).build()).bodyValue(List.of(metric))
+        .header("X-Tenant", "t-1")
         .exchange()
         .expectStatus().isOk().expectBody(PutResponse.class)
         .isEqualTo(new PutResponse().setSuccess(1).setFailed(0).setErrors(List.of()));
+    verify(dataWriteService).ingest(metrics.capture());
+
+    //verify tenant is same as present in header
+    StepVerifier.create(metrics.getValue()).expectNext(Tuples.of("t-1", metric))
+        .expectComplete().verify();
+
+    verifyNoMoreInteractions(dataWriteService);
+  }
+
+  @Test
+  public  void testPutMetric_MissingDetailsParam() {
+    Metric metric = new Metric().setMetric("metricA").setTags(
+        Map.of("tenant", "t-1", "os", "linux")).setTimestamp(Instant.now()).setValue(123);
+    when(dataWriteService.ingest(any())).thenReturn(Flux.just(metric));
 
     //Tests for when summary is true but details is false
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/put")
-        .queryParam("summary", true).build()).body(Flux.just(metric), Metric.class)
+        .queryParam("summary", true).build()).body(Mono.just(metric), Metric.class)
         .exchange()
         .expectStatus().isOk().expectBody(PutResponse.class)
         .isEqualTo(new PutResponse().setSuccess(1).setFailed(0).setErrors(null));
+    verify(dataWriteService).ingest(metrics.capture());
+
+    //verify tenant is present in tagsMap of request body
+    StepVerifier.create(metrics.getValue())
+        .consumeNextWith(resp -> Assertions.assertThat(resp.getT1()).isEqualTo("t-1"))
+        .verifyComplete();
+
+    verifyNoMoreInteractions(dataWriteService);
   }
 }
