@@ -110,7 +110,8 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
-        .with(TableOption.COMPACTION, compactionOptions(ttl));
+        .with(TableOption.COMPACTION, compactionOptions(ttl))
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
   private CreateTableSpecification dataRawTableSpec(Duration ttl) {
@@ -122,7 +123,8 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
-        .with(TableOption.COMPACTION, compactionOptions(ttl));
+        .with(TableOption.COMPACTION, compactionOptions(ttl))
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {
