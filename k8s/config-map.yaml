@@ -17,16 +17,18 @@ data:
         granularities:
           - width: 5m
             ttl: 14d
+            partitionWidth: 6h
           - width: 1h
             ttl: 365d
+            partitionWidth: 24h
         partitions: 64
         partitions-mapping-file: /config/partitions.json
         # must be multiple of max granularity width
         time-slot-width: 1h
         processing-threads: 2
-      raw-ttl: 48h
-      tenant-tag: tenant_id
+      raw-ttl: 2d
       series-set-cache-size: 2000000
+      tenant-tag: tenant_id
     logging:
       level:
         com.rackspace.ceres.app: debug
