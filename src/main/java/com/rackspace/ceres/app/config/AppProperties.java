@@ -43,6 +43,23 @@ public class AppProperties {
   int dataTableGcGraceSeconds = 86400;
 
   /**
+   * The approximate number of compaction windows to declare on a newly created raw data table.
+   * Cassandra documentation recommends 20-30 windows:
+   * https://cassandra.apache.org/doc/latest/operating/compaction/twcs.html#twcs
+   */
+  @Min(20)
+  int rawCompactionWindows = 30;
+
+  /**
+   * The width of time slots used for partitioning data, which can reduce the number
+   * of Cassandra files that need to be scanned. It is best to set this to the same
+   * as <code>ceres.downsample.timeSlotWidth</code> or greater to ensure downsampling
+   * queries only need to consult one partition.
+   */
+  @NotNull
+  Duration rawPartitionWidth = Duration.ofHours(1);
+
+  /**
    * Identifies the tenant for ingest and query API calls. For ingest this header is optional
    * and instead <code>tenant-tag</code> will be used or the configured <code>default-tenant</code>
    * as a fallback.

@@ -111,7 +111,7 @@ class DataWriteServiceTest {
 
       assertThat(metric).isNotNull();
 
-      assertViaQuery(tenantId, seriesSetHash, metric);
+      assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
 
       verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
           metric.getTags());
@@ -157,8 +157,8 @@ class DataWriteServiceTest {
           Tuples.of(tenant2, metric2)
       )).then().block();
 
-      assertViaQuery(tenant1, seriesSetHash1, metric1);
-      assertViaQuery(tenant2, seriesSetHash2, metric2);
+      assertViaQuery(tenant1, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash1, metric1);
+      assertViaQuery(tenant2, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash2, metric2);
 
       verify(metadataService).storeMetadata(tenant1, seriesSetHash1, metric1.getMetric(),
           metric1.getTags());
@@ -176,11 +176,14 @@ class DataWriteServiceTest {
       Assertions.fail("TODO");
     }
 
-    private void assertViaQuery(String tenant, String seriesSetHash, Metric metric) {
+    private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
+                                Metric metric) {
       final List<Row> results = cqlTemplate.queryForRows(
-          "SELECT ts, value FROM data_raw"
-              + " WHERE tenant = ? AND series_set_hash = ?",
-          tenant, seriesSetHash
+          "SELECT ts, value FROM data_raw_p_pt1h"
+              + " WHERE tenant = ?"
+              + " AND time_slot = ?"
+              + " AND series_set_hash = ?",
+          tenant, timeSlot, seriesSetHash
       ).collectList().block();
 
       assertThat(results).isNotNull();

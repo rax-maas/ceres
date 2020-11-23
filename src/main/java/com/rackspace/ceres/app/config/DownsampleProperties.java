@@ -113,5 +113,20 @@ public class DownsampleProperties {
     @NotNull
     @DurationFormat(DurationStyle.SIMPLE)
     Duration ttl;
+
+    /**
+     * The approximate number of compaction windows to declare on a newly created data table.
+     * Cassandra documentation recommends 20-30 windows:
+     * https://cassandra.apache.org/doc/latest/operating/compaction/twcs.html#twcs
+     */
+    @Min(20)
+    int compactionWindows = 30;
+
+    /**
+     * The width of time slots used for partitioning data, which can reduce the number
+     * of Cassandra files that need to be scanned.
+     */
+    @NotNull
+    Duration partitionWidth;
   }
 }

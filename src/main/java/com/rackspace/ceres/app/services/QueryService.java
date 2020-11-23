@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import static com.rackspace.ceres.app.services.DataTablesStatements.QUERY_RAW;
 import static java.util.Objects.requireNonNull;
 
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -42,46 +41,63 @@ public class QueryService {
   private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
+  private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
                       MetadataService metadataService,
                       DataTablesStatements dataTablesStatements,
+                      TimeSlotPartitioner timeSlotPartitioner,
                       AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
+    this.timeSlotPartitioner = timeSlotPartitioner;
     this.appProperties = appProperties;
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
                                     Map<String, String> queryTags,
                                     Instant start, Instant end) {
+    // given the queryTags filter, locate the series-set that apply
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-        .name("queryRaw")
-        .metrics()
-        .flatMapMany(Flux::fromIterable)
+        // then perform a retrieval for each series-set
         .flatMap(seriesSet ->
             mapSeriesSetResult(tenant, seriesSet,
-                // TODO use repository and projections
-                cqlTemplate.queryForRows(
-                    QUERY_RAW,
-                    tenant, seriesSet, start, end
+                // over each time slot partition of the [start,end) range
+                Flux.fromIterable(timeSlotPartitioner
+                    .partitionsOverRange(start, end, null)
                 )
+                    .concatMap(timeSlot ->
+                        cqlTemplate.queryForRows(
+                            dataTablesStatements.rawQuery(),
+                            tenant, timeSlot, seriesSet, start, end
+                        )
+                            .name("queryRaw")
+                            .metrics()
+                    )
             )
-        );
+        )
+        .checkpoint();
   }
 
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
                                               Instant start, Instant end) {
-    return cqlTemplate.queryForRows(
-        QUERY_RAW,
-        tenant, seriesSet, start, end
+    return Flux.fromIterable(timeSlotPartitioner
+        .partitionsOverRange(start, end, null)
     )
-        .retryWhen(appProperties.getRetryQueryForDownsample().build())
-        .map(row ->
-            new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
+        .concatMap(timeSlot ->
+            cqlTemplate.queryForRows(
+                dataTablesStatements.rawQuery(),
+                tenant, timeSlot, seriesSet, start, end
+            )
+                .name("queryRawWithSeriesSet")
+                .metrics()
+                .retryWhen(appProperties.getRetryQueryForDownsample().build())
+                .map(row ->
+                    new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
+                )
         )
         .checkpoint();
   }
@@ -89,16 +105,23 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,
                                             Duration granularity, Map<String, String> queryTags,
                                             Instant start, Instant end) {
+    // given the queryTags filter, locate the series-set that apply
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-        .name("queryDownsampled")
-        .metrics()
-        .flatMapMany(Flux::fromIterable)
+        // then perform a retrieval for each series-set
         .flatMap(seriesSet ->
             mapSeriesSetResult(tenant, seriesSet,
-                cqlTemplate.queryForRows(
-                    dataTablesStatements.queryDownsampled(granularity),
-                    tenant, seriesSet, aggregator.name(), start, end
+                // over each time slot partition of the [start,end) range
+                Flux.fromIterable(timeSlotPartitioner
+                    .partitionsOverRange(start, end, granularity)
                 )
+                    .concatMap(timeSlot ->
+                        cqlTemplate.queryForRows(
+                            dataTablesStatements.downsampleQuery(granularity),
+                            tenant, timeSlot, seriesSet, aggregator.name(), start, end
+                        )
+                            .name("queryDownsampled")
+                            .metrics()
+                    )
             )
         )
         .checkpoint();

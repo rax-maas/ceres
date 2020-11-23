@@ -16,8 +16,6 @@
 
 package com.rackspace.ceres.app.config;
 
-import static com.rackspace.ceres.app.services.DataTablesStatements.TABLE_NAME_RAW;
-
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
@@ -90,7 +88,8 @@ public class DataTablesPopulator implements KeyspacePopulator {
             downsampleProperties.getGranularities().stream()
                 .map(granularity -> dataDownsampledTableSpec(
                     granularity.getWidth(),
-                    granularity.getTtl()
+                    granularity.getTtl(),
+                    granularity.getPartitionWidth()
                 ))
         );
   }
@@ -100,12 +99,14 @@ public class DataTablesPopulator implements KeyspacePopulator {
     return session.executeReactive(CreateTableCqlGenerator.toCql(createTableSpec));
   }
 
-  private CreateTableSpecification dataDownsampledTableSpec(Duration width, Duration ttl) {
+  private CreateTableSpecification dataDownsampledTableSpec(Duration width, Duration ttl,
+                                                            Duration partitionWidth) {
     return CreateTableSpecification
-        .createTable(dataTablesStatements.tableNameDownsampled(width))
+        .createTable(dataTablesStatements.tableNameDownsampled(width, partitionWidth))
         .ifNotExists()
         .partitionKeyColumn(DataTablesStatements.TENANT, DataTypes.TEXT)
-        .partitionKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
+        .partitionKeyColumn(DataTablesStatements.TIME_PARTITION_SLOT, DataTypes.TIMESTAMP)
+        .clusteredKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.AGGREGATOR, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
@@ -116,10 +117,11 @@ public class DataTablesPopulator implements KeyspacePopulator {
 
   private CreateTableSpecification dataRawTableSpec(Duration ttl) {
     return CreateTableSpecification
-        .createTable(TABLE_NAME_RAW)
+        .createTable(dataTablesStatements.tableNameRaw(appProperties.getRawPartitionWidth()))
         .ifNotExists()
         .partitionKeyColumn(DataTablesStatements.TENANT, DataTypes.TEXT)
-        .partitionKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
+        .partitionKeyColumn(DataTablesStatements.TIME_PARTITION_SLOT, DataTypes.TIMESTAMP)
+        .clusteredKeyColumn(DataTablesStatements.SERIES_SET_HASH, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)

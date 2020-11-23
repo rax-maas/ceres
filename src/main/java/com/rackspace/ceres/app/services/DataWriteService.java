@@ -16,8 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import static com.rackspace.ceres.app.services.DataTablesStatements.INSERT_RAW;
-
 import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
@@ -42,6 +40,7 @@ public class DataWriteService {
   private final SeriesSetService seriesSetService;
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
+  private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
 
@@ -50,12 +49,14 @@ public class DataWriteService {
                           SeriesSetService seriesSetService,
                           MetadataService metadataService,
                           DataTablesStatements dataTablesStatements,
+                          TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
                           AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
+    this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
   }
@@ -91,8 +92,12 @@ public class DataWriteService {
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
     return cqlTemplate.execute(
-        INSERT_RAW,
-        tenant, seriesSetHash, metric.getTimestamp(), metric.getValue().doubleValue()
+        dataTablesStatements.rawInsert(),
+        tenant,
+        timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
+        seriesSetHash,
+        metric.getTimestamp(),
+        metric.getValue().doubleValue()
     )
         .retryWhen(appProperties.getRetryInsertRaw().build())
         .checkpoint();
@@ -112,7 +117,9 @@ public class DataWriteService {
                 dataTablesStatements.downsampleInsert(entry.getGranularity())
             )
                 .addPositionalValues(
-                    entry.getTenant(), entry.getSeriesSetHash(), entry.getAggregator().name(),
+                    entry.getTenant(),
+                    timeSlotPartitioner.downsampledTimeSlot(entry.getTs(), entry.getGranularity()),
+                    entry.getSeriesSetHash(), entry.getAggregator().name(),
                     entry.getTs(), entry.getValue()
                 )
                 .build()
