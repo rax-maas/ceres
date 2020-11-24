@@ -105,8 +105,9 @@ public class QueryControllerTest {
             .build())
         .exchange().expectStatus().is5xxServerError()
         .expectBody()
-        .jsonPath("$.status").isEqualTo(500)
-        .jsonPath("$.message").isEqualTo("granularity is required when using aggregator");
+        .jsonPath("$.status").isEqualTo(400)
+        .jsonPath("$.message").isEqualTo("granularity is required when using aggregator")
+        .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
 
     verifyNoInteractions(queryService);
   }
