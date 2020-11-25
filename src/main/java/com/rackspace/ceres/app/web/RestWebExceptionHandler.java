@@ -81,7 +81,7 @@ public class RestWebExceptionHandler extends
    */
   private Mono<ServerResponse> respondWith(Map<String, Object> body, String exceptionClass) {
     if (exceptionClass.equals(IllegalArgumentException.class.getName())) {
-      respondWithBadRequest(body);
+      return respondWithBadRequest(body);
     }
     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(BodyInserters.fromValue(
         body));

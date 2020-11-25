@@ -103,7 +103,7 @@ public class QueryControllerTest {
             .queryParam("end", "1605117336")
             .queryParam("aggregator", "min")
             .build())
-        .exchange().expectStatus().is5xxServerError()
+        .exchange().expectStatus().isBadRequest()
         .expectBody()
         .jsonPath("$.status").isEqualTo(400)
         .jsonPath("$.message").isEqualTo("granularity is required when using aggregator")
