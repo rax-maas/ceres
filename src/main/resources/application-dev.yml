@@ -3,8 +3,10 @@ ceres:
     granularities:
       - width: 1m
         ttl: 12h
+        partitionWidth: 2h
       - width: 2m
         ttl: 1d
+        partitionWidth: 4h
     time-slot-width: 2m
     last-touch-delay: 1m
     downsample-process-period: 10s

@@ -14,6 +14,8 @@ The Cassandra tables in the `ceres` keyspace (by default) are organized into two
 
 #### Metadata
 
+> Columns are designated as partitioning key (PK) of primary key, clustering key (CK) of primary key, or blank for non-key columns.
+
 `metric_names`:
 
 &nbsp; | Name | Notes
@@ -40,18 +42,21 @@ CK | tag_key |
 CK | tag_value |
 CK | series_set_hash | 
 
-#### Data
+#### Raw/Ingested Data
 
-`data_raw`:
+`data_raw_p_{timeSlotWidth}`:
 
 &nbsp; | Name | Notes
 ---|---|---
 PK | tenant |
-PK | series_set_hash | 
+PK | time_slot | Configurable-width time slot for partitioning
+CK | series_set_hash | 
 CK | ts | timestamp of ingested metric
 &nbsp; | value | Metric value as double
 
 To be a bit more explicit, all these tables are updated/inserted on ingest.  The "metric_names" table is read during metadata retrieval of tenants and metric names. Metadata queries for tag keys and values given tenant and metric name are resolved by the "series_sets" table. The "series_sets" and "data_raw" tables are used in combination by data queries and "data_raw" is also used during downsampling.
+
+The `time_slot` column is a configurable-width, normalized time slot column that optimizes for Cassandra's use of the bloom filter when locating the sstables supporting a particular query, especially the downample queries. For the raw data table it is ideal to set the width of the time slot the same as downsample width since it minimizes the number of sttables consulted on downsample.
 
 ### Series-Set
 
@@ -222,12 +227,13 @@ The following diagram shows the high level relationship of raw metrics in a give
 
 The following introduces the table structure for each downsampled data table. The `{granularity}` in the table name is the granularity's ISO-8601 format as a lowercase string, such as `pt5m`. A separate table is used per granularity in order to ensure Cassandra efficiently processes the default TTL per table using the [Time Window Compaction Strategy](https://cassandra.apache.org/doc/latest/operating/compaction/twcs.html#twcs).
 
-`data_{granularity}` table, where  is a lowercased duration string, such :
+`data_{granularity}_p_{timeSlotWidth}` table:
 
 &nbsp; | Name | Notes
 -------|------|------
-PK | tenant | 
-PK | series_set_hash | 
+PK | tenant |
+PK | time_slot | Configurable-width time slot for partitioning
+CK | series_set_hash | 
 CK | aggregator | One of min,max,sum,count,avg
 CK | ts | timestamp rounded down by granularity
 &nbsp; | value | 

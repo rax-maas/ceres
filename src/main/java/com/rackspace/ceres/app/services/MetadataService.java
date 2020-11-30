@@ -32,7 +32,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
@@ -193,7 +192,7 @@ public class MetadataService {
    * @param queryTags series-sets are located by and'ing these tag key-value pairs
    * @return the matching series-sets
    */
-  public Mono<Set<String>> locateSeriesSetHashes(String tenant, String metricName,
+  public Flux<String> locateSeriesSetHashes(String tenant, String metricName,
                                                  Map<String, String> queryTags) {
     return Flux.fromIterable(queryTags.entrySet())
         // find the series-sets for each query tag
@@ -211,7 +210,8 @@ public class MetadataService {
             results1.stream()
                 .filter(results2::contains)
                 .collect(Collectors.toSet())
-        );
+        )
+        .flatMapMany(Flux::fromIterable);
   }
 
 
