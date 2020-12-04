@@ -16,10 +16,19 @@
 
 package com.rackspace.ceres.app.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.rackspace.ceres.app.downsample.Aggregator;
+import java.time.Duration;
+import java.time.Instant;
 import lombok.Data;
 
 @Data
-public class QueryResult {
-  QueryData data;
-  Metadata metadata;
+@JsonInclude(Include.NON_NULL)
+public class Metadata {
+
+  Aggregator aggregator;
+  Instant startTime;
+  Instant endTime;
+  Duration granularity;
 }

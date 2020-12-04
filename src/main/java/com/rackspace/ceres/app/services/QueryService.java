@@ -23,6 +23,8 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
+import com.rackspace.ceres.app.model.Metadata;
+import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,27 +60,27 @@ public class QueryService {
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
-                                    Map<String, String> queryTags,
-                                    Instant start, Instant end) {
-    // given the queryTags filter, locate the series-set that apply
+      Map<String, String> queryTags,
+      Instant start, Instant end) {
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // then perform a retrieval for each series-set
-        .flatMap(seriesSet ->
-            mapSeriesSetResult(tenant, seriesSet,
-                // over each time slot partition of the [start,end) range
-                Flux.fromIterable(timeSlotPartitioner
-                    .partitionsOverRange(start, end, null)
-                )
-                    .concatMap(timeSlot ->
-                        cqlTemplate.queryForRows(
-                            dataTablesStatements.rawQuery(),
-                            tenant, timeSlot, seriesSet, start, end
-                        )
-                            .name("queryRaw")
-                            .metrics()
-                    )
-            )
-        )
+        .flatMap(seriesSet -> {
+          Metadata metadata = buildMetaData(Aggregator.raw, start, end, null);
+          return mapSeriesSetResult(tenant, seriesSet,
+              // over each time slot partition of the [start,end) range
+              Flux.fromIterable(timeSlotPartitioner
+                  .partitionsOverRange(start, end, null)
+              )
+                  .concatMap(timeSlot ->
+                      cqlTemplate.queryForRows(
+                          dataTablesStatements.rawQuery(),
+                          tenant, timeSlot, seriesSet, start, end
+                      )
+                          .name("queryRaw")
+                          .metrics()
+                  ), metadata
+          );
+        })
         .checkpoint();
   }
 
@@ -103,31 +105,32 @@ public class QueryService {
   }
 
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,
-                                            Duration granularity, Map<String, String> queryTags,
-                                            Instant start, Instant end) {
+      Duration granularity, Map<String, String> queryTags,
+      Instant start, Instant end) {
     // given the queryTags filter, locate the series-set that apply
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // then perform a retrieval for each series-set
-        .flatMap(seriesSet ->
-            mapSeriesSetResult(tenant, seriesSet,
-                // over each time slot partition of the [start,end) range
-                Flux.fromIterable(timeSlotPartitioner
-                    .partitionsOverRange(start, end, granularity)
-                )
-                    .concatMap(timeSlot ->
-                        cqlTemplate.queryForRows(
-                            dataTablesStatements.downsampleQuery(granularity),
-                            tenant, timeSlot, seriesSet, aggregator.name(), start, end
-                        )
-                            .name("queryDownsampled")
-                            .metrics()
-                    )
-            )
-        )
+        .flatMap(seriesSet -> {
+          Metadata metadata = buildMetaData(aggregator, start, end, granularity);
+          return mapSeriesSetResult(tenant, seriesSet,
+              // over each time slot partition of the [start,end) range
+              Flux.fromIterable(timeSlotPartitioner
+                  .partitionsOverRange(start, end, granularity)
+              )
+                  .concatMap(timeSlot ->
+                      cqlTemplate.queryForRows(
+                          dataTablesStatements.downsampleQuery(granularity),
+                          tenant, timeSlot, seriesSet, aggregator.name(), start, end
+                      )
+                          .name("queryDownsampled")
+                          .metrics()
+                  ), metadata
+          );
+        })
         .checkpoint();
   }
 
-  private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows) {
+  private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows, Metadata metadata) {
     return rows
         .map(row -> Map.entry(
             requireNonNull(row.getInstant(0)),
@@ -137,18 +140,34 @@ public class QueryService {
         // collect the ts->value entries into an ordered, LinkedHashMap
         .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new)
         .filter(values -> !values.isEmpty())
-        .flatMap(values -> buildQueryResult(tenant, seriesSet, values));
+        .flatMap(values -> buildQueryResult(tenant, seriesSet, values, metadata));
   }
 
   private Mono<QueryResult> buildQueryResult(String tenant, String seriesSet,
-                                             Map<Instant, Double> values) {
+      Map<Instant, Double> values, Metadata metadata) {
     return metadataService.resolveSeriesSetHash(tenant, seriesSet)
-        .map(metricNameAndTags ->
-            new QueryResult()
-                .setTenant(tenant)
-                .setMetricName(metricNameAndTags.getMetricName())
-                .setTags(metricNameAndTags.getTags())
-                .setValues(values)
+        .map(metricNameAndTags -> new QueryResult()
+            .setData(buildQueryData(tenant, metricNameAndTags.getMetricName(),
+                metricNameAndTags.getTags(), values))
+            .setMetadata(metadata)
         );
+  }
+
+  private QueryData buildQueryData(String tenant, String metricName, Map<String, String> tags,
+      Map<Instant, Double> values) {
+    return new QueryData()
+        .setTenant(tenant)
+        .setMetricName(metricName)
+        .setTags(tags)
+        .setValues(values);
+  }
+
+  private Metadata buildMetaData(Aggregator aggregator, Instant startTime, Instant endTime,
+      Duration granularity) {
+    return new Metadata()
+        .setAggregator(aggregator)
+        .setStartTime(startTime)
+        .setEndTime(endTime)
+        .setGranularity(granularity);
   }
 }
