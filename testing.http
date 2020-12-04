@@ -69,22 +69,49 @@ GET http://localhost:8080/api/metadata/tagKeys?tenant=t-1&metricName=memory_free
 GET http://localhost:8080/api/metadata/tagValues?
   tenant=t-1
   &metricName=memory_free
-  &tagKey=resource
+  &tagKey=resource_label
+
+### raw
+# start and end can also be ISO8601 format like 2020-10-23T16:00:00Z
+# or epoch seconds
+# or epoch milliseconds
+# end is optional and defaults to "now"
+GET http://localhost:8080/api/query?
+  tenant=t-1
+  &metricName=memory_free
+  &tag=os=linux
+  &start=3h-ago
 
 ### raw
 GET http://localhost:8080/api/query?
   tenant=t-1
   &metricName=memory_free
-  &tag=resource=bb9ac298-bb4b-47fc-ab13-7352d0262c83
-  &start=2020-10-23T16:00:00Z
-  &end=2020-10-23T23:00:00Z
+  &tag=os=linux
+  &start=1h-ago
+
+### downsampled 5m
+GET http://localhost:8080/api/query?
+  tenant=t-1
+  &metricName=memory_free
+  &tag=os=linux
+  &start=48h-ago
+  &aggregator=min
+  &granularity=PT5M
+
+### downsampled 1h
+GET http://localhost:8080/api/query?
+  tenant=t-1
+  &metricName=memory_free
+  &tag=os=linux
+  &start=3d-ago
+  &aggregator=min
+  &granularity=PT1H
 
 ### downsampled
 GET http://localhost:8080/api/query?
   tenant=t-1
   &metricName=memory_free
-  &tag=resource=bb9ac298-bb4b-47fc-ab13-7352d0262c83
-  &start=2020-10-23T16:00:00Z
-  &end=2020-10-23T23:00:00Z
+  &tag=os=linux
+  &start=1h-ago
   &aggregator=min
-  &granularity=PT1H
+  &granularity=pt2m
