@@ -64,23 +64,20 @@ public class QueryService {
       Instant start, Instant end) {
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // then perform a retrieval for each series-set
-        .flatMap(seriesSet -> {
-          Metadata metadata = buildMetaData(Aggregator.raw, start, end, null);
-          return mapSeriesSetResult(tenant, seriesSet,
-              // over each time slot partition of the [start,end) range
-              Flux.fromIterable(timeSlotPartitioner
-                  .partitionsOverRange(start, end, null)
-              )
-                  .concatMap(timeSlot ->
-                      cqlTemplate.queryForRows(
-                          dataTablesStatements.rawQuery(),
-                          tenant, timeSlot, seriesSet, start, end
-                      )
-                          .name("queryRaw")
-                          .metrics()
-                  ), metadata
-          );
-        })
+        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
+            // over each time slot partition of the [start,end) range
+            Flux.fromIterable(timeSlotPartitioner
+                .partitionsOverRange(start, end, null)
+            )
+                .concatMap(timeSlot ->
+                    cqlTemplate.queryForRows(
+                        dataTablesStatements.rawQuery(),
+                        tenant, timeSlot, seriesSet, start, end
+                    )
+                        .name("queryRaw")
+                        .metrics()
+                ), buildMetaData(Aggregator.raw, start, end, null)
+        ))
         .checkpoint();
   }
 
@@ -110,23 +107,20 @@ public class QueryService {
     // given the queryTags filter, locate the series-set that apply
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // then perform a retrieval for each series-set
-        .flatMap(seriesSet -> {
-          Metadata metadata = buildMetaData(aggregator, start, end, granularity);
-          return mapSeriesSetResult(tenant, seriesSet,
-              // over each time slot partition of the [start,end) range
-              Flux.fromIterable(timeSlotPartitioner
-                  .partitionsOverRange(start, end, granularity)
-              )
-                  .concatMap(timeSlot ->
-                      cqlTemplate.queryForRows(
-                          dataTablesStatements.downsampleQuery(granularity),
-                          tenant, timeSlot, seriesSet, aggregator.name(), start, end
-                      )
-                          .name("queryDownsampled")
-                          .metrics()
-                  ), metadata
-          );
-        })
+        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
+            // over each time slot partition of the [start,end) range
+            Flux.fromIterable(timeSlotPartitioner
+                .partitionsOverRange(start, end, granularity)
+            )
+                .concatMap(timeSlot ->
+                    cqlTemplate.queryForRows(
+                        dataTablesStatements.downsampleQuery(granularity),
+                        tenant, timeSlot, seriesSet, aggregator.name(), start, end
+                    )
+                        .name("queryDownsampled")
+                        .metrics()
+                ), buildMetaData(aggregator, start, end, granularity)
+        ))
         .checkpoint();
   }
 
