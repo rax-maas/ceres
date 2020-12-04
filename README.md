@@ -165,6 +165,22 @@ GET http://localhost:8080/api/query?
 
 Design documentation is available in [DESIGN.md](DESIGN.md).
 
+## Resetting metadata during development
+
+Sometimes during development it is necessary to wipe some or all of the metadata tables and as such synchronize that absence of information with the Redis caching layer. In this and similar scenarios the two datastores can be reset using the following operations.
+
+Truncate the Cassandra tables using:
+```shell
+for table in metric_names series_set_hashes series_sets; do
+  docker-compose exec cassandra cqlsh -e "truncate table ceres.$table"
+done
+```
+
+Reset the Redis keys using:
+```shell
+docker-compose exec redis redis-cli scan 0
+```
+
 ## Running with Skaffold / Cloud Code
 
 The [Cloud Code plugin for IntelliJ / VS Code](https://cloud.google.com/code) or [Skaffold](https://skaffold.dev/) by itself can be used to deploy a development instance of this application to a kubernetes cluster.
