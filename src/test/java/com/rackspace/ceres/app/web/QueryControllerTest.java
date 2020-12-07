@@ -26,7 +26,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test", "query"})
 @WebFluxTest(QueryController.class)
 public class QueryControllerTest {
 

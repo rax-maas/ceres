@@ -23,6 +23,7 @@ import com.rackspace.ceres.app.services.DataWriteService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
@@ -40,6 +41,7 @@ import reactor.util.function.Tuples;
 @RestController
 @RequestMapping("/api")
 @Slf4j
+@Profile("ingest")
 public class WriteController {
 
   private final DataWriteService dataWriteService;

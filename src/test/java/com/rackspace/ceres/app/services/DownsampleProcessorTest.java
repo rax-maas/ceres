@@ -61,7 +61,7 @@ import reactor.test.StepVerifier;
 }, properties = {
     "ceres.downsample.partitions-to-process=0,1,4-7"
 })
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test", "downsample"})
 @AutoConfigureJson
 @EnableConfigurationProperties(DownsampleProperties.class)
 class DownsampleProcessorTest {
