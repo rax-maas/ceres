@@ -1,5 +1,6 @@
 package com.rackspace.ceres.app.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
@@ -8,6 +9,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.downsample.Aggregator;
+import com.rackspace.ceres.app.model.Metadata;
+import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
 import java.time.Duration;
@@ -21,6 +24,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 @ActiveProfiles("test")
 @WebFluxTest(QueryController.class)
@@ -40,13 +44,13 @@ public class QueryControllerTest {
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
     List<QueryResult> queryResults = List
-        .of(new QueryResult().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-            .setValues(values));
+        .of(new QueryResult().setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
+            .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
 
     when(queryService.queryRaw(anyString(), anyString(), any(), any(), any()))
         .thenReturn(Flux.fromIterable(queryResults));
 
-    webTestClient.get()
+    Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
@@ -54,7 +58,12 @@ public class QueryControllerTest {
             .queryParam("start", "1d-ago")
             .build())
         .exchange().expectStatus().isOk()
-        .expectBodyList(QueryResult.class).isEqualTo(queryResults);
+        .returnResult(QueryResult.class).getResponseBody();
+
+    StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
+      assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
+    }).verifyComplete();
   }
 
   @Test
@@ -65,13 +74,24 @@ public class QueryControllerTest {
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
     List<QueryResult> queryResults = List
-        .of(new QueryResult().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-            .setValues(values));
+        .of(new QueryResult()
+            .setData(
+                new QueryData()
+                    .setMetricName("cpu-idle")
+                    .setTags(queryTags)
+                    .setTenant("t-1")
+                    .setValues(values))
+            .setMetadata(
+                new Metadata()
+                    .setAggregator(Aggregator.min)
+                    .setGranularity(Duration.ofMinutes(1))
+                    .setStartTime(Instant.ofEpochSecond(1605611015))
+                    .setEndTime(Instant.ofEpochSecond(1605697439))));
 
     when(queryService.queryDownsampled(anyString(), anyString(), any(), any(), any(), any(), any()))
         .thenReturn(Flux.fromIterable(queryResults));
 
-    webTestClient.get()
+    Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
@@ -82,7 +102,12 @@ public class QueryControllerTest {
             .queryParam("granularity", "pt1m")
             .build())
         .exchange().expectStatus().isOk()
-        .expectBodyList(QueryResult.class).isEqualTo(queryResults);
+        .returnResult(QueryResult.class).getResponseBody();
+
+    StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
+      assertThat(queryResult.getMetadata()).isEqualTo(queryResults.get(0).getMetadata());
+    }).verifyComplete();
 
     verify(queryService)
         .queryDownsampled("t-1", "cpu-idle", Aggregator.min, Duration.ofMinutes(1), queryTags,

@@ -16,10 +16,14 @@
 
 package com.rackspace.ceres.app.model;
 
+import java.time.Instant;
+import java.util.Map;
 import lombok.Data;
 
 @Data
-public class QueryResult {
-  QueryData data;
-  Metadata metadata;
+public class QueryData {
+  String tenant;
+  String metricName;
+  Map<String,String> tags;
+  Map<Instant, Double> values;
 }
