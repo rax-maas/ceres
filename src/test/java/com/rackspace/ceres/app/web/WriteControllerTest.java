@@ -29,7 +29,7 @@ import reactor.test.StepVerifier;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test", "ingest"})
 @WebFluxTest(WriteController.class)
 @Import(AppProperties.class)
 public class WriteControllerTest {

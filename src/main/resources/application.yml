@@ -7,6 +7,8 @@ spring:
   cache:
     # we have redis, but really just want in-memory caching
     type: simple
+  profiles:
+    active: downsample, ingest, query
 server:
   error:
     include-message: always

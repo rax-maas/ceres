@@ -47,6 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.data.cassandra.CassandraConnectionFailureException;
@@ -58,6 +59,7 @@ import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
+@Profile("downsample")
 public class DownsampleProcessor {
 
   private final Environment env;
