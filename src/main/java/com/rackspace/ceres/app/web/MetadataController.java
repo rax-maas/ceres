@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.web;
 
-import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.services.MetadataService;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,14 +40,10 @@ public class MetadataController {
 
   private final Environment environment;
 
-  private final AppProperties appProperties;
-
   @Autowired
-  public MetadataController(MetadataService metadataService, Environment environment,
-      AppProperties appProperties) {
+  public MetadataController(MetadataService metadataService, Environment environment) {
     this.metadataService = metadataService;
     this.environment = environment;
-    this.appProperties = appProperties;
   }
 
   @GetMapping("/tenants")

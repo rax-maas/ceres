@@ -18,7 +18,6 @@ package com.rackspace.ceres.app.web;
 
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
-import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
@@ -43,12 +42,9 @@ public class QueryController {
 
   private final QueryService queryService;
 
-  private final AppProperties appProperties;
-
   @Autowired
-  public QueryController(QueryService queryService, AppProperties appProperties) {
+  public QueryController(QueryService queryService) {
     this.queryService = queryService;
-    this.appProperties = appProperties;
   }
 
   @GetMapping
