@@ -14,7 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test", "query", "dev"})
 @WebFluxTest(MetadataController.class)
 public class MetadataControllerTest {
 
@@ -78,8 +78,9 @@ public class MetadataControllerTest {
         .thenReturn(Mono.just(List.of("linux")));
 
     webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/tagValues").queryParam("tenant", "t-1")
+        uriBuilder -> uriBuilder.path("/api/metadata/tagValues")
             .queryParam("metricName", "metric-1").queryParam("tagKey", "os").build())
+        .header("X-Tenant-Id", "t-1")
         .exchange().expectStatus().isOk()
         .expectBody(List.class)
         .isEqualTo(List.of("linux"));

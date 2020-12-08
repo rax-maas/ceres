@@ -29,6 +29,7 @@ import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,18 +48,19 @@ public class QueryController {
   }
 
   @GetMapping
-  public Flux<QueryResult> query(@RequestParam String tenant,
+  public Flux<QueryResult> query(@RequestParam(required = false) String tenant,
                                  @RequestParam String metricName,
                                  @RequestParam(defaultValue = "raw") Aggregator aggregator,
                                  @RequestParam(required = false) Duration granularity,
                                  @RequestParam List<String> tag,
                                  @RequestParam String start,
-                                 @RequestParam(required = false) String end) {
+                                 @RequestParam(required = false) String end,
+                                 @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
-      return queryService.queryRaw(tenant, metricName,
+      return queryService.queryRaw(ParamUtils.getTenant(tenant, tenantId), metricName,
           convertPairsListToMap(tag),
           startTime, endTime
       );
@@ -68,7 +70,7 @@ public class QueryController {
             new IllegalArgumentException("granularity is required when using aggregator")
         );
       } else {
-        return queryService.queryDownsampled(tenant, metricName,
+        return queryService.queryDownsampled(ParamUtils.getTenant(tenant, tenantId), metricName,
             aggregator,
             granularity,
             convertPairsListToMap(tag),

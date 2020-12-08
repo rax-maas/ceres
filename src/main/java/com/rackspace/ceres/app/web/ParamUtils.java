@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.web;
 
 import java.util.List;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 
 public class ParamUtils {
 
@@ -43,5 +44,14 @@ public class ParamUtils {
         return Boolean.parseBoolean(maybeValue);
       }
     }
+  }
+
+  static String getTenant(String tenant, String tenantId) {
+    if(!StringUtils.isEmpty(tenant)) {
+      return tenant;
+    } else if (!StringUtils.isEmpty(tenantId)) {
+      return tenantId;
+    }
+    throw new IllegalArgumentException("Tenant id is required");
   }
 }

@@ -52,11 +52,11 @@ public class QueryControllerTest {
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
-            .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
             .build())
+        .header("X-Tenant-Id", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
@@ -132,6 +132,24 @@ public class QueryControllerTest {
         .expectBody()
         .jsonPath("$.status").isEqualTo(400)
         .jsonPath("$.message").isEqualTo("granularity is required when using aggregator")
+        .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
+
+    verifyNoInteractions(queryService);
+  }
+
+  @Test
+  public void testQueryApiWithNoTenantInHeaderAndParam() {
+
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricName", "cpu-idle")
+            .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400)
+        .jsonPath("$.message").isEqualTo("Tenant id is required")
         .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
 
     verifyNoInteractions(queryService);
