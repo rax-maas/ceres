@@ -46,11 +46,11 @@ public class ParamUtils {
     }
   }
 
-  static String getTenant(String tenant, String tenantId) {
-    if(!StringUtils.isEmpty(tenant)) {
-      return tenant;
-    } else if (!StringUtils.isEmpty(tenantId)) {
-      return tenantId;
+  static String resolveTenant(String tenantParam, String tenantHeader) {
+    if(!StringUtils.isEmpty(tenantParam)) {
+      return tenantParam;
+    } else if (!StringUtils.isEmpty(tenantHeader)) {
+      return tenantHeader;
     }
     throw new IllegalArgumentException("Tenant id is required");
   }

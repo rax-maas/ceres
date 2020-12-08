@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.web;
 
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
@@ -42,25 +43,28 @@ public class QueryController {
 
   private final QueryService queryService;
 
+  private final AppProperties appProperties;
+
   @Autowired
-  public QueryController(QueryService queryService) {
+  public QueryController(QueryService queryService, AppProperties appProperties) {
     this.queryService = queryService;
+    this.appProperties = appProperties;
   }
 
   @GetMapping
-  public Flux<QueryResult> query(@RequestParam(required = false) String tenant,
+  public Flux<QueryResult> query(@RequestParam(name = "tenant", required = false) String tenantParam,
                                  @RequestParam String metricName,
                                  @RequestParam(defaultValue = "raw") Aggregator aggregator,
                                  @RequestParam(required = false) Duration granularity,
                                  @RequestParam List<String> tag,
                                  @RequestParam String start,
                                  @RequestParam(required = false) String end,
-                                 @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
+                                 @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
-      return queryService.queryRaw(ParamUtils.getTenant(tenant, tenantId), metricName,
+      return queryService.queryRaw(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName,
           convertPairsListToMap(tag),
           startTime, endTime
       );
@@ -70,7 +74,7 @@ public class QueryController {
             new IllegalArgumentException("granularity is required when using aggregator")
         );
       } else {
-        return queryService.queryDownsampled(ParamUtils.getTenant(tenant, tenantId), metricName,
+        return queryService.queryDownsampled(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName,
             aggregator,
             granularity,
             convertPairsListToMap(tag),
