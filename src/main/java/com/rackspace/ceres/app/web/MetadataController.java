@@ -20,10 +20,15 @@ import com.rackspace.ceres.app.services.MetadataService;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -33,31 +38,49 @@ public class MetadataController {
 
   private final MetadataService metadataService;
 
+  private final Environment environment;
+
   @Autowired
-  public MetadataController(MetadataService metadataService) {
+  public MetadataController(MetadataService metadataService, Environment environment) {
     this.metadataService = metadataService;
+    this.environment = environment;
   }
 
   @GetMapping("/tenants")
   public Mono<List<String>> getTenants() {
-    return metadataService.getTenants();
+    if(isDevProfileActive()) {
+      return metadataService.getTenants();
+    }
+    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND));
   }
 
   @GetMapping("/metricNames")
-  public Mono<List<String>> getMetricNames(@RequestParam String tenant) {
-    return metadataService.getMetricNames(tenant);
+  public Mono<List<String>> getMetricNames(
+      @RequestParam(name = "tenant", required = false) String tenantParam,
+      @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
+    return metadataService.getMetricNames(ParamUtils.resolveTenant(tenantParam, tenantHeader));
   }
 
   @GetMapping("/tagKeys")
-  public Mono<List<String>> getTagKeys(@RequestParam String tenant,
-                                       @RequestParam String metricName) {
-    return metadataService.getTagKeys(tenant, metricName);
+  public Mono<List<String>> getTagKeys(
+      @RequestParam(name = "tenant", required = false) String tenantParam,
+      @RequestParam String metricName,
+      @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
+    return metadataService
+        .getTagKeys(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName);
   }
 
   @GetMapping("/tagValues")
-  public Mono<List<String>> getTagValues(@RequestParam String tenant,
-                                         @RequestParam String metricName,
-                                         @RequestParam String tagKey) {
-    return metadataService.getTagValues(tenant, metricName, tagKey);
+  public Mono<List<String>> getTagValues(
+      @RequestParam(name = "tenant", required = false) String tenantParam,
+      @RequestParam String metricName,
+      @RequestParam String tagKey,
+      @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
+    return metadataService
+        .getTagValues(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName, tagKey);
+  }
+
+  public boolean isDevProfileActive() {
+    return environment.acceptsProfiles(Profiles.of("dev"));
   }
 }

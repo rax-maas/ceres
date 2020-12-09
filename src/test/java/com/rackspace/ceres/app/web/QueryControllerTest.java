@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
@@ -19,7 +20,9 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -27,7 +30,9 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @ActiveProfiles(profiles = {"test", "query"})
-@WebFluxTest(QueryController.class)
+@SpringBootTest(classes = {QueryController.class, AppProperties.class, RestWebExceptionHandler.class})
+@AutoConfigureWebTestClient
+@AutoConfigureWebFlux
 public class QueryControllerTest {
 
   @MockBean
@@ -52,11 +57,11 @@ public class QueryControllerTest {
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
-            .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
@@ -132,6 +137,24 @@ public class QueryControllerTest {
         .expectBody()
         .jsonPath("$.status").isEqualTo(400)
         .jsonPath("$.message").isEqualTo("granularity is required when using aggregator")
+        .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
+
+    verifyNoInteractions(queryService);
+  }
+
+  @Test
+  public void testQueryApiWithNoTenantInHeaderAndParam() {
+
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricName", "cpu-idle")
+            .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400)
+        .jsonPath("$.message").isEqualTo("Tenant id is required")
         .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
 
     verifyNoInteractions(queryService);
