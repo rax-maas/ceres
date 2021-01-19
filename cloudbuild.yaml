@@ -41,7 +41,7 @@ steps:
     - jib:build
     - "-B"
     - "-Dmaven.test.skip=true"
-    - "-Djib.to.image=registry.hub.docker.com/rackspaceceres/${_CERES_APP}:${_IMAGE_TAG}"
+    - "-Djib.to.image=registry.hub.docker.com/rackerlabs/${_CERES_APP}:${_IMAGE_TAG}"
     volumes:
     - name: user.home
       path: /root
