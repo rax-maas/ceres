@@ -30,7 +30,6 @@
 	<properties>
 		<java.version>14</java.version>
 		<testcontainers.version>1.15.0</testcontainers.version>
-		<image.prefix>racker/</image.prefix>
 	</properties>
 
 	<dependencies>
@@ -141,7 +140,7 @@
 						<image>openjdk:14</image>
 					</from>
 					<to>
-						<image>${image.prefix}${project.artifactId}</image>
+						<image>registry.hub.docker.com/${docker.image.prefix}/${project.artifactId}</image>
 					</to>
 				</configuration>
 			</plugin>

@@ -1,0 +1,73 @@
+substitutions:
+  _GCS_CACHE_BUCKET: ceres-cache
+  _CERES_PROJECT: ceres
+  _CERES_APP: ceres 
+  _IMAGE_TAG: dev
+  _APP_NAMESPACE: default
+  _CLOUDSDK_COMPUTE_ZONE: us-east1-b
+
+steps:
+  # Load the cached files from GCS if they exist.
+  - id: PULL_DOWN_CACHE
+    waitFor: ['-']
+    name: gcr.io/cloud-builders/gsutil
+    dir: /root
+    entrypoint: bash
+    args:
+    - -c
+    - |
+      (
+        gsutil cp gs://${_GCS_CACHE_BUCKET}/${_CERES_PROJECT}-m2-cache.tar.gz /tmp/m2-cache.tar.gz &&
+        tar -xzf /tmp/m2-cache.tar.gz
+      ) || echo 'Cache not found'
+    volumes:
+    - name: user.home
+      path: /root
+
+  - id: DOCKER_LOGIN
+    name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: ['-c', 'docker login --username=rackspaceceres --password=$$DH_PASSWORD']
+    secretEnv: ['DH_PASSWORD']
+
+  - id: COMPILE_AND_PUSH_CONTAINER
+    name: 'maven:3.6-openjdk-14'
+    env:
+    - 'SHORT_SHA=$SHORT_SHA'
+    - 'BRANCH_NAME=$BRANCH_NAME'
+    args:
+    - mvn
+    - compile
+    - jib:build
+    - "-B"
+    - "-Dmaven.test.skip=true"
+    - "-Djib.to.image=registry.hub.docker.com/rackspaceceres/${_CERES_APP}:${_IMAGE_TAG}"
+    volumes:
+    - name: user.home
+      path: /root
+
+  # Saves the files to the GCS cache.
+  - id: PUSH_UP_CACHE
+    waitFor:
+    - COMPILE_AND_PUSH_CONTAINER
+    name: gcr.io/cloud-builders/gsutil
+    dir: /root
+    entrypoint: bash
+    # Caches the local Maven repository.
+    args:
+    - -c
+    - |
+      set -ex
+      tar -czf /tmp/m2-cache.tar.gz .m2 &&
+      gsutil cp /tmp/m2-cache.tar.gz gs://${_GCS_CACHE_BUCKET}/${_CERES_PROJECT}-m2-cache.tar.gz
+    volumes:
+    - name: user.home
+      path: /root
+
+secrets:
+ - kmsKeyName: projects/ceres-dev-222017/locations/global/keyRings/ceres/cryptoKeys/secrets
+   secretEnv:
+     DH_PASSWORD: 'CiQAjthjBeNrecl28JcfyYjiL5H4007i7GiCjlG19uhPjv/J6gkSSQAtDdivCnhA3YPg9SG2+M2KqExmCDW3amKYsyp6Id6pIfNiKdu4A/fir9ZKQ082xGzgRzcptHJaKr9DFnZwA3oyE5ixh6f2Qh4='
+
+options:
+  substitution_option: 'ALLOW_LOOSE'
