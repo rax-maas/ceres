@@ -30,7 +30,6 @@
 	<properties>
 		<java.version>14</java.version>
 		<testcontainers.version>1.15.0</testcontainers.version>
-		<image.prefix>racker/</image.prefix>
 	</properties>
 
 	<dependencies>
