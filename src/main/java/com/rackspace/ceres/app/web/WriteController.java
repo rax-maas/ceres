@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Rackspace US, Inc.
+ * Copyright 2021 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,10 @@ public class WriteController {
     this.appProperties = appProperties;
   }
 
+  /**
+   * NOTE: the path is <code>/put</code> even though it is a POST operation in order to be
+   * API compatible with OpenTSDB.
+   */
   @PostMapping("/put")
   public Mono<ResponseEntity<?>> putMetrics(@RequestBody @Validated Flux<Metric> metrics,
                                             @RequestParam MultiValueMap<String, String> allParams,
