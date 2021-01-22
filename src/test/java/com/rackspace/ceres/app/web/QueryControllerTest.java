@@ -60,8 +60,8 @@ public class QueryControllerTest {
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
+            .queryParam("tenant", "t-1")
             .build())
-        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
@@ -153,9 +153,7 @@ public class QueryControllerTest {
             .build())
         .exchange().expectStatus().isBadRequest()
         .expectBody()
-        .jsonPath("$.status").isEqualTo(400)
-        .jsonPath("$.message").isEqualTo("Tenant id is required")
-        .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
+        .jsonPath("$.status").isEqualTo(400);
 
     verifyNoInteractions(queryService);
   }

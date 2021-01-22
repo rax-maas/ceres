@@ -51,7 +51,7 @@ public class QueryController {
   }
 
   @GetMapping
-  public Flux<QueryResult> query(@RequestParam(name = "tenant", required = false) String tenantParam,
+  public Flux<QueryResult> query(@RequestParam(name = "tenant") String tenantParam,
                                  @RequestParam String metricName,
                                  @RequestParam(defaultValue = "raw") Aggregator aggregator,
                                  @RequestParam(required = false) Duration granularity,
@@ -59,11 +59,10 @@ public class QueryController {
                                  @RequestParam String start,
                                  @RequestParam(required = false) String end,
                                  @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
-
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
-      return queryService.queryRaw(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName,
+      return queryService.queryRaw(tenantParam, metricName,
           convertPairsListToMap(tag),
           startTime, endTime
       );
@@ -73,7 +72,7 @@ public class QueryController {
             new IllegalArgumentException("granularity is required when using aggregator")
         );
       } else {
-        return queryService.queryDownsampled(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName,
+        return queryService.queryDownsampled(tenantParam, metricName,
             aggregator,
             granularity,
             convertPairsListToMap(tag),

@@ -65,24 +65,6 @@ public class MetadataControllerTest {
   }
 
   @Test
-  public void testGetMetricNamesWithTenantHeader() {
-
-    when(metadataService.getMetricNames("t-1"))
-        .thenReturn(Mono.just(List.of("metric-1", "metric-2")));
-
-    webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/metricNames")
-            .build())
-        .header("X-Tenant", "t-1")
-        .exchange().expectStatus().isOk()
-        .expectBody(List.class)
-        .isEqualTo(List.of("metric-1", "metric-2"));
-
-    verify(metadataService).getMetricNames("t-1");
-    verifyNoMoreInteractions(metadataService);
-  }
-
-  @Test
   public void testGetTagKeysWithTenantParam() {
 
     when(metadataService.getTagKeys("t-1", "metric-1"))
@@ -100,24 +82,6 @@ public class MetadataControllerTest {
   }
 
   @Test
-  public void testGetTagKeysWithTenantHeader() {
-
-    when(metadataService.getTagKeys("t-1", "metric-1"))
-        .thenReturn(Mono.just(List.of("os", "host")));
-
-    webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/tagKeys")
-            .queryParam("metricName", "metric-1").build())
-        .header("X-Tenant", "t-1")
-        .exchange().expectStatus().isOk()
-        .expectBody(List.class)
-        .isEqualTo(List.of("os", "host"));
-
-    verify(metadataService).getTagKeys("t-1", "metric-1");
-    verifyNoMoreInteractions(metadataService);
-  }
-
-  @Test
   public void testGetTagValuesWithTenantParam() {
 
     when(metadataService.getTagValues("t-1", "metric-1", "os"))
@@ -125,24 +89,6 @@ public class MetadataControllerTest {
 
     webTestClient.get().uri(
         uriBuilder -> uriBuilder.path("/api/metadata/tagValues").queryParam("tenant", "t-1")
-            .queryParam("metricName", "metric-1").queryParam("tagKey", "os").build())
-        .header("X-Tenant", "t-1")
-        .exchange().expectStatus().isOk()
-        .expectBody(List.class)
-        .isEqualTo(List.of("linux"));
-
-    verify(metadataService).getTagValues("t-1", "metric-1", "os");
-    verifyNoMoreInteractions(metadataService);
-  }
-
-  @Test
-  public void testGetTagValuesWithTenantHeader() {
-
-    when(metadataService.getTagValues("t-1", "metric-1", "os"))
-        .thenReturn(Mono.just(List.of("linux")));
-
-    webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/tagValues")
             .queryParam("metricName", "metric-1").queryParam("tagKey", "os").build())
         .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()

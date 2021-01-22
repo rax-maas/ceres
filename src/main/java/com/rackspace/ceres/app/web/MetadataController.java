@@ -56,28 +56,28 @@ public class MetadataController {
 
   @GetMapping("/metricNames")
   public Mono<List<String>> getMetricNames(
-      @RequestParam(name = "tenant", required = false) String tenantParam,
+      @RequestParam(name = "tenant") String tenantParam,
       @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
-    return metadataService.getMetricNames(ParamUtils.resolveTenant(tenantParam, tenantHeader));
+    return metadataService.getMetricNames(tenantParam);
   }
 
   @GetMapping("/tagKeys")
   public Mono<List<String>> getTagKeys(
-      @RequestParam(name = "tenant", required = false) String tenantParam,
+      @RequestParam(name = "tenant") String tenantParam,
       @RequestParam String metricName,
       @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
     return metadataService
-        .getTagKeys(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName);
+        .getTagKeys(tenantParam, metricName);
   }
 
   @GetMapping("/tagValues")
   public Mono<List<String>> getTagValues(
-      @RequestParam(name = "tenant", required = false) String tenantParam,
+      @RequestParam(name = "tenant") String tenantParam,
       @RequestParam String metricName,
       @RequestParam String tagKey,
       @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
     return metadataService
-        .getTagValues(ParamUtils.resolveTenant(tenantParam, tenantHeader), metricName, tagKey);
+        .getTagValues(tenantParam, metricName, tagKey);
   }
 
   public boolean isDevProfileActive() {

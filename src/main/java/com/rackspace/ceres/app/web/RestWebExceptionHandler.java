@@ -34,6 +34,7 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -81,6 +82,9 @@ public class RestWebExceptionHandler extends
    */
   private Mono<ServerResponse> respondWith(Map<String, Object> body, String exceptionClass) {
     if (exceptionClass.equals(IllegalArgumentException.class.getName())) {
+      return respondWithBadRequest(body);
+    }
+    else if (exceptionClass.equals(ServerWebInputException.class.getName())) {
       return respondWithBadRequest(body);
     }
     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(BodyInserters.fromValue(
