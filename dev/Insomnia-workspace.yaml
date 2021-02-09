@@ -1,0 +1,469 @@
+_type: export
+__export_format: 4
+__export_date: 2021-02-09T16:40:19.951Z
+__export_source: insomnia.desktop.app:v2020.5.2
+resources:
+  - _id: req_ea9cca38d7924d218ca2b1d0831c93d7
+    parentId: fld_48b9ea2fb7374017b2992b281547a65f
+    modified: 1612888784780
+    created: 1612880288559
+    url: "{{ ceres_endpoint }}/api/query"
+    name: Get Downsampled Data
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: tenant
+        value: t-1
+        description: ""
+        id: pair_b733d24c32904ab5a8cc102428f5ea68
+      - name: metricName
+        value: memory_free
+        description: ""
+        id: pair_f2aeb98345be4dd7a6071a640ec400e2
+      - name: tag
+        value: os-linux
+        description: ""
+        id: pair_3f573d75d33e47eeb63f8ec0f03dd180
+      - name: start
+        value: 48h-ago
+        description: ""
+        id: pair_61dc7b9596ba4be7aa8746ffd795d289
+      - name: aggregator
+        value: min
+        description: ""
+        id: pair_03f9c417542f4038a2fd6aea0c883e89
+      - name: granularity
+        value: PT5M
+        description: ""
+        id: pair_43936498cb5e44869fb9ed5d600202eb
+    headers:
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_35ae097e7eb1403ebc77d88f4bc06eff
+    authentication: {}
+    metaSortKey: -1612880185210
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_48b9ea2fb7374017b2992b281547a65f
+    parentId: fld_76f005b356994fb6a17aa0229edd5089
+    modified: 1612880832092
+    created: 1612880053505
+    name: Query
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612880053505
+    _type: request_group
+  - _id: fld_76f005b356994fb6a17aa0229edd5089
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1612880827070
+    created: 1612880827070
+    name: PUBLIC
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612880827070
+    _type: request_group
+  - _id: wrk_8fc4b25f197147728096ac966f73b62e
+    parentId: null
+    modified: 1612868139531
+    created: 1612868139531
+    name: Ceres Workspace
+    description: ""
+    scope: null
+    _type: workspace
+  - _id: req_4b1cb0c9dde648b5af7e0c42679ac13d
+    parentId: fld_48b9ea2fb7374017b2992b281547a65f
+    modified: 1612888788466
+    created: 1612880185160
+    url: "{{ ceres_endpoint }}/api/query"
+    name: Get Raw Data
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: tenant
+        value: t-1
+        description: ""
+        id: pair_4c6890ee1f5a40c6865408c8965efc09
+      - name: metricName
+        value: memory_free
+        description: ""
+        id: pair_d395f1a0ca634b2183653937fc213063
+      - name: tag
+        value: os=linux
+        description: ""
+        id: pair_bca4f628bfa24c199d6ff2749c08c827
+      - name: start
+        value: 3h-ago
+        description: ""
+        id: pair_903f39a3cb0c4161be6f1b1ce29e32d7
+    headers:
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_fbc26cd9cd8f4f4584cfc22fb9d56ccf
+    authentication: {}
+    metaSortKey: -1612880185160
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_5fe272d5901e4c0c87479e9ffab5f5cd
+    parentId: fld_e24cbfe180534c5dbfba098ca73534d0
+    modified: 1612888792154
+    created: 1612879881619
+    url: "{{ ceres_endpoint }}/api/metadata/tagKeys"
+    name: Get TagKeys
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: tenant
+        value: t-1
+        description: ""
+        id: pair_b047b73dd97d4bb6a384e301c30f9c48
+      - name: metricName
+        value: memory_free
+        description: ""
+        id: pair_6eb6593b04e641d8a226765012de3b06
+    headers:
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_4c8a62551e9841b2af171d1c35c4e6a1
+    authentication: {}
+    metaSortKey: -1612875952595
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_e24cbfe180534c5dbfba098ca73534d0
+    parentId: fld_76f005b356994fb6a17aa0229edd5089
+    modified: 1612880837590
+    created: 1612875850206
+    name: Metadata
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612880053455
+    _type: request_group
+  - _id: req_1df3e61522154c28822299e5a2fb34eb
+    parentId: fld_e24cbfe180534c5dbfba098ca73534d0
+    modified: 1612888795247
+    created: 1612879993589
+    url: "{{ ceres_endpoint }}/api/metadata/tagValues"
+    name: Get TagValues
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: tenant
+        value: t-1
+        description: ""
+        id: pair_b047b73dd97d4bb6a384e301c30f9c48
+      - name: metricName
+        value: memory_free
+        description: ""
+        id: pair_6eb6593b04e641d8a226765012de3b06
+      - name: tagKey
+        value: resource_label
+        description: ""
+        id: pair_6f9ec6260c85477a92496312b5da913e
+    headers:
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_132cacd71ad241ab87f8ea974e92a25e
+    authentication: {}
+    metaSortKey: -1612875952570
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_2fcc1ce03cd74744b5291cbf2922e750
+    parentId: fld_e24cbfe180534c5dbfba098ca73534d0
+    modified: 1612887369366
+    created: 1612875952545
+    url: "{{ ceres_endpoint }}/api/metadata/metricNames"
+    name: Get MetricNames
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: tenant
+        value: t-1
+        description: ""
+        id: pair_e512e2003a59464789c2246251cd7bce
+    headers:
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_9240c9b8177746dd8836922322f902a0
+    authentication: {}
+    metaSortKey: -1612875952545
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_fdb1e61dd1a94c3fb37b18bef9e4bac7
+    parentId: fld_e24cbfe180534c5dbfba098ca73534d0
+    modified: 1612887364485
+    created: 1612875898359
+    url: "{{ ceres_endpoint }}/api/metadata/tenants"
+    name: Get Tenants
+    description: ""
+    method: GET
+    body: {}
+    parameters: []
+    headers:
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_114c77eb90e641f7a6d7c1c5fc822b6e
+    authentication: {}
+    metaSortKey: -1612875898359
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_acb0baf488084569af9460d029d043f7
+    parentId: fld_a717d0783f15465db0a5e87f120955f9
+    modified: 1612888802892
+    created: 1612875431553
+    url: "{{ ceres_endpoint }}/api/put"
+    name: Ingest Metrics
+    description: ""
+    method: POST
+    body:
+      mimeType: application/json
+      text: |-
+        [
+        	{
+        		"metric": "memory_free",
+        		"tags": {
+        			"tenant": "t-1",
+            	"os": "linux",
+            	"host": "h-1",
+            	"deployment": "prod"
+          	},
+          	"timestamp": 1611244004,
+         		"value": 11
+        	},
+        	{
+          	"tenant": "t-1",
+          	"metric": "memory_free",
+          	"tags": {
+            	"tenant": "t-1",
+            	"os": "windows",
+            	"host": "h-2",
+            	"deployment": "prod"
+          	},
+          	"timestamp": 1611244004,
+          	"value": 12
+        	},
+        	{
+          	"metric": "memory_free",
+          	"tags": {
+            	"tenant": "t-1",
+            	"os": "linux",
+            	"host": "h-3",
+            	"deployment": "dev"
+          	},
+          	"timestamp": 1611244004,
+          	"value": 13
+        	}
+        ]
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/json
+        id: pair_73e2807a9bae43a0900fd15636c96ccc
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_2c221b1cba0d4be9993837e0b50570f8
+    authentication: {}
+    metaSortKey: -1612875431553
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_a717d0783f15465db0a5e87f120955f9
+    parentId: fld_35699b465e4a483a86e17a551e547425
+    modified: 1612880820739
+    created: 1612868571679
+    name: Ingest
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612868571679
+    _type: request_group
+  - _id: fld_35699b465e4a483a86e17a551e547425
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1612880814504
+    created: 1612880814504
+    name: DIRECT
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612880814504
+    _type: request_group
+  - _id: req_34b25885a43e4256a0bdec9803a95feb
+    parentId: fld_a717d0783f15465db0a5e87f120955f9
+    modified: 1612883926042
+    created: 1612868616093
+    url: "{{ ceres_endpoint }}/api/put"
+    name: Ingest Metric
+    description: ""
+    method: POST
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "metric": "memory_free",
+          "tags": {
+            "tenant": "t-1",
+            "os": "linux",
+            "host": "h-1",
+            "deployment": "prod"
+          },
+          "timestamp": {{$timestamp}},
+          "value": 5
+        }
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/json
+        id: pair_e8d14d12f0e54e2e8e5056ac6db56e60
+      - name: X-Auth-Token
+        value: "{{ _['x-auth-Token'] }}"
+        description: ""
+        id: pair_63c7af33a84f480d87a0e6ad0edbea4b
+    authentication: {}
+    metaSortKey: -1612868616093
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1612881341172
+    created: 1612868139606
+    name: Base Environment
+    data:
+      x-auth-Token: abc
+    dataPropertyOrder:
+      "&":
+        - x-auth-Token
+    color: null
+    isPrivate: false
+    metaSortKey: 1612868139606
+    _type: environment
+  - _id: jar_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1612868139608
+    created: 1612868139608
+    name: Default Jar
+    cookies: []
+    _type: cookie_jar
+  - _id: spc_addb2f6f6fa948ba957d7e2c312d337a
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1612868139537
+    created: 1612868139537
+    fileName: Ceres Workspace
+    contents: ""
+    contentType: yaml
+    _type: api_spec
+  - _id: env_3267dea6b2c34e4184bcae2c889cfeb6
+    parentId: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
+    modified: 1612887275989
+    created: 1612868307982
+    name: localhost
+    data:
+      api_public: localhost:8080
+    dataPropertyOrder:
+      "&":
+        - api_public
+    color: null
+    isPrivate: false
+    metaSortKey: 1612868307982
+    _type: environment
+  - _id: env_909299d6e41a4255b3fe899bb7049522
+    parentId: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
+    modified: 1612887255606
+    created: 1612868365323
+    name: Dev
+    data:
+      api_public: http://ceres-api.dev.monplat.rackspace.net
+    dataPropertyOrder:
+      "&":
+        - api_public
+    color: null
+    isPrivate: false
+    metaSortKey: 1612868365323
+    _type: environment
+  - _id: env_6a75ba96710c4fde9f6a9c7494777582
+    parentId: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
+    modified: 1612887241931
+    created: 1612868392361
+    name: Staging
+    data:
+      api_public: http://ceres-api.staging.monplat.rackspace.net
+    dataPropertyOrder:
+      "&":
+        - api_public
+    color: null
+    isPrivate: false
+    metaSortKey: 1612868392361
+    _type: environment
+  - _id: env_db3d548b67234fb9a9346d22858ebf29
+    parentId: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
+    modified: 1612887271474
+    created: 1612868404002
+    name: Prod
+    data:
+      api_public: http://ceres-api.prod.monplat.rackspace.net
+    dataPropertyOrder:
+      "&":
+        - api_public
+    color: null
+    isPrivate: false
+    metaSortKey: 1612868404002
+    _type: environment
