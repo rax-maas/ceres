@@ -1,13 +1,13 @@
 _type: export
 __export_format: 4
-__export_date: 2021-02-09T16:40:19.951Z
+__export_date: 2021-02-10T08:44:54.003Z
 __export_source: insomnia.desktop.app:v2020.5.2
 resources:
   - _id: req_ea9cca38d7924d218ca2b1d0831c93d7
     parentId: fld_48b9ea2fb7374017b2992b281547a65f
-    modified: 1612888784780
+    modified: 1612946583590
     created: 1612880288559
-    url: "{{ ceres_endpoint }}/api/query"
+    url: "{{ api_public }}/api/query"
     name: Get Downsampled Data
     description: ""
     method: GET
@@ -39,7 +39,7 @@ resources:
         id: pair_43936498cb5e44869fb9ed5d600202eb
     headers:
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_35ae097e7eb1403ebc77d88f4bc06eff
     authentication: {}
@@ -82,9 +82,9 @@ resources:
     _type: workspace
   - _id: req_4b1cb0c9dde648b5af7e0c42679ac13d
     parentId: fld_48b9ea2fb7374017b2992b281547a65f
-    modified: 1612888788466
+    modified: 1612946597587
     created: 1612880185160
-    url: "{{ ceres_endpoint }}/api/query"
+    url: "{{ api_public }}/api/query"
     name: Get Raw Data
     description: ""
     method: GET
@@ -108,7 +108,7 @@ resources:
         id: pair_903f39a3cb0c4161be6f1b1ce29e32d7
     headers:
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_fbc26cd9cd8f4f4584cfc22fb9d56ccf
     authentication: {}
@@ -123,9 +123,9 @@ resources:
     _type: request
   - _id: req_5fe272d5901e4c0c87479e9ffab5f5cd
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612888792154
+    modified: 1612946615696
     created: 1612879881619
-    url: "{{ ceres_endpoint }}/api/metadata/tagKeys"
+    url: "{{ api_public }}/api/metadata/tagKeys"
     name: Get TagKeys
     description: ""
     method: GET
@@ -141,7 +141,7 @@ resources:
         id: pair_6eb6593b04e641d8a226765012de3b06
     headers:
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_4c8a62551e9841b2af171d1c35c4e6a1
     authentication: {}
@@ -166,9 +166,9 @@ resources:
     _type: request_group
   - _id: req_1df3e61522154c28822299e5a2fb34eb
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612888795247
+    modified: 1612946639030
     created: 1612879993589
-    url: "{{ ceres_endpoint }}/api/metadata/tagValues"
+    url: "{{ api_public }}/api/metadata/tagValues"
     name: Get TagValues
     description: ""
     method: GET
@@ -188,7 +188,7 @@ resources:
         id: pair_6f9ec6260c85477a92496312b5da913e
     headers:
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_132cacd71ad241ab87f8ea974e92a25e
     authentication: {}
@@ -203,9 +203,9 @@ resources:
     _type: request
   - _id: req_2fcc1ce03cd74744b5291cbf2922e750
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612887369366
+    modified: 1612946648746
     created: 1612875952545
-    url: "{{ ceres_endpoint }}/api/metadata/metricNames"
+    url: "{{ api_public }}/api/metadata/metricNames"
     name: Get MetricNames
     description: ""
     method: GET
@@ -217,7 +217,7 @@ resources:
         id: pair_e512e2003a59464789c2246251cd7bce
     headers:
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_9240c9b8177746dd8836922322f902a0
     authentication: {}
@@ -232,9 +232,9 @@ resources:
     _type: request
   - _id: req_fdb1e61dd1a94c3fb37b18bef9e4bac7
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612887364485
+    modified: 1612946654943
     created: 1612875898359
-    url: "{{ ceres_endpoint }}/api/metadata/tenants"
+    url: "{{ api_public }}/api/metadata/tenants"
     name: Get Tenants
     description: ""
     method: GET
@@ -242,7 +242,7 @@ resources:
     parameters: []
     headers:
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_114c77eb90e641f7a6d7c1c5fc822b6e
     authentication: {}
@@ -257,9 +257,9 @@ resources:
     _type: request
   - _id: req_acb0baf488084569af9460d029d043f7
     parentId: fld_a717d0783f15465db0a5e87f120955f9
-    modified: 1612888802892
+    modified: 1612946664487
     created: 1612875431553
-    url: "{{ ceres_endpoint }}/api/put"
+    url: "{{ api_public }}/api/put"
     name: Ingest Metrics
     description: ""
     method: POST
@@ -308,7 +308,7 @@ resources:
         value: application/json
         id: pair_73e2807a9bae43a0900fd15636c96ccc
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_2c221b1cba0d4be9993837e0b50570f8
     authentication: {}
@@ -343,9 +343,9 @@ resources:
     _type: request_group
   - _id: req_34b25885a43e4256a0bdec9803a95feb
     parentId: fld_a717d0783f15465db0a5e87f120955f9
-    modified: 1612883926042
+    modified: 1612946669997
     created: 1612868616093
-    url: "{{ ceres_endpoint }}/api/put"
+    url: "{{ api_public }}/api/put"
     name: Ingest Metric
     description: ""
     method: POST
@@ -369,7 +369,7 @@ resources:
         value: application/json
         id: pair_e8d14d12f0e54e2e8e5056ac6db56e60
       - name: X-Auth-Token
-        value: "{{ _['x-auth-Token'] }}"
+        value: "{{ auth_token }}"
         description: ""
         id: pair_63c7af33a84f480d87a0e6ad0edbea4b
     authentication: {}
@@ -384,14 +384,14 @@ resources:
     _type: request
   - _id: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
     parentId: wrk_8fc4b25f197147728096ac966f73b62e
-    modified: 1612881341172
+    modified: 1612946564540
     created: 1612868139606
     name: Base Environment
     data:
-      x-auth-Token: abc
+      auth_token: abc
     dataPropertyOrder:
       "&":
-        - x-auth-Token
+        - auth_token
     color: null
     isPrivate: false
     metaSortKey: 1612868139606
