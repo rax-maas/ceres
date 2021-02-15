@@ -2,3 +2,12 @@ spring:
   data:
     cassandra:
       contact-points: ""
+ceres:
+  downsample:
+    granularities:
+      - width: 1m
+        ttl: 12h
+        partitionWidth: 2h
+      - width: 2m
+        ttl: 1d
+        partitionWidth: 4h
