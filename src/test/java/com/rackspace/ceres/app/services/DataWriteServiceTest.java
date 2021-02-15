@@ -41,6 +41,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.NestedTestConfiguration;
+import org.springframework.test.context.NestedTestConfiguration.EnclosingConfiguration;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -81,6 +83,7 @@ class DataWriteServiceTest {
   ReactiveCqlTemplate cqlTemplate;
 
   @Nested
+  @NestedTestConfiguration(value = EnclosingConfiguration.OVERRIDE)
   class ingest {
     @Test
     void single() {
