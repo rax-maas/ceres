@@ -187,14 +187,14 @@ class QueryServiceTest {
     final String seriesSet = seriesSetService
         .hash(metricName, tags);
 
-//    dataWriteService.ingest(
-//        tenant,
-//        new Metric()
-//            .setTimestamp(Instant.now())
-//            .setValue(Math.random())
-//            .setMetric(metricName)
-//            .setTags(tags)
-//    ).subscribe();
+    dataWriteService.ingest(
+        tenant,
+        new Metric()
+            .setTimestamp(Instant.now())
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).subscribe();
 
     downsampleProcessor.downsampleData(
         Flux.just(
@@ -205,13 +205,15 @@ class QueryServiceTest {
         ), tenant, seriesSet,
         List.of(granularity(1, 12), granularity(2, 24)).iterator(),
         false
-    );
+    ).block();
 
     final List<QueryResult> result = queryService.queryDownsampled(tenant, metricName, Aggregator.min, Duration.ofMinutes(2), tags,
         Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList().block();
 
-    log.info("result "+result);
     assertThat(result).isNotEmpty();
+    assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
+    assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+    assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
   }
 
 
