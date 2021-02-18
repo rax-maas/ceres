@@ -1,6 +1,6 @@
 _type: export
 __export_format: 4
-__export_date: 2021-02-10T08:44:54.003Z
+__export_date: 2021-02-18T08:23:32.382Z
 __export_source: insomnia.desktop.app:v2020.5.2
 resources:
   - _id: req_ea9cca38d7924d218ca2b1d0831c93d7
@@ -255,64 +255,39 @@ resources:
     settingRebuildPath: true
     settingFollowRedirects: global
     _type: request
-  - _id: req_acb0baf488084569af9460d029d043f7
+  - _id: req_34b25885a43e4256a0bdec9803a95feb
     parentId: fld_a717d0783f15465db0a5e87f120955f9
-    modified: 1612946664487
-    created: 1612875431553
+    modified: 1613636524519
+    created: 1612868616093
     url: "{{ api_public }}/api/put"
-    name: Ingest Metrics
+    name: Ingest Metric
     description: ""
     method: POST
     body:
       mimeType: application/json
       text: |-
-        [
-        	{
-        		"metric": "memory_free",
-        		"tags": {
-        			"tenant": "t-1",
-            	"os": "linux",
-            	"host": "h-1",
-            	"deployment": "prod"
-          	},
-          	"timestamp": 1611244004,
-         		"value": 11
-        	},
-        	{
-          	"tenant": "t-1",
-          	"metric": "memory_free",
-          	"tags": {
-            	"tenant": "t-1",
-            	"os": "windows",
-            	"host": "h-2",
-            	"deployment": "prod"
-          	},
-          	"timestamp": 1611244004,
-          	"value": 12
-        	},
-        	{
-          	"metric": "memory_free",
-          	"tags": {
-            	"tenant": "t-1",
-            	"os": "linux",
-            	"host": "h-3",
-            	"deployment": "dev"
-          	},
-          	"timestamp": 1611244004,
-          	"value": 13
-        	}
-        ]
+        {
+          "metric": "memory_free",
+          "tags": {
+            "tenant": "t-1",
+            "os": "linux",
+            "host": "h-1",
+            "deployment": "prod"
+          },
+          "timestamp": 1611244004,
+          "value": 5
+        }
     parameters: []
     headers:
       - name: Content-Type
         value: application/json
-        id: pair_73e2807a9bae43a0900fd15636c96ccc
+        id: pair_e8d14d12f0e54e2e8e5056ac6db56e60
       - name: X-Auth-Token
         value: "{{ auth_token }}"
         description: ""
-        id: pair_2c221b1cba0d4be9993837e0b50570f8
+        id: pair_63c7af33a84f480d87a0e6ad0edbea4b
     authentication: {}
-    metaSortKey: -1612875431553
+    metaSortKey: -1612868616093
     isPrivate: false
     settingStoreCookies: true
     settingSendCookies: true
@@ -341,47 +316,6 @@ resources:
     environmentPropertyOrder: null
     metaSortKey: -1612880814504
     _type: request_group
-  - _id: req_34b25885a43e4256a0bdec9803a95feb
-    parentId: fld_a717d0783f15465db0a5e87f120955f9
-    modified: 1612946669997
-    created: 1612868616093
-    url: "{{ api_public }}/api/put"
-    name: Ingest Metric
-    description: ""
-    method: POST
-    body:
-      mimeType: application/json
-      text: |-
-        {
-          "metric": "memory_free",
-          "tags": {
-            "tenant": "t-1",
-            "os": "linux",
-            "host": "h-1",
-            "deployment": "prod"
-          },
-          "timestamp": {{$timestamp}},
-          "value": 5
-        }
-    parameters: []
-    headers:
-      - name: Content-Type
-        value: application/json
-        id: pair_e8d14d12f0e54e2e8e5056ac6db56e60
-      - name: X-Auth-Token
-        value: "{{ auth_token }}"
-        description: ""
-        id: pair_63c7af33a84f480d87a0e6ad0edbea4b
-    authentication: {}
-    metaSortKey: -1612868616093
-    isPrivate: false
-    settingStoreCookies: true
-    settingSendCookies: true
-    settingDisableRenderRequestBody: false
-    settingEncodeUrl: true
-    settingRebuildPath: true
-    settingFollowRedirects: global
-    _type: request
   - _id: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
     parentId: wrk_8fc4b25f197147728096ac966f73b62e
     modified: 1612946564540
