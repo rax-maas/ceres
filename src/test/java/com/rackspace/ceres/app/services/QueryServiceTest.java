@@ -126,14 +126,14 @@ class QueryServiceTest {
     Metric metric = dataWriteService.ingest(
         tenantId,
         new Metric()
-            .setTimestamp(Instant.parse("2021-02-16T18:42:23.658447900Z"))
+            .setTimestamp(Instant.now())
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
     ).block();
 
     final List<QueryResult> result = queryService
-        .queryRaw(tenantId, metricName, tags, Instant.now(), Instant.now().plusSeconds(24*60*60)).collectList().block();
+        .queryRaw(tenantId, metricName, tags, Instant.now().minusSeconds(60), Instant.now()).collectList().block();
 
     assertThat(result).isNotEmpty();
     assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -167,7 +167,7 @@ class QueryServiceTest {
     ).block();
 
     final List<ValueSet> result = queryService
-        .queryRawWithSeriesSet(tenantId, seriesSet, Instant.now().minusSeconds(60), Instant.now().plusSeconds(24*60*60)).collectList().block();
+        .queryRawWithSeriesSet(tenantId, seriesSet, Instant.now().minusSeconds(60), Instant.now()).collectList().block();
 
     assertThat(result).isNotEmpty();
     assertThat(result.get(0).getTimestamp()).isEqualTo(instant.truncatedTo(ChronoUnit.MILLIS));
@@ -208,7 +208,7 @@ class QueryServiceTest {
     );
 
     final List<QueryResult> result = queryService.queryDownsampled(tenant, metricName, Aggregator.min, Duration.ofMinutes(2), tags,
-        Instant.now().minusSeconds(60), Instant.now().plusSeconds(24*60*60)).collectList().block();
+        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList().block();
 
     log.info("result "+result);
     assertThat(result).isNotEmpty();
