@@ -16,5 +16,3 @@ spring:
   data:
     cassandra:
       local-datacenter: datacenter1
-  profiles:
-    include: debug

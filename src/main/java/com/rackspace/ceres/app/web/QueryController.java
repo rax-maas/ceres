@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.web;
 
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
+import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
@@ -29,7 +30,6 @@ import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,23 +44,25 @@ import reactor.core.publisher.Flux;
 public class QueryController {
 
   private final QueryService queryService;
+  private final DownsampleProperties downsampleProperties;
 
   @Autowired
-  public QueryController(QueryService queryService) {
+  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties) {
     this.queryService = queryService;
+    this.downsampleProperties = downsampleProperties;
   }
 
   @GetMapping
   public Flux<QueryResult> query(@RequestParam(name = "tenant") String tenantParam,
-                                 @RequestParam String metricName,
-                                 @RequestParam(defaultValue = "raw") Aggregator aggregator,
-                                 @RequestParam(required = false) Duration granularity,
-                                 @RequestParam List<String> tag,
-                                 @RequestParam String start,
-                                 @RequestParam(required = false) String end,
-                                 @RequestHeader(value = "#{appProperties.tenantHeader}", required = false) String tenantHeader) {
+      @RequestParam String metricName,
+      @RequestParam(defaultValue = "raw") Aggregator aggregator,
+      @RequestParam(required = false) Duration granularity,
+      @RequestParam List<String> tag,
+      @RequestParam String start,
+      @RequestParam(required = false) String end) {
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
+
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
       return queryService.queryRaw(tenantParam, metricName,
           convertPairsListToMap(tag),
@@ -68,18 +70,15 @@ public class QueryController {
       );
     } else {
       if (granularity == null) {
-        return Flux.error(
-            new IllegalArgumentException("granularity is required when using aggregator")
-        );
-      } else {
-        return queryService.queryDownsampled(tenantParam, metricName,
-            aggregator,
-            granularity,
-            convertPairsListToMap(tag),
-            startTime, endTime
-        );
+        granularity = DateTimeUtils
+            .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
+      return queryService.queryDownsampled(tenantParam, metricName,
+          aggregator,
+          granularity,
+          convertPairsListToMap(tag),
+          startTime, endTime
+      );
     }
-
   }
 }

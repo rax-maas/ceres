@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
@@ -30,7 +31,8 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @ActiveProfiles(profiles = {"test", "query"})
-@SpringBootTest(classes = {QueryController.class, AppProperties.class, RestWebExceptionHandler.class})
+@SpringBootTest(classes = {QueryController.class, AppProperties.class, RestWebExceptionHandler.class,
+    DownsampleProperties.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
 public class QueryControllerTest {
@@ -124,22 +126,50 @@ public class QueryControllerTest {
   @Test
   public void testQueryApiWithAggregatorAndMissingGranularity() {
 
-    webTestClient.get()
+    Map<String, String> queryTags = Map.of("os", "linux", "deployment", "dev", "host", "h-1");
+
+    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
+
+    List<QueryResult> queryResults = List
+        .of(new QueryResult()
+            .setData(
+                new QueryData()
+                    .setMetricName("cpu-idle")
+                    .setTags(queryTags)
+                    .setTenant("t-1")
+                    .setValues(values))
+            .setMetadata(
+                new Metadata()
+                    .setAggregator(Aggregator.min)
+                    .setGranularity(Duration.ofMinutes(1))
+                    .setStartTime(Instant.ofEpochSecond(1605611015))
+                    .setEndTime(Instant.ofEpochSecond(1605697439))));
+
+    when(queryService.queryDownsampled(anyString(), anyString(), any(), any(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(queryResults));
+
+    Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
-            .queryParam("tag", "os=linux")
-            .queryParam("start", "1d-ago")
-            .queryParam("end", "1605117336")
-            .queryParam("aggregator", "min")
+            .queryParam("tag", "os=linux,deployment=dev,host=h-1,")
+            .queryParam("start", "1605611015")
+            .queryParam("end", "1605697439")
+            .queryParam("aggregator", "max")
             .build())
-        .exchange().expectStatus().isBadRequest()
-        .expectBody()
-        .jsonPath("$.status").isEqualTo(400)
-        .jsonPath("$.message").isEqualTo("granularity is required when using aggregator")
-        .jsonPath("$.exception").isEqualTo(IllegalArgumentException.class.getName());
+        .exchange().expectStatus().isOk()
+        .returnResult(QueryResult.class).getResponseBody();
 
-    verifyNoInteractions(queryService);
+    StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
+      assertThat(queryResult.getMetadata()).isEqualTo(queryResults.get(0).getMetadata());
+    }).verifyComplete();
+
+    verify(queryService)
+        .queryDownsampled("t-1", "cpu-idle", Aggregator.max, Duration.ofMinutes(2), queryTags,
+            Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
+
+    verifyNoMoreInteractions(queryService);
   }
 
   @Test
