@@ -3,9 +3,11 @@ package com.rackspace.ceres.app.utils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -82,5 +84,34 @@ public class DateTimeUtilsTest {
   @Test
   public void parseInstantTestWithRelativeTime() {
     assertThat(DateTimeUtils.parseInstant("1s-ago")).isNotNull();
+  }
+
+  @Test
+  public void getGranularityTest() {
+    Granularity granularity1 = new Granularity();
+    granularity1.setWidth(Duration.ofMinutes(5));
+    granularity1.setTtl(Duration.ofDays(14));
+
+    Granularity granularity2 = new Granularity();
+    granularity2.setWidth(Duration.ofHours(1));
+    granularity2.setTtl(Duration.ofDays(365));
+
+    Granularity granularity3 = new Granularity();
+    granularity3.setWidth(Duration.ofHours(2));
+    granularity3.setTtl(Duration.ofDays(500));
+
+    List<Granularity> granularityList = List.of(granularity1, granularity2, granularity3);
+
+    assertThat(DateTimeUtils
+        .getGranularity(Instant.now(), Instant.now().plus(1, ChronoUnit.HOURS), granularityList))
+        .isEqualTo(Duration.ofMinutes(5));
+
+    assertThat(DateTimeUtils
+        .getGranularity(Instant.now(), Instant.now().plus(15, ChronoUnit.DAYS), granularityList))
+        .isEqualTo(Duration.ofHours(1));
+
+    assertThat(DateTimeUtils
+        .getGranularity(Instant.now(), Instant.now().plus(400, ChronoUnit.DAYS), granularityList))
+        .isEqualTo(Duration.ofHours(2));
   }
 }

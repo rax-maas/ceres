@@ -1,10 +1,16 @@
 package com.rackspace.ceres.app.utils;
 
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.model.RelativeTime;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class DateTimeUtils {
 
@@ -84,5 +90,21 @@ public class DateTimeUtils {
     } else {
       return getAbsoluteTimeFromRelativeTime(instant);
     }
+  }
+
+  public static Duration getGranularity(Instant startTime, Instant endTime,
+      List<Granularity> granularities) {
+    Duration duration = Duration.between(startTime, endTime).truncatedTo(ChronoUnit.SECONDS);
+
+    //Sorting the granularities
+    granularities = granularities.stream()
+        .sorted(Comparator.comparingLong(value -> value.getTtl().toHours()))
+        .collect(Collectors.toList());
+
+    Granularity granularity = granularities.stream()
+        .filter(granularity1 -> duration.toHours() < granularity1.getTtl().toHours())
+        .findFirst()
+        .orElse(granularities.get(granularities.size() - 1));
+    return granularity.getWidth();
   }
 }
