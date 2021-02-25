@@ -22,11 +22,12 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricGroupAndName;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,7 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
-  private ReactiveRedisTemplate<String, List<String>> redisTemplate;
+  private ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -56,7 +57,7 @@ public class DataWriteService {
                           TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
                           AppProperties appProperties,
-      @Qualifier("reactiveRedisTemplate") ReactiveRedisTemplate redisTemplate) {
+                          ReactiveRedisTemplate reactiveRedisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -64,7 +65,7 @@ public class DataWriteService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
-    this.redisTemplate = redisTemplate;
+    this.reactiveRedisTemplate = reactiveRedisTemplate;
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -155,12 +156,14 @@ public class DataWriteService {
       metricName = strArr[1];
     }
 
-    final String metricGroup1 = metricGroup;
-    final String metricName1 = metricName;
-    log.info("metricGroup "+metricGroup+" metricName "+metricName);
+    MetricGroupAndName metricGroupAndName = new MetricGroupAndName()
+        .setMetricName(metricName).setMetricGroup(metricGroup);
 
-    return redisTemplate.opsForValue()
-        .setIfAbsent(metricGroup, List.of(metricName))
+    List<String> metricNames = new ArrayList<String>();
+    metricNames.add(metricName);
+
+    return reactiveRedisTemplate.opsForValue()
+        .setIfAbsent(metricGroup, metricNames)
         .doOnNext(inserted -> {
           if (inserted) {
             log.debug("cache missed");
@@ -168,14 +171,15 @@ public class DataWriteService {
             log.debug("cache hit");
           }
         })
-        .flatMap(e -> e ? Mono.just(true) : addToList(metricGroup1, metricName1));
+        .flatMap(inserted -> inserted ? Mono.just(true) : addToList(metricGroupAndName));
   }
 
-  private Mono<Boolean> addToList(String metricGroup, String metricName)  {
-    return redisTemplate.opsForValue().get(metricGroup).flatMap(e -> {
-      if(!e.contains(metricName))  {
-        e.add(metricName);
-        return redisTemplate.opsForValue().set(metricGroup, e);
+  private Mono<Boolean> addToList(MetricGroupAndName metricGroupAndName)  {
+    return reactiveRedisTemplate.opsForValue().get(metricGroupAndName.getMetricGroup()).flatMap(metricNames -> {
+      if(!metricNames.contains(metricGroupAndName.getMetricName()))  {
+        metricNames.add(metricGroupAndName.getMetricName());
+        log.debug("metricNames "+metricNames);
+        return reactiveRedisTemplate.opsForValue().set(metricGroupAndName.getMetricGroup(), metricNames);
       }
       return Mono.just(false);
     });

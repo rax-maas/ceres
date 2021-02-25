@@ -57,17 +57,4 @@ public class CacheConfig {
 
     return cache;
   }
-
-  @Bean(name = "reactiveRedisTemplate")
-  public ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate(
-      ReactiveRedisConnectionFactory factory) {
-    StringRedisSerializer keySerializer = new StringRedisSerializer();
-    Jackson2JsonRedisSerializer<List<String>> valueSerializer =
-        new Jackson2JsonRedisSerializer(List.class);
-    RedisSerializationContext.RedisSerializationContextBuilder<String, List<String>> builder =
-        RedisSerializationContext.newSerializationContext(keySerializer);
-    RedisSerializationContext<String, List<String>> context =
-        builder.value(valueSerializer).build();
-    return new ReactiveRedisTemplate<>(factory, context);
-  }
 }

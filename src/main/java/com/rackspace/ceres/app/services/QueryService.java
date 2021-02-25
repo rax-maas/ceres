@@ -29,15 +29,19 @@ import com.rackspace.ceres.app.model.QueryResult;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
+@Slf4j
 public class QueryService {
 
   private final ReactiveCqlTemplate cqlTemplate;
@@ -45,40 +49,67 @@ public class QueryService {
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
+  private ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
                       MetadataService metadataService,
                       DataTablesStatements dataTablesStatements,
                       TimeSlotPartitioner timeSlotPartitioner,
-                      AppProperties appProperties) {
+                      AppProperties appProperties,
+                      ReactiveRedisTemplate reactiveRedisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.appProperties = appProperties;
+    this.reactiveRedisTemplate = reactiveRedisTemplate;
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName,
       Map<String, String> queryTags,
       Instant start, Instant end) {
-    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-        // then perform a retrieval for each series-set
-        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
-            // over each time slot partition of the [start,end) range
-            Flux.fromIterable(timeSlotPartitioner
-                .partitionsOverRange(start, end, null)
-            )
-                .concatMap(timeSlot ->
-                    cqlTemplate.queryForRows(
-                        dataTablesStatements.rawQuery(),
-                        tenant, timeSlot, seriesSet, start, end
-                    )
-                        .name("queryRaw")
-                        .metrics()
-                ), buildMetaData(Aggregator.raw, start, end, null)
-        ))
-        .checkpoint();
+    return reactiveRedisTemplate.opsForValue().get(metricName).flatMapMany(Flux::fromIterable)
+        .flatMap(
+            metricName1 -> {
+              log.info("metricName "+metricName1);
+              metricName1 = metricName+"_"+metricName1;
+              return metadataService.locateSeriesSetHashes(tenant, metricName1, queryTags)
+                  // then perform a retrieval for each series-set
+                  .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
+                      // over each time slot partition of the [start,end) range
+                      Flux.fromIterable(timeSlotPartitioner
+                          .partitionsOverRange(start, end, null)
+                      )
+                          .concatMap(timeSlot ->
+                              cqlTemplate.queryForRows(
+                                  dataTablesStatements.rawQuery(),
+                                  tenant, timeSlot, seriesSet, start, end
+                              )
+                                  .name("queryRaw")
+                                  .metrics()
+                          ), buildMetaData(Aggregator.raw, start, end, null)
+                  ));
+            }
+        ).checkpoint();
+
+//    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
+//        // then perform a retrieval for each series-set
+//        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
+//            // over each time slot partition of the [start,end) range
+//            Flux.fromIterable(timeSlotPartitioner
+//                .partitionsOverRange(start, end, null)
+//            )
+//                .concatMap(timeSlot ->
+//                    cqlTemplate.queryForRows(
+//                        dataTablesStatements.rawQuery(),
+//                        tenant, timeSlot, seriesSet, start, end
+//                    )
+//                        .name("queryRaw")
+//                        .metrics()
+//                ), buildMetaData(Aggregator.raw, start, end, null)
+//        ))
+//        .checkpoint();
   }
 
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
