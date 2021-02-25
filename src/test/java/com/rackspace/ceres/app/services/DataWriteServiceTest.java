@@ -199,6 +199,8 @@ class DataWriteServiceTest {
           .block();
 
       assertThat(metric).isNotNull();
+      assertThat(metric.getMetric()).isEqualTo(metricName);
+      assertThat(metric.getTags()).isEmpty();
 
       assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
 

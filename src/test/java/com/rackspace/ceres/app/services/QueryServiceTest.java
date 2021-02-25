@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,27 +31,23 @@ import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.QueryResult;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
-import lombok.extern.log4j.Log4j;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.task.TaskSchedulerBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -79,7 +74,7 @@ class QueryServiceTest {
     }
   }
 
-  @Autowired
+  @MockBean
   MetadataService metadataService;
 
   @Autowired
@@ -119,9 +114,21 @@ class QueryServiceTest {
         "host", "h-1",
         "deployment", "prod"
     );
+    final String seriesSetHash = seriesSetService
+        .hash(metricName, tags);
 
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
 
     Metric metric = dataWriteService.ingest(
         tenantId,
@@ -132,13 +139,14 @@ class QueryServiceTest {
             .setTags(tags)
     ).block();
 
-    final List<QueryResult> result = queryService
-        .queryRaw(tenantId, metricName, tags, Instant.now().minusSeconds(60), Instant.now()).collectList().block();
-
-    assertThat(result).isNotEmpty();
-    assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
-    assertThat(result.get(0).getData().getTenant()).isEqualTo(tenantId);
-    assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+    StepVerifier.create(queryService
+        .queryRaw(tenantId, metricName, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenantId);
+          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+        }).verifyComplete();
   }
 
   @Test
@@ -150,11 +158,21 @@ class QueryServiceTest {
         "host", "h-1",
         "deployment", "prod"
     );
-    final String seriesSet = seriesSetService
+    final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
 
     Instant instant = Instant.now();
     Metric metric = dataWriteService.ingest(
@@ -166,11 +184,12 @@ class QueryServiceTest {
             .setTags(tags)
     ).block();
 
-    final List<ValueSet> result = queryService
-        .queryRawWithSeriesSet(tenantId, seriesSet, Instant.now().minusSeconds(60), Instant.now()).collectList().block();
-
-    assertThat(result).isNotEmpty();
-    assertThat(result.get(0).getTimestamp()).isEqualTo(instant.truncatedTo(ChronoUnit.MILLIS));
+    StepVerifier.create(queryService
+        .queryRawWithSeriesSet(tenantId, seriesSetHash, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getTimestamp()).isEqualTo(instant.truncatedTo(ChronoUnit.MILLIS));
+        }).verifyComplete();
   }
 
   @Test
@@ -184,8 +203,18 @@ class QueryServiceTest {
         "deployment", "prod"
     );
 
-    final String seriesSet = seriesSetService
+    final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
 
     dataWriteService.ingest(
         tenant,
@@ -202,18 +231,19 @@ class QueryServiceTest {
             singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
             singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
             singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
-        ), tenant, seriesSet,
+        ), tenant, seriesSetHash,
         List.of(granularity(1, 12), granularity(2, 24)).iterator(),
         false
     ).block();
 
-    final List<QueryResult> result = queryService.queryDownsampled(tenant, metricName, Aggregator.min, Duration.ofMinutes(2), tags,
-        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList().block();
-
-    assertThat(result).isNotEmpty();
-    assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
-    assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
-    assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, Aggregator.min, Duration.ofMinutes(2), tags,
+        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
+          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+        }).verifyComplete();
   }
 
 
