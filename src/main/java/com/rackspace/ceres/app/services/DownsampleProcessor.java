@@ -70,7 +70,7 @@ public class DownsampleProcessor {
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
-  private List<ScheduledFuture<?>> scheduled;
+  public List<ScheduledFuture<?>> scheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -93,11 +93,6 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    if (env.acceptsProfiles(Profiles.of("test"))) {
-      log.warn("Downsample scheduling disabled during testing");
-      return;
-    }
-
     final IntegerSet partitionsToProcess = getPartitionsToProcess();
     if (partitionsToProcess == null) {
       // just info level since this is the normal way to disable downsampling

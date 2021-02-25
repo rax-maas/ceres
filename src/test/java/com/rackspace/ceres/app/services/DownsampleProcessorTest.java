@@ -36,8 +36,6 @@ import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ScheduledFuture;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -105,14 +103,11 @@ class DownsampleProcessorTest {
         .containsExactly(0, 1, 4, 5, 6, 7);
   }
 
-  private List<ScheduledFuture<?>> scheduled;
-
   @Test
   void setupSchedulers() {
     downsampleProcessor.setupSchedulers();
 
-    //using test profile so scheduled must be empty as setupSchedulers wont run for test profile
-    assertThat(scheduled).isNull();
+    assertThat(downsampleProcessor.scheduled).isNotNull();
   }
 
   @Test
