@@ -28,10 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.redis.core.ReactiveListOperations;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.ReactiveSetOperations;
-import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -50,7 +47,6 @@ public class DataWriteService {
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
   private ReactiveRedisTemplate<String, List<String>> redisTemplate;
-  private ReactiveValueOperations<String, List<String>> reactiveValueOps;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -69,7 +65,6 @@ public class DataWriteService {
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
     this.redisTemplate = redisTemplate;
-    this.reactiveValueOps = redisTemplate.opsForValue();
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -155,8 +150,9 @@ public class DataWriteService {
     String metricGroup = metric.getMetric();
     String metricName = metric.getMetric();
     if(metric.getMetric().contains("_"))  {
-      metricGroup = metric.getMetric().substring(0, metric.getMetric().indexOf("_"));
-      metricName = metric.getMetric().substring(metric.getMetric().indexOf("_") +1);
+      String[] strArr = metric.getMetric().split("_",2);
+      metricGroup = strArr[0];
+      metricName = strArr[1];
     }
 
     final String metricGroup1 = metricGroup;
