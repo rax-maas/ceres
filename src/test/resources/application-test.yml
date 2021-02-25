@@ -4,7 +4,6 @@ spring:
       contact-points: ""
       request:
         timeout: 5s
-
 ceres:
   downsample:
     downsample-process-period: 10s

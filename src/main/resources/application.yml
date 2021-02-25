@@ -9,6 +9,9 @@ spring:
     type: simple
   profiles:
     active: downsample, ingest, query
+    group:
+      dev:
+        - debug
 server:
   error:
     include-message: always
