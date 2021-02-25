@@ -4,13 +4,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
+import com.rackspace.ceres.app.model.TagFilter;
 import com.rackspace.ceres.app.services.DataWriteService;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
@@ -40,6 +43,9 @@ public class WriteControllerTest {
   @Autowired
   WebTestClient webTestClient;
 
+  @Autowired
+  AppProperties appProperties;
+
   @Captor
   ArgumentCaptor<Flux<Tuple2<String, Metric>>> metrics;
 
@@ -48,6 +54,7 @@ public class WriteControllerTest {
 
     Metric metric = new Metric().setMetric("metricA").setTags(
         Collections.singletonMap("os", "linux")).setTimestamp(Instant.now()).setValue(123);
+
     when(dataWriteService.ingest(any())).thenReturn(Flux.just(metric));
 
     webTestClient.post().uri("/api/put").body(Flux.just(metric), Metric.class).exchange()
@@ -102,6 +109,79 @@ public class WriteControllerTest {
     //verify tenant is present in tagsMap of request body
     StepVerifier.create(metrics.getValue())
         .consumeNextWith(resp -> Assertions.assertThat(resp.getT1()).isEqualTo("t-1"))
+        .verifyComplete();
+
+    verifyNoMoreInteractions(dataWriteService);
+  }
+
+  @Test
+  public void testPutMetrics_ExcludeTags() {
+
+    Map<String, String> tags = new HashMap<>();
+    tags.put("os", "linux");
+    tags.put("tenant", "t-1");
+    tags.put("invalid-tag", "this-is-tag-with-invalid-length");
+
+    Map<String, String> filteredTags = new HashMap<>();
+    filteredTags.put("os", "linux");
+
+    Metric filteredMetric = new Metric().setMetric("metricA").setTags(filteredTags).setTimestamp(Instant.now())
+        .setValue(123);
+
+    Metric metric = new Metric().setMetric("metricA").setTags(tags).setTimestamp(Instant.now())
+        .setValue(123);
+
+    when(dataWriteService.ingest(any())).thenReturn(Flux.just(filteredMetric));
+
+    webTestClient.post().uri("/api/put").body(Flux.just(metric), Metric.class).exchange()
+        .expectStatus().isNoContent();
+
+    verify(dataWriteService).ingest(metrics.capture());
+
+    StepVerifier.create(metrics.getValue())
+        .assertNext(t -> {
+          assertThat(t.getT1()).isEqualTo("t-1");
+          assertThat(t.getT2().getTags().size()).isEqualTo(1);
+          assertThat(t.getT2().getTags().get("invalid-tag")).isNull();
+        })
+        .verifyComplete();
+
+    verifyNoMoreInteractions(dataWriteService);
+  }
+
+  @Test
+  public void testPutMetrics_TruncateTags() {
+
+    //Setting the Tag filter to truncate instead of excluding
+    appProperties.setTagFilter(TagFilter.TRUNCATE);
+
+    Map<String, String> tags = new HashMap<>();
+    tags.put("os", "linux");
+    tags.put("tenant", "t-1");
+    tags.put("invalid-tag", "this-is-tag-with-invalid-length");
+
+    Map<String, String> filteredTags = new HashMap<>();
+    filteredTags.put("os", "linux");
+
+    Metric filteredMetric = new Metric().setMetric("metricA").setTags(filteredTags).setTimestamp(Instant.now())
+        .setValue(123);
+
+    Metric metric = new Metric().setMetric("metricA").setTags(tags).setTimestamp(Instant.now())
+        .setValue(123);
+
+    when(dataWriteService.ingest(any())).thenReturn(Flux.just(filteredMetric));
+
+    webTestClient.post().uri("/api/put").body(Flux.just(metric), Metric.class).exchange()
+        .expectStatus().isNoContent();
+
+    verify(dataWriteService).ingest(metrics.capture());
+
+    StepVerifier.create(metrics.getValue())
+        .assertNext(t -> {
+          assertThat(t.getT1()).isEqualTo("t-1");
+          assertThat(t.getT2().getTags().size()).isEqualTo(2);
+          assertThat(t.getT2().getTags().get("invalid-tag")).isEqualTo("this-is-ta");
+        })
         .verifyComplete();
 
     verifyNoMoreInteractions(dataWriteService);
