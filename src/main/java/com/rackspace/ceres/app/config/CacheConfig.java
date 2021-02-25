@@ -21,9 +21,15 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class CacheConfig {
@@ -50,5 +56,18 @@ public class CacheConfig {
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "seriesSetExistence");
 
     return cache;
+  }
+
+  @Bean(name = "reactiveRedisTemplate")
+  public ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate(
+      ReactiveRedisConnectionFactory factory) {
+    StringRedisSerializer keySerializer = new StringRedisSerializer();
+    Jackson2JsonRedisSerializer<List<String>> valueSerializer =
+        new Jackson2JsonRedisSerializer(List.class);
+    RedisSerializationContext.RedisSerializationContextBuilder<String, List<String>> builder =
+        RedisSerializationContext.newSerializationContext(keySerializer);
+    RedisSerializationContext<String, List<String>> context =
+        builder.value(valueSerializer).build();
+    return new ReactiveRedisTemplate<>(factory, context);
   }
 }

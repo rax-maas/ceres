@@ -22,10 +22,16 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveSetOperations;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -43,6 +49,8 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
+  private ReactiveRedisTemplate<String, List<String>> redisTemplate;
+  private ReactiveValueOperations<String, List<String>> reactiveValueOps;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -51,7 +59,8 @@ public class DataWriteService {
                           DataTablesStatements dataTablesStatements,
                           TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties) {
+                          AppProperties appProperties,
+      @Qualifier("reactiveRedisTemplate") ReactiveRedisTemplate redisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -59,6 +68,8 @@ public class DataWriteService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
+    this.redisTemplate = redisTemplate;
+    this.reactiveValueOps = redisTemplate.opsForValue();
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -80,6 +91,7 @@ public class DataWriteService {
             .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
                 metric.getTags()))
             .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+            .and(storeMetricGroup(metric))
             .then(Mono.just(metric));
   }
 
@@ -137,5 +149,39 @@ public class DataWriteService {
         .flatMap(cqlTemplate::execute)
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
         .checkpoint();
+  }
+
+  private Mono<?> storeMetricGroup(Metric metric) {
+    String metricGroup = metric.getMetric();
+    String metricName = metric.getMetric();
+    if(metric.getMetric().contains("_"))  {
+      metricGroup = metric.getMetric().substring(0, metric.getMetric().indexOf("_"));
+      metricName = metric.getMetric().substring(metric.getMetric().indexOf("_") +1);
+    }
+
+    final String metricGroup1 = metricGroup;
+    final String metricName1 = metricName;
+    log.info("metricGroup "+metricGroup+" metricName "+metricName);
+
+    return redisTemplate.opsForValue()
+        .setIfAbsent(metricGroup, List.of(metricName))
+        .doOnNext(inserted -> {
+          if (inserted) {
+            log.debug("cache missed");
+          } else {
+            log.debug("cache hit");
+          }
+        })
+        .flatMap(e -> e ? Mono.just(true) : addToList(metricGroup1, metricName1));
+  }
+
+  private Mono<Boolean> addToList(String metricGroup, String metricName)  {
+    return redisTemplate.opsForValue().get(metricGroup).flatMap(e -> {
+      if(!e.contains(metricName))  {
+        e.add(metricName);
+        return redisTemplate.opsForValue().set(metricGroup, e);
+      }
+      return Mono.just(false);
+    });
   }
 }
