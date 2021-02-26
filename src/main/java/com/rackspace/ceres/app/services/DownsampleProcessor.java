@@ -70,7 +70,7 @@ public class DownsampleProcessor {
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
-  public List<ScheduledFuture<?>> scheduled;
+  private List<ScheduledFuture<?>> scheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -298,5 +298,9 @@ public class DownsampleProcessor {
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
         .setSeriesSetHash(seriesSet);
+  }
+
+  public List<ScheduledFuture<?>> getScheduled()  {
+    return scheduled;
   }
 }

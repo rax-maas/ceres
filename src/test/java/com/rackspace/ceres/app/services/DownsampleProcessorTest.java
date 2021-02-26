@@ -107,7 +107,7 @@ class DownsampleProcessorTest {
   void setupSchedulers() {
     downsampleProcessor.setupSchedulers();
 
-    assertThat(downsampleProcessor.scheduled).isNotNull();
+    assertThat(downsampleProcessor.getScheduled()).isNotNull();
   }
 
   @Test
