@@ -92,24 +92,6 @@ public class QueryService {
                   ));
             }
         ).checkpoint();
-
-//    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-//        // then perform a retrieval for each series-set
-//        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
-//            // over each time slot partition of the [start,end) range
-//            Flux.fromIterable(timeSlotPartitioner
-//                .partitionsOverRange(start, end, null)
-//            )
-//                .concatMap(timeSlot ->
-//                    cqlTemplate.queryForRows(
-//                        dataTablesStatements.rawQuery(),
-//                        tenant, timeSlot, seriesSet, start, end
-//                    )
-//                        .name("queryRaw")
-//                        .metrics()
-//                ), buildMetaData(Aggregator.raw, start, end, null)
-//        ))
-//        .checkpoint();
   }
 
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,

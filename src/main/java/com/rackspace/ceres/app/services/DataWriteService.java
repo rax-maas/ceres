@@ -178,7 +178,6 @@ public class DataWriteService {
     return reactiveRedisTemplate.opsForValue().get(metricGroupAndName.getMetricGroup()).flatMap(metricNames -> {
       if(!metricNames.contains(metricGroupAndName.getMetricName()))  {
         metricNames.add(metricGroupAndName.getMetricName());
-        log.debug("metricNames "+metricNames);
         return reactiveRedisTemplate.opsForValue().set(metricGroupAndName.getMetricGroup(), metricNames);
       }
       return Mono.just(false);
