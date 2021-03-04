@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.web;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
+import com.rackspace.ceres.app.model.TagFilter;
 import com.rackspace.ceres.app.services.DataWriteService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -62,10 +63,12 @@ public class WriteController {
                                             @RequestParam MultiValueMap<String, String> allParams,
                                             @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
   ) {
+
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
             .map(metric -> {
               String tenant;
+              filterMetricTags(metric);
               if (StringUtils.hasText(tenantHeader)) {
                 tenant = tenantHeader;
               } else {
@@ -104,4 +107,18 @@ public class WriteController {
     }
   }
 
+  private void filterMetricTags(Metric metric) {
+    if (appProperties.getTagFilter() == TagFilter.EXCLUDE) {
+      metric.getTags().entrySet()
+          .removeIf(entry -> entry.getValue().length() >= appProperties.getTagValueLimit());
+    } else if (appProperties.getTagFilter() == TagFilter.TRUNCATE) {
+      metric.getTags().replaceAll((key, value) -> {
+        if (value.length() >= appProperties.getTagValueLimit()) {
+          return value.substring(0, appProperties.getTagValueLimit());
+        } else {
+          return value;
+        }
+      });
+    }
+  }
 }

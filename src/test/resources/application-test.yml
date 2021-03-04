@@ -11,3 +11,5 @@ ceres:
       - width: 2m
         ttl: 1d
         partitionWidth: 4h
+  tag-filter: exclude
+  tag-value-limit: 10
