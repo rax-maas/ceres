@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.services;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -35,7 +36,9 @@ import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -105,9 +108,14 @@ class DownsampleProcessorTest {
 
   @Test
   void setupSchedulers() {
-    downsampleProcessor.setupSchedulers();
+    when(downsampleTrackingService.retrieveReadyOnes(anyInt()))
+        .thenReturn(Flux.empty());
 
-    assertThat(downsampleProcessor.getScheduled()).isNotNull();
+    Awaitility.await().atMost(downsampleProperties.getInitialProcessingDelay().plus(5l, ChronoUnit.SECONDS))
+        .untilAsserted(() -> verify(downsampleTrackingService, times(6))
+            .retrieveReadyOnes(anyInt()));
+    assertThat(downsampleProperties.getPartitionsToProcess())
+        .containsExactly(0, 1, 4, 5, 6, 7);
   }
 
   @Test

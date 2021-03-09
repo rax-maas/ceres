@@ -49,7 +49,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
@@ -298,9 +297,5 @@ public class DownsampleProcessor {
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
         .setSeriesSetHash(seriesSet);
-  }
-
-  public List<ScheduledFuture<?>> getScheduled()  {
-    return scheduled;
   }
 }
