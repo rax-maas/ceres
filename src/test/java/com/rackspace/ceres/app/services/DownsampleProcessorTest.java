@@ -20,6 +20,7 @@ import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -38,6 +39,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Random;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -61,7 +63,7 @@ import reactor.test.StepVerifier;
     StringToIntegerSetConverter.class,
     DownsampleProcessor.class
 }, properties = {
-    "ceres.downsample.partitions-to-process=0,1,4-7"
+    "ceres.downsample.partitions-to-process=0,1,3-5"
 })
 @ActiveProfiles(profiles = {"test", "downsample"})
 @AutoConfigureJson
@@ -103,7 +105,7 @@ class DownsampleProcessorTest {
   @Test
   void partitionsToProcessConfig() {
     assertThat(downsampleProperties.getPartitionsToProcess())
-        .containsExactly(0, 1, 4, 5, 6, 7);
+        .containsExactly(0, 1,3,4,5);
   }
 
   @Test
@@ -111,11 +113,20 @@ class DownsampleProcessorTest {
     when(downsampleTrackingService.retrieveReadyOnes(anyInt()))
         .thenReturn(Flux.empty());
 
-    Awaitility.await().atMost(downsampleProperties.getInitialProcessingDelay().plus(5l, ChronoUnit.SECONDS))
-        .untilAsserted(() -> verify(downsampleTrackingService, times(6))
+    Awaitility.await().atMost(downsampleProperties.getInitialProcessingDelay().plus(randomizeInitialDelay()))
+        .untilAsserted(() -> verify(downsampleTrackingService, atLeast(1))
             .retrieveReadyOnes(anyInt()));
     assertThat(downsampleProperties.getPartitionsToProcess())
-        .containsExactly(0, 1, 4, 5, 6, 7);
+        .containsExactly(0, 1,3,4,5);
+  }
+
+  private Duration randomizeInitialDelay() {
+    return downsampleProperties.getInitialProcessingDelay()
+        .plus(
+            downsampleProperties.getDownsampleProcessPeriod().dividedBy(
+                2 + new Random().nextInt(8)
+            )
+        );
   }
 
   @Test
