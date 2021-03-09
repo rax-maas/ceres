@@ -22,8 +22,7 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.MetricGroupAndName;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -51,13 +50,13 @@ public class DataWriteService {
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
-                          SeriesSetService seriesSetService,
-                          MetadataService metadataService,
-                          DataTablesStatements dataTablesStatements,
-                          TimeSlotPartitioner timeSlotPartitioner,
-                          DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties,
-                          ReactiveRedisTemplate reactiveRedisTemplate) {
+      SeriesSetService seriesSetService,
+      MetadataService metadataService,
+      DataTablesStatements dataTablesStatements,
+      TimeSlotPartitioner timeSlotPartitioner,
+      DownsampleTrackingService downsampleTrackingService,
+      AppProperties appProperties,
+      ReactiveRedisTemplate reactiveRedisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -95,7 +94,7 @@ public class DataWriteService {
     tags.entrySet()
         .removeIf(entry ->
             !StringUtils.hasText(entry.getKey()) ||
-            !StringUtils.hasText(entry.getValue()));
+                !StringUtils.hasText(entry.getValue()));
   }
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
@@ -156,31 +155,29 @@ public class DataWriteService {
       metricName = strArr[1];
     }
 
-    MetricGroupAndName metricGroupAndName = new MetricGroupAndName()
-        .setMetricName(metricName).setMetricGroup(metricGroup);
+    List<String> metricNames = Arrays.asList(metricName);
+    log.info("metricGroup "+metricGroup+" metricNames "+metricNames);
+    return reactiveRedisTemplate.opsForSet().add(metricGroup, metricNames);
 
-    List<String> metricNames = new ArrayList<String>();
-    metricNames.add(metricName);
-
-    return reactiveRedisTemplate.opsForValue()
-        .setIfAbsent(metricGroup, metricNames)
-        .doOnNext(inserted -> {
-          if (inserted) {
-            log.debug("cache missed");
-          } else {
-            log.debug("cache hit");
-          }
-        })
-        .flatMap(inserted -> inserted ? Mono.just(true) : addToList(metricGroupAndName));
+//    return reactiveRedisTemplate.opsForValue()
+//        .setIfAbsent(metricGroup, metricNames)
+//        .doOnNext(inserted -> {
+//          if (inserted) {
+//            log.debug("cache missed");
+//          } else {
+//            log.debug("cache hit");
+//          }
+//        })
+//        .flatMap(inserted -> inserted ? Mono.just(true) : addToList(metricGroupAndName));
   }
 
-  private Mono<Boolean> addToList(MetricGroupAndName metricGroupAndName)  {
-    return reactiveRedisTemplate.opsForValue().get(metricGroupAndName.getMetricGroup()).flatMap(metricNames -> {
-      if(!metricNames.contains(metricGroupAndName.getMetricName()))  {
-        metricNames.add(metricGroupAndName.getMetricName());
-        return reactiveRedisTemplate.opsForValue().set(metricGroupAndName.getMetricGroup(), metricNames);
-      }
-      return Mono.just(false);
-    });
-  }
+//  private Mono<Boolean> addToList(MetricGroupAndName metricGroupAndName)  {
+//    return reactiveRedisTemplate.opsForValue().get(metricGroupAndName.getMetricGroup()).flatMap(metricNames -> {
+//      if(!metricNames.contains(metricGroupAndName.getMetricName()))  {
+//        metricNames.add(metricGroupAndName.getMetricName());
+//        return reactiveRedisTemplate.opsForValue().set(metricGroupAndName.getMetricGroup(), metricNames);
+//      }
+//      return Mono.just(false);
+//    });
+//  }
 }
