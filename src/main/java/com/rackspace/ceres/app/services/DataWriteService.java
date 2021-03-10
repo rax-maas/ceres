@@ -149,35 +149,14 @@ public class DataWriteService {
   private Mono<?> storeMetricGroup(Metric metric) {
     String metricGroup = metric.getMetric();
     String metricName = metric.getMetric();
-    if(metric.getMetric().contains("_"))  {
-      String[] strArr = metric.getMetric().split("_",2);
+    if (metric.getMetric().contains("_")) {
+      String[] strArr = metric.getMetric().split("_", 2);
       metricGroup = strArr[0];
       metricName = strArr[1];
     }
 
     List<String> metricNames = Arrays.asList(metricName);
-    log.info("metricGroup "+metricGroup+" metricNames "+metricNames);
+    log.info("metricGroup " + metricGroup + " metricNames " + metricNames);
     return reactiveRedisTemplate.opsForSet().add(metricGroup, metricNames);
-
-//    return reactiveRedisTemplate.opsForValue()
-//        .setIfAbsent(metricGroup, metricNames)
-//        .doOnNext(inserted -> {
-//          if (inserted) {
-//            log.debug("cache missed");
-//          } else {
-//            log.debug("cache hit");
-//          }
-//        })
-//        .flatMap(inserted -> inserted ? Mono.just(true) : addToList(metricGroupAndName));
   }
-
-//  private Mono<Boolean> addToList(MetricGroupAndName metricGroupAndName)  {
-//    return reactiveRedisTemplate.opsForValue().get(metricGroupAndName.getMetricGroup()).flatMap(metricNames -> {
-//      if(!metricNames.contains(metricGroupAndName.getMetricName()))  {
-//        metricNames.add(metricGroupAndName.getMetricName());
-//        return reactiveRedisTemplate.opsForValue().set(metricGroupAndName.getMetricGroup(), metricNames);
-//      }
-//      return Mono.just(false);
-//    });
-//  }
 }
