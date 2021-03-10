@@ -67,14 +67,14 @@ public class QueryService {
     this.reactiveRedisTemplate = reactiveRedisTemplate;
   }
 
-  public Flux<QueryResult> queryRaw(String tenant, String metricName,
+  public Flux<QueryResult> queryRaw(String tenant, String metricKey,
       Map<String, String> queryTags,
       Instant start, Instant end) {
-    return reactiveRedisTemplate.opsForSet().members(metricName).flatMap(Flux::fromIterable)
+    return reactiveRedisTemplate.opsForSet().members(metricKey).flatMap(Flux::fromIterable)
         .flatMap(
             metricName1 -> {
               log.info("metricName "+metricName1);
-              String metricNameWithGroup = metricName+"_"+metricName1;
+              String metricNameWithGroup = metricKey+"_"+metricName1;
               return metadataService.locateSeriesSetHashes(tenant, metricNameWithGroup, queryTags)
                   // then perform a retrieval for each series-set
                   .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
@@ -115,11 +115,11 @@ public class QueryService {
         .checkpoint();
   }
 
-  public Flux<QueryResult> queryDownsampled(String tenant, String metricName, Aggregator aggregator,
+  public Flux<QueryResult> queryDownsampled(String tenant, String metricKey, Aggregator aggregator,
       Duration granularity, Map<String, String> queryTags,
       Instant start, Instant end) {
     // given the queryTags filter, locate the series-set that apply
-    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
+    return metadataService.locateSeriesSetHashes(tenant, metricKey, queryTags)
         // then perform a retrieval for each series-set
         .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
             // over each time slot partition of the [start,end) range

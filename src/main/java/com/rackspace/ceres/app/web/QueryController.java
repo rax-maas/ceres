@@ -54,7 +54,7 @@ public class QueryController {
 
   @GetMapping
   public Flux<QueryResult> query(@RequestParam(name = "tenant") String tenantParam,
-      @RequestParam String metricName,
+      @RequestParam String metricKey,
       @RequestParam(defaultValue = "raw") Aggregator aggregator,
       @RequestParam(required = false) Duration granularity,
       @RequestParam List<String> tag,
@@ -64,7 +64,7 @@ public class QueryController {
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
-      return queryService.queryRaw(tenantParam, metricName,
+      return queryService.queryRaw(tenantParam, metricKey,
           convertPairsListToMap(tag),
           startTime, endTime
       );
@@ -73,7 +73,7 @@ public class QueryController {
         granularity = DateTimeUtils
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
-      return queryService.queryDownsampled(tenantParam, metricName,
+      return queryService.queryDownsampled(tenantParam, metricKey,
           aggregator,
           granularity,
           convertPairsListToMap(tag),

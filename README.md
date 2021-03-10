@@ -70,7 +70,7 @@ GET http://localhost:8080/api/metadata/tagValues?
 ```http request
 GET http://localhost:8080/api/query?
   tenant=t-1
-  &metricName=cpu_idle
+  &metricKey=cpu_idle
   &tag=os=linux
   &start=2020-08-23T17:53:00Z
   &end=2020-08-23T17:54:40Z
