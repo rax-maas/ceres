@@ -74,7 +74,6 @@ public class QueryService {
         .flatMap(Flux::fromIterable)
         .flatMap(
             metricName -> {
-              log.info("metricName "+metricName);
               String metricNameWithGroup = metricKey+"_"+metricName;
               return getQueryResultFlux(tenant, queryTags, start, end, metricNameWithGroup);
             }
@@ -126,6 +125,21 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricKey, Aggregator aggregator,
       Duration granularity, Map<String, String> queryTags,
       Instant start, Instant end) {
+    return reactiveRedisTemplate.opsForSet().members(metricKey)
+        .flatMap(Flux::fromIterable)
+        .flatMap(
+            metricName -> {
+              String metricNameWithGroup = metricKey+"_"+metricName;
+              return getQueryDownsampled(tenant, metricNameWithGroup, aggregator, granularity, queryTags, start, end);
+            }
+        )
+        .switchIfEmpty(getQueryDownsampled(tenant, metricKey, aggregator, granularity, queryTags, start, end))
+        .checkpoint();
+  }
+
+  private Flux<QueryResult> getQueryDownsampled(String tenant, String metricKey,
+      Aggregator aggregator, Duration granularity, Map<String, String> queryTags, Instant start,
+      Instant end) {
     // given the queryTags filter, locate the series-set that apply
     return metadataService.locateSeriesSetHashes(tenant, metricKey, queryTags)
         // then perform a retrieval for each series-set
@@ -142,8 +156,7 @@ public class QueryService {
                         .name("queryDownsampled")
                         .metrics()
                 ), buildMetaData(aggregator, start, end, granularity)
-        ))
-        .checkpoint();
+        ));
   }
 
   private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows, Metadata metadata) {
