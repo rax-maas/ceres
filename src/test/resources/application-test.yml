@@ -2,8 +2,12 @@ spring:
   data:
     cassandra:
       contact-points: ""
+      request:
+        timeout: 5s
 ceres:
   downsample:
+    downsample-process-period: 30s
+    initialProcessingDelay: 1s
     granularities:
       - width: 1m
         ttl: 12h

@@ -86,7 +86,7 @@ class DataWriteServiceTest {
   @NestedTestConfiguration(value = EnclosingConfiguration.OVERRIDE)
   class ingest {
     @Test
-    void single() {
+    void testSingle() {
       final String tenantId = RandomStringUtils.randomAlphanumeric(10);
       final String metricName = RandomStringUtils.randomAlphabetic(5);
       final Map<String, String> tags = Map.of(
@@ -125,7 +125,7 @@ class DataWriteServiceTest {
     }
 
     @Test
-    void multi() {
+    void testMulti() {
       final String tenant1 = RandomStringUtils.randomAlphanumeric(10);
       final String tenant2 = RandomStringUtils.randomAlphanumeric(10);
       final String metricName1 = RandomStringUtils.randomAlphabetic(5);
@@ -175,8 +175,41 @@ class DataWriteServiceTest {
     }
 
     @Test
-    void emptyTagValue() {
-      Assertions.fail("TODO");
+    void testEmptyTagValue() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+      );
+      final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+      when(metadataService.storeMetadata(any(), any(), any(), any()))
+          .thenReturn(Mono.empty());
+
+      when(downsampleTrackingService.track(any(), anyString(), any()))
+          .thenReturn(Mono.empty());
+
+      final Metric metric = dataWriteService.ingest(
+          tenantId,
+          new Metric()
+              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setValue(Math.random())
+              .setMetric(metricName)
+              .setTags(tags)
+      )
+          .block();
+
+      assertThat(metric).isNotNull();
+      assertThat(metric.getMetric()).isEqualTo(metricName);
+      assertThat(metric.getTags()).isEmpty();
+
+      assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
+
+      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
+          metric.getTags());
+
+      verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
+
+      verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
 
     private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
