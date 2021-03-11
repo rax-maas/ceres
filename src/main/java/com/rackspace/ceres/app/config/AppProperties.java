@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.config;
 
+import com.rackspace.ceres.app.model.TagFilter;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import javax.validation.constraints.Min;
@@ -102,4 +103,8 @@ public class AppProperties {
   RetrySpec retryQueryForDownsample = new RetrySpec()
       .setMaxAttempts(5)
       .setMinBackoff(Duration.ofMillis(100));
+
+  @NotNull TagFilter tagFilter = TagFilter.EXCLUDE;
+
+  @NotNull Integer tagValueLimit = 50;
 }

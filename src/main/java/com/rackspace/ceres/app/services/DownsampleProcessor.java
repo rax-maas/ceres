@@ -49,7 +49,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
@@ -93,11 +92,6 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    if (env.acceptsProfiles(Profiles.of("test"))) {
-      log.warn("Downsample scheduling disabled during testing");
-      return;
-    }
-
     final IntegerSet partitionsToProcess = getPartitionsToProcess();
     if (partitionsToProcess == null) {
       // just info level since this is the normal way to disable downsampling
