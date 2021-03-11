@@ -17,7 +17,7 @@ resources:
         value: t-1
         description: ""
         id: pair_b733d24c32904ab5a8cc102428f5ea68
-      - name: metricName
+      - name: metricKey
         value: memory_free
         description: ""
         id: pair_f2aeb98345be4dd7a6071a640ec400e2
@@ -94,7 +94,7 @@ resources:
         value: t-1
         description: ""
         id: pair_4c6890ee1f5a40c6865408c8965efc09
-      - name: metricName
+      - name: metricKey
         value: memory_free
         description: ""
         id: pair_d395f1a0ca634b2183653937fc213063

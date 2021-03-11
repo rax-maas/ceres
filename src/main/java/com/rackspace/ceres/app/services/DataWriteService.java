@@ -156,7 +156,6 @@ public class DataWriteService {
     }
 
     List<String> metricNames = Arrays.asList(metricName);
-    log.info("metricGroup " + metricGroup + " metricNames " + metricNames);
     return reactiveRedisTemplate.opsForSet().add(metricGroup, metricNames);
   }
 }
