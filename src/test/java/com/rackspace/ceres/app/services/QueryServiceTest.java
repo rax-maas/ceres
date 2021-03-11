@@ -106,8 +106,9 @@ class QueryServiceTest {
   }
 
   @Test
-  void testQueryRaw() {
+  void testQueryRawWithMetricName() {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
@@ -141,6 +142,52 @@ class QueryServiceTest {
 
     StepVerifier.create(queryService
         .queryRaw(tenantId, metricName, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenantId);
+          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+        }).verifyComplete();
+  }
+
+  @Test
+  void testQueryRawWithMetricGroup() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+
+    String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String metricName = metricGroup+"_"+RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod"
+    );
+    final String seriesSetHash = seriesSetService
+        .hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
+
+    Metric metric = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(Instant.now())
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    StepVerifier.create(queryService
+        .queryRaw(tenantId, metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
