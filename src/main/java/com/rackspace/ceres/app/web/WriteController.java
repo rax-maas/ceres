@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,6 +58,11 @@ public class WriteController {
   /**
    * NOTE: the path is <code>/put</code> even though it is a POST operation in order to be
    * API compatible with OpenTSDB.
+   *
+   * @param metrics
+   * @param allParams
+   * @param tenantHeader
+   * @return
    */
   @PostMapping("/put")
   public Mono<ResponseEntity<?>> putMetrics(@RequestBody @Validated Flux<Metric> metrics,
@@ -108,6 +114,9 @@ public class WriteController {
   }
 
   private void filterMetricTags(Metric metric) {
+    if(!ObjectUtils.isEmpty(appProperties.getExcludedTagKeys())) {
+      metric.getTags().entrySet().removeIf(entry -> appProperties.getExcludedTagKeys().contains(entry.getKey()));
+    }
     if (appProperties.getTagFilter() == TagFilter.EXCLUDE) {
       metric.getTags().entrySet()
           .removeIf(entry -> entry.getValue().length() >= appProperties.getTagValueLimit());

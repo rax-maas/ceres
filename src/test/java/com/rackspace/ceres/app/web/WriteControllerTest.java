@@ -186,4 +186,41 @@ public class WriteControllerTest {
 
     verifyNoMoreInteractions(dataWriteService);
   }
+
+  @Test
+  public void testPutMetrics_ExcludedTagKeys() {
+
+    appProperties.setExcludedTagKeys(List.of("tag_to_exclude"));
+
+    Map<String, String> tags = new HashMap<>();
+    tags.put("os", "linux");
+    tags.put("tenant", "t-1");
+    tags.put("tag_to_exlucde", "this is dummy tag to be excluded");
+
+    Map<String,String> tagsAfterExclusion = new HashMap<>();
+    tagsAfterExclusion.put("os", "linux");
+
+    Metric metric = new Metric().setMetric("metricA").setTags(tags).setTimestamp(Instant.now()).setValue(123);
+
+    Metric metricAfterTagExclusion = new Metric().setMetric("metricA").setTags(tagsAfterExclusion)
+        .setTimestamp(Instant.now()).setValue(123);
+
+    when(dataWriteService.ingest(any())).thenReturn(Flux.just(metricAfterTagExclusion));
+
+    webTestClient.post().uri("/api/put").body(Flux.just(metric), Metric.class).exchange()
+        .expectStatus().isNoContent();
+
+    verify(dataWriteService).ingest(metrics.capture());
+
+    //verify tenant is default when not present in header or tagsMap
+    StepVerifier.create(metrics.getValue())
+        .assertNext(t -> {
+          assertThat(t.getT1()).isEqualTo("t-1");
+          assertThat(t.getT2().getTags().size()).isEqualTo(1);
+          assertThat(t.getT2().getTags().get("tag-to-exclude")).isNull();
+        })
+        .verifyComplete();
+
+    verifyNoMoreInteractions(dataWriteService);
+  }
 }
