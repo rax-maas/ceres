@@ -70,8 +70,7 @@ public class QueryService {
   public Flux<QueryResult> queryRaw(String tenant, String metricKey,
       Map<String, String> queryTags,
       Instant start, Instant end) {
-    return reactiveRedisTemplate.opsForSet().members(metricKey)
-        .flatMap(Flux::fromIterable)
+    return getMetricGroupFlux(metricKey)
         .flatMap(
             metricName -> {
               String metricNameWithGroup = metricKey+"_"+metricName;
@@ -125,8 +124,7 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricKey, Aggregator aggregator,
       Duration granularity, Map<String, String> queryTags,
       Instant start, Instant end) {
-    return reactiveRedisTemplate.opsForSet().members(metricKey)
-        .flatMap(Flux::fromIterable)
+    return getMetricGroupFlux(metricKey)
         .flatMap(
             metricName -> {
               String metricNameWithGroup = metricKey+"_"+metricName;
@@ -135,6 +133,11 @@ public class QueryService {
         )
         .switchIfEmpty(getQueryDownsampled(tenant, metricKey, aggregator, granularity, queryTags, start, end))
         .checkpoint();
+  }
+
+  private Flux<String> getMetricGroupFlux(String metricKey) {
+    return reactiveRedisTemplate.opsForSet().members(metricKey)
+        .flatMap(Flux::fromIterable);
   }
 
   private Flux<QueryResult> getQueryDownsampled(String tenant, String metricKey,
