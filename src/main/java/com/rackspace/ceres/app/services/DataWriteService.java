@@ -48,6 +48,8 @@ public class DataWriteService {
   private final AppProperties appProperties;
   private ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
 
+  private static final String LABEL_METRIC_GROUP = "metricGroup";
+
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
       SeriesSetService seriesSetService,
@@ -147,15 +149,7 @@ public class DataWriteService {
   }
 
   private Mono<?> storeMetricGroup(Metric metric) {
-    String metricGroup = metric.getMetric();
-    String metricName = metric.getMetric();
-    if (metric.getMetric().contains("_")) {
-      String[] strArr = metric.getMetric().split("_", 2);
-      metricGroup = strArr[0];
-      metricName = strArr[1];
-    }
-
-    List<String> metricNames = Arrays.asList(metricName);
-    return reactiveRedisTemplate.opsForSet().add(metricGroup, metricNames);
+    return reactiveRedisTemplate.opsForSet()
+        .add(metric.getTags().get(LABEL_METRIC_GROUP), Arrays.asList(metric.getMetric()));
   }
 }

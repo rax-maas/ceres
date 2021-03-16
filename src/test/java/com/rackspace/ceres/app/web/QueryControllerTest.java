@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
@@ -44,9 +45,10 @@ public class QueryControllerTest {
   private WebTestClient webTestClient;
 
   @Test
-  public void testQueryApiWithMetricName() {
-
-    Map<String, String> queryTags = Map.of("os", "linux", "deployment", "dev", "host", "h-1");
+  public void testQueryApi() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Map<String, String> queryTags = Map
+        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
 
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
@@ -60,36 +62,6 @@ public class QueryControllerTest {
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("metricKey", "cpu_idle")
-            .queryParam("tag", "os=linux")
-            .queryParam("start", "1d-ago")
-            .queryParam("tenant", "t-1")
-            .build())
-        .exchange().expectStatus().isOk()
-        .returnResult(QueryResult.class).getResponseBody();
-
-    StepVerifier.create(result).assertNext(queryResult -> {
-      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
-      assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
-    }).verifyComplete();
-  }
-
-  @Test
-  public void testQueryApiWithMetricGroup() {
-
-    Map<String, String> queryTags = Map.of("os", "linux", "deployment", "dev", "host", "h-1");
-
-    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
-
-    List<QueryResult> queryResults = List
-        .of(new QueryResult().setData(new QueryData().setMetricName("cpu_idle").setTags(queryTags).setTenant("t-1")
-            .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
-
-    when(queryService.queryRaw(anyString(), anyString(), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
-
-    Flux<QueryResult> result = webTestClient.get()
-        .uri(uriBuilder -> uriBuilder.path("/api/query")
-            .queryParam("metricKey", "cpu")
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
             .queryParam("tenant", "t-1")
