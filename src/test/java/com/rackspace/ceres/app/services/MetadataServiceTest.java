@@ -19,14 +19,22 @@ package com.rackspace.ceres.app.services;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.rackspace.ceres.app.CassandraContainerSetup;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
+import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
+
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -336,6 +344,68 @@ class MetadataServiceTest {
     return new SeriesSet().setTenant(tenantId).setMetricName(metricName).setTagKey(tagKey)
         .setTagValue(tagValue).setSeriesSetHash(seriesSetHash);
   }
+  
+  @Test
+  void getMetricsAndTagsAndMetadata() {       
+    Duration granularityPT2M = Duration.ofMinutes(2);
+    Duration granularityPT1M = Duration.ofMinutes(1);
+    
+    final Map<String, String> filter = Map.of(
+        "type", "literal_or",
+        "tagk", "host",
+        "filter", "h-1|h-2"
+    );
+    
+    TsdbQueryRequest tsdbQueryRequest1 = new TsdbQueryRequest()
+        .setMetric("cpu_idle")
+        .setDownsample("2m-avg")
+        .setFilters(List.of(filter));
+    
+    TsdbQueryRequest tsdbQueryRequest2 = new TsdbQueryRequest()
+        .setMetric("cpu_active")
+        .setDownsample("1m-sum")
+        .setFilters(List.of(filter));
+    
+    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
+    
+    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
+        List.of(tsdbQueryRequest1, tsdbQueryRequest2), granularities).collectList().block();
+
+    assertEquals(4, results.size());
+    
+    int metricCpuIdle = 0;
+    int metricCpuActive = 0;
+    boolean cpuActiveH1 = false;
+    boolean cpuActiveH2 = false;
+    boolean cpuIdleH1 = false;
+    boolean cpuIdleH2 = false;
+    
+    for (TsdbQuery result : results) {
+      if (result.getMetricName().equals("cpu_idle")) {
+        metricCpuIdle++;
+        assertThat(result.getGranularity()).isEqualTo(granularityPT2M);
+        assertThat(result.getAggregator()).isEqualTo(Aggregator.avg);
+        if (result.getTags().get("host").equals("h-1")) {
+          cpuIdleH1 = true;
+        } else if(result.getTags().get("host").equals("h-2")) {
+          cpuIdleH2 = true;
+        }
+      } else if (result.getMetricName().equals("cpu_active")) {
+        metricCpuActive++;
+        assertThat(result.getGranularity()).isEqualTo(granularityPT1M);
+        assertThat(result.getAggregator()).isEqualTo(Aggregator.sum);
+        if (result.getTags().get("host").equals("h-1")) {
+          cpuActiveH1 = true;
+        } else if(result.getTags().get("host").equals("h-2")) {
+          cpuActiveH2 = true;
+        }
+      }
+    }
+    
+    assertEquals(2, metricCpuIdle);
+    assertEquals(2, metricCpuActive);
+    assertTrue(cpuActiveH1 && cpuActiveH2 && cpuIdleH1 && cpuIdleH2);
+  }
 
   private String unhashedSeriesSet(String metricName, Map<String, String> tags) {
     return metricName + "," +
@@ -345,4 +415,9 @@ class MetadataServiceTest {
             .collect(Collectors.joining(","));
   }
 
+  private Granularity granularity(int minutes, int ttlHours) {
+    return new Granularity()
+        .setWidth(Duration.ofMinutes(minutes))
+        .setTtl(Duration.ofHours(ttlHours));
+  }
 }
