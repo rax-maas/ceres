@@ -313,7 +313,8 @@ resources:
             "tenant": "t-1",
             "os": "linux",
             "host": "h-1",
-            "deployment": "prod"
+            "deployment": "prod",
+            "metricGroup": "Misc"
           },
           "timestamp": 1611244004,
           "value": 5

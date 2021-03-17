@@ -36,7 +36,8 @@ Content-Type: application/json
     "tenant": "t-1",
     "os": "linux",
     "host": "h-1",
-    "deployment": "prod"
+    "deployment": "prod",
+    "metricGroup": "Misc"
   },
   "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
