@@ -45,7 +45,7 @@ public class QueryControllerTest {
   private WebTestClient webTestClient;
 
   @Test
-  public void testQueryApi() {
+  public void testQueryApiWithMetricName() {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     Map<String, String> queryTags = Map
         .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
@@ -76,9 +76,41 @@ public class QueryControllerTest {
   }
 
   @Test
-  public void testQueryApiWithAggregator() {
+  public void testQueryApiWithMetricGroup() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Map<String, String> queryTags = Map
+        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
 
-    Map<String, String> queryTags = Map.of("os", "linux", "deployment", "dev", "host", "h-1");
+    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
+
+    List<QueryResult> queryResults = List
+        .of(new QueryResult().setData(new QueryData().setMetricName("cpu_idle").setTags(queryTags).setTenant("t-1")
+            .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
+
+    when(queryService.queryRaw(anyString(), anyString(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(queryResults));
+
+    Flux<QueryResult> result = webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricKey", metricGroup)
+            .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .queryParam("tenant", "t-1")
+            .build())
+        .exchange().expectStatus().isOk()
+        .returnResult(QueryResult.class).getResponseBody();
+
+    StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
+      assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
+    }).verifyComplete();
+  }
+
+  @Test
+  public void testQueryApiWithAggregator() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Map<String, String> queryTags = Map
+        .of("os", "linux", "deployment", "dev", "host", "h-1","metricGroup", metricGroup);
 
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
@@ -104,7 +136,58 @@ public class QueryControllerTest {
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tenant", "t-1")
             .queryParam("metricKey", "cpu-idle")
-            .queryParam("tag", "os=linux,deployment=dev,host=h-1,")
+            .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
+            .queryParam("start", "1605611015")
+            .queryParam("end", "1605697439")
+            .queryParam("aggregator", "min")
+            .queryParam("granularity", "pt1m")
+            .build())
+        .exchange().expectStatus().isOk()
+        .returnResult(QueryResult.class).getResponseBody();
+
+    StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
+      assertThat(queryResult.getMetadata()).isEqualTo(queryResults.get(0).getMetadata());
+    }).verifyComplete();
+
+    verify(queryService)
+        .queryDownsampled("t-1", "cpu-idle", Aggregator.min, Duration.ofMinutes(1), queryTags,
+            Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
+
+    verifyNoMoreInteractions(queryService);
+  }
+
+  @Test
+  public void testQueryApiWithAggregatorWithMetricGroup() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Map<String, String> queryTags = Map
+        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
+
+    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
+
+    List<QueryResult> queryResults = List
+        .of(new QueryResult()
+            .setData(
+                new QueryData()
+                    .setMetricName("cpu-idle")
+                    .setTags(queryTags)
+                    .setTenant("t-1")
+                    .setValues(values))
+            .setMetadata(
+                new Metadata()
+                    .setAggregator(Aggregator.min)
+                    .setGranularity(Duration.ofMinutes(1))
+                    .setStartTime(Instant.ofEpochSecond(1605611015))
+                    .setEndTime(Instant.ofEpochSecond(1605697439))));
+
+    when(queryService.queryDownsampled(anyString(), anyString(), any(), any(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(queryResults));
+
+    Flux<QueryResult> result = webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("tenant", "t-1")
+            .queryParam("metricKey", "cpu-idle")
+            .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
             .queryParam("start", "1605611015")
             .queryParam("end", "1605697439")
             .queryParam("aggregator", "min")

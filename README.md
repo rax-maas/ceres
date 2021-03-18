@@ -31,13 +31,13 @@ POST http://localhost:8080/api/put
 Content-Type: application/json
 
 {
-  "metric": "cpu_idle",
+  "metric": "idle",
   "tags": {
     "tenant": "t-1",
     "os": "linux",
     "host": "h-1",
     "deployment": "prod",
-    "metricGroup": "Misc"
+    "metricGroup": "cpu"
   },
   "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
