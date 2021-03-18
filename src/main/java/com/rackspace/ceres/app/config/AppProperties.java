@@ -110,4 +110,8 @@ public class AppProperties {
   @NotNull Integer tagValueLimit = 50;
 
   List<String> excludedTagKeys;
+
+  String ingestStartTime;
+
+  String ingestEndTime;
 }

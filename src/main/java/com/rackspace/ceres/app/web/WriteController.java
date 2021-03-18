@@ -21,7 +21,13 @@ import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.model.TagFilter;
 import com.rackspace.ceres.app.services.DataWriteService;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -69,6 +75,11 @@ public class WriteController {
                                             @RequestParam MultiValueMap<String, String> allParams,
                                             @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
   ) {
+    var startTime = appProperties.getIngestStartTime();
+    var endTime = appProperties.getIngestEndTime();
+    Instant now = Instant.now();
+    Instant startTimeStamp = now.minus(Integer.parseInt(startTime), ChronoUnit.DAYS);
+    Instant endTimeStamp = now.plus(Integer.parseInt(endTime), ChronoUnit.DAYS);
 
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
