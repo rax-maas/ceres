@@ -73,8 +73,7 @@ public class QueryService {
     return getMetricGroupFlux(metricKey)
         .flatMap(
             metricName -> {
-              String metricNameWithGroup = metricKey+"_"+metricName;
-              return getQueryResultFlux(tenant, queryTags, start, end, metricNameWithGroup);
+              return getQueryResultFlux(tenant, queryTags, start, end, metricName);
             }
         )
         .switchIfEmpty(getQueryResultFlux(tenant, queryTags, start, end, metricKey))
@@ -127,8 +126,7 @@ public class QueryService {
     return getMetricGroupFlux(metricKey)
         .flatMap(
             metricName -> {
-              String metricNameWithGroup = metricKey+"_"+metricName;
-              return getQueryDownsampled(tenant, metricNameWithGroup, aggregator, granularity, queryTags, start, end);
+              return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end);
             }
         )
         .switchIfEmpty(getQueryDownsampled(tenant, metricKey, aggregator, granularity, queryTags, start, end))

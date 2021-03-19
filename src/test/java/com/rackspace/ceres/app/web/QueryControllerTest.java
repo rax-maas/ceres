@@ -72,6 +72,7 @@ public class QueryControllerTest {
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
+      assertThat(queryResult.getData().getTags().get("metricGroup")).isEqualTo(metricGroup);
     }).verifyComplete();
   }
 
@@ -103,6 +104,7 @@ public class QueryControllerTest {
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
+      assertThat(queryResult.getData().getTags().get("metricGroup")).isEqualTo(metricGroup);
     }).verifyComplete();
   }
 
@@ -148,6 +150,7 @@ public class QueryControllerTest {
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata()).isEqualTo(queryResults.get(0).getMetadata());
+      assertThat(queryResult.getData().getTags().get("metricGroup")).isEqualTo(metricGroup);
     }).verifyComplete();
 
     verify(queryService)
@@ -186,7 +189,7 @@ public class QueryControllerTest {
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tenant", "t-1")
-            .queryParam("metricKey", "cpu-idle")
+            .queryParam("metricKey", metricGroup)
             .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
             .queryParam("start", "1605611015")
             .queryParam("end", "1605697439")
@@ -199,10 +202,11 @@ public class QueryControllerTest {
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata()).isEqualTo(queryResults.get(0).getMetadata());
+      assertThat(queryResult.getData().getTags().get("metricGroup")).isEqualTo(queryResults.get(0).getData().getTags().get("metricGroup"));
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "cpu-idle", Aggregator.min, Duration.ofMinutes(1), queryTags,
+        .queryDownsampled("t-1", metricGroup, Aggregator.min, Duration.ofMinutes(1), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);

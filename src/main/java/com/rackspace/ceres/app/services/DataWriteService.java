@@ -52,13 +52,13 @@ public class DataWriteService {
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
-      SeriesSetService seriesSetService,
-      MetadataService metadataService,
-      DataTablesStatements dataTablesStatements,
-      TimeSlotPartitioner timeSlotPartitioner,
-      DownsampleTrackingService downsampleTrackingService,
-      AppProperties appProperties,
-      ReactiveRedisTemplate reactiveRedisTemplate) {
+                          SeriesSetService seriesSetService,
+                          MetadataService metadataService,
+                          DataTablesStatements dataTablesStatements,
+                          TimeSlotPartitioner timeSlotPartitioner,
+                          DownsampleTrackingService downsampleTrackingService,
+                          AppProperties appProperties,
+                          ReactiveRedisTemplate reactiveRedisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
