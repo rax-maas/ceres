@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface IngestBounds {
-    String message() default "Ingested metric timestamps should in between configured bounds";
+    String message() default "Provided Ingest metric timestamps should be in between configured bounds.";
 
     Class<?>[] groups() default {};
 
