@@ -27,13 +27,14 @@ import lombok.Data;
 
 @Data
 public class Metric {
-    @IngestBounds
-    @NotNull
-    Instant timestamp;
-    @NotBlank
-    String metric;
-    @NotEmpty
-    Map<String, String> tags;
-    @NotNull
-    Number value;
+
+  @IngestBounds
+  @NotNull
+  Instant timestamp;
+  @NotBlank
+  String metric;
+  @NotEmpty
+  Map<String, String> tags;
+  @NotNull
+  Number value;
 }
