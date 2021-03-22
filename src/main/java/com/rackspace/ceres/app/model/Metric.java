@@ -22,12 +22,12 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
-import com.rackspace.ceres.app.validation.InBetween;
+import com.rackspace.ceres.app.validation.IngestBounds;
 import lombok.Data;
 
 @Data
 public class Metric {
-    @InBetween
+    @IngestBounds
     @NotNull
     Instant timestamp;
     @NotBlank

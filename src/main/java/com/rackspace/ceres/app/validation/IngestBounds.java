@@ -7,10 +7,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Constraint(validatedBy = InBetweenValidator.class)
+@Constraint(validatedBy = IngestBoundsValidator.class)
 @Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface InBetween {
+public @interface IngestBounds {
     String message() default "Ingested metric timestamps should in between configured bounds";
 
     Class<?>[] groups() default {};
