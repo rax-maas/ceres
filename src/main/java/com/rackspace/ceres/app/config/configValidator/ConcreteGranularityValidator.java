@@ -19,6 +19,15 @@ public class ConcreteGranularityValidator implements ConstraintValidator<Granula
     if(fieldValue == null) {
       return true;
     }
+
+    fieldValue.sort((g1, g2) -> g1.getWidth().compareTo(g2.getWidth()));
+
+    for(int i = 0; i < fieldValue.size(); i++) {
+      if(i != fieldValue.size()-1 && fieldValue.get(i+1).getWidth().getSeconds() % fieldValue.get(i).getWidth().getSeconds() != 0) {
+        return false;
+      }
+    }
+
     Granularity largest = null;
     for(Granularity granularity : fieldValue) {
       if(largest == null || granularity.getWidth().getSeconds() > largest.getWidth().getSeconds()) {
