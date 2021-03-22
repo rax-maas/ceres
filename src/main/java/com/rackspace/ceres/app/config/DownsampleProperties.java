@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.config;
 
+import com.rackspace.ceres.app.config.configValidator.iGranularityValidator;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -34,6 +35,7 @@ import org.springframework.validation.annotation.Validated;
 @Component
 @Data
 @Validated
+@iGranularityValidator
 public class DownsampleProperties {
   /**
    * Specifies how many partitions should be used when tracking ingested data for downsampling.
