@@ -75,12 +75,6 @@ public class WriteController {
                                             @RequestParam MultiValueMap<String, String> allParams,
                                             @RequestHeader(value = "X-Tenant", required = false) String tenantHeader
   ) {
-    var startTime = appProperties.getIngestStartTime();
-    var endTime = appProperties.getIngestEndTime();
-    Instant now = Instant.now();
-    Instant startTimeStamp = now.minus(Integer.parseInt(startTime), ChronoUnit.DAYS);
-    Instant endTimeStamp = now.plus(Integer.parseInt(endTime), ChronoUnit.DAYS);
-
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
             .map(metric -> {

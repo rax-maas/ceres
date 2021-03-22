@@ -21,16 +21,19 @@ import java.util.Map;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+
+import com.rackspace.ceres.app.validation.InBetween;
 import lombok.Data;
 
 @Data
 public class Metric {
-  @NotNull
-  Instant timestamp;
-  @NotBlank
-  String metric;
-  @NotEmpty
-  Map<String,String> tags;
-  @NotNull
-  Number value;
+    @InBetween
+    @NotNull
+    Instant timestamp;
+    @NotBlank
+    String metric;
+    @NotEmpty
+    Map<String, String> tags;
+    @NotNull
+    Number value;
 }
