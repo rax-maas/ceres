@@ -15,6 +15,7 @@ import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
+import com.rackspace.ceres.app.validator.QueryRequestValidator;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -40,6 +41,9 @@ public class QueryControllerTest {
 
   @MockBean
   QueryService queryService;
+
+  @MockBean
+  QueryRequestValidator queryRequestValidator;
 
   @Autowired
   private WebTestClient webTestClient;
@@ -234,6 +238,23 @@ public class QueryControllerTest {
     webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("metricName", "cpu-idle")
+            .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400);
+
+    verifyNoInteractions(queryService);
+  }
+
+  @Test
+  public void testQueryApiWithMetricNameAndMetricGroup() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricName", "cpu-idle")
+            .queryParam("metricGroup", metricGroup)
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
             .build())
