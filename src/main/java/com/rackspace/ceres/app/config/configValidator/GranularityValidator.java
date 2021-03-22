@@ -1,37 +1,25 @@
 package com.rackspace.ceres.app.config.configValidator;
 
-import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import java.util.List;
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
-import org.springframework.beans.BeanWrapperImpl;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import javax.validation.Constraint;
+import javax.validation.Payload;
 
-public class GranularityValidator implements ConstraintValidator<iGranularityValidator, Object> {
+@Constraint(validatedBy = ConcreteGranularityValidator.class)
+@Target({ ElementType.TYPE })
+@Retention(RetentionPolicy.RUNTIME)
+public @interface GranularityValidator {
 
-  public void initialize() {
+  String message() default "Granularities are not multiples of each other";
+  Class<?>[] groups() default {};
+  Class<? extends Payload>[] payload() default {};
+  /*
+  @Constraint(validatedBy = FieldsValueMatchValidator.class)
+@Target({ ElementType.TYPE })
+@Retention(RetentionPolicy.RUNTIME)
+public @interface FieldsValueMatch {
+   */
 
-  }
-
-  @Override
-  public boolean isValid(Object o, ConstraintValidatorContext constraintValidatorContext) {
-    List<Granularity> fieldValue = (List<Granularity>) new BeanWrapperImpl(o)
-        .getPropertyValue("granularities");
-    if(fieldValue == null) {
-      return true;
-    }
-    Granularity largest = null;
-    for(Granularity granularity : fieldValue) {
-      if(largest == null || granularity.getWidth().getSeconds() > largest.getWidth().getSeconds()) {
-        largest = granularity;
-      }
-    }
-
-    for(Granularity granularity : fieldValue) {
-      if(largest.getWidth().getSeconds() % granularity.getWidth().getSeconds() != 0) {
-        return false;
-      }
-    }
-
-    return true;
-  }
 }
