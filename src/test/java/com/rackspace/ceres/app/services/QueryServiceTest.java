@@ -142,7 +142,7 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRaw(tenantId, metricName, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .queryRaw(tenantId, metricName,"", tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -178,7 +178,7 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
 
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(Instant.now())
@@ -188,7 +188,7 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRaw(tenantId, metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .queryRaw(tenantId, "", metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -287,7 +287,7 @@ class QueryServiceTest {
         false
     ).block();
 
-    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, Aggregator.min, Duration.ofMinutes(2), tags,
+    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(2), tags,
         Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
@@ -312,6 +312,9 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
     when(metadataService.storeMetadata(any(), any(), any(), any()))
         .thenReturn(Mono.empty());
 
@@ -329,7 +332,7 @@ class QueryServiceTest {
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
-    ).subscribe();
+    ).block();
 
     downsampleProcessor.downsampleData(
         Flux.just(
@@ -342,7 +345,7 @@ class QueryServiceTest {
         false
     ).block();
 
-    StepVerifier.create(queryService.queryDownsampled(tenant, metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
+    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
         Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();

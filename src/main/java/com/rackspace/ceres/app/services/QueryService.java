@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.ReactiveSetOperations;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -67,17 +67,20 @@ public class QueryService {
     this.reactiveRedisTemplate = reactiveRedisTemplate;
   }
 
-  public Flux<QueryResult> queryRaw(String tenant, String metricKey,
+  public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
       Map<String, String> queryTags,
       Instant start, Instant end) {
-    return getMetricGroupFlux(metricKey)
-        .flatMap(
-            metricName -> {
-              return getQueryResultFlux(tenant, queryTags, start, end, metricName);
-            }
-        )
-        .switchIfEmpty(getQueryResultFlux(tenant, queryTags, start, end, metricKey))
-        .checkpoint();
+    if(StringUtils.isNotEmpty(metricName))  {
+      return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
+    } else {
+      return getMetricsFlux(metricGroup)
+          .flatMap(
+              metric -> {
+                return getQueryResultFlux(tenant, queryTags, start, end, metric);
+              }
+          )
+          .checkpoint();
+    }
   }
 
   private Flux<QueryResult> getQueryResultFlux(String tenant, Map<String, String> queryTags,
@@ -101,7 +104,7 @@ public class QueryService {
   }
 
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
-      Instant start, Instant end) {
+                                              Instant start, Instant end) {
     return Flux.fromIterable(timeSlotPartitioner
         .partitionsOverRange(start, end, null)
     )
@@ -120,29 +123,27 @@ public class QueryService {
         .checkpoint();
   }
 
-  public Flux<QueryResult> queryDownsampled(String tenant, String metricKey, Aggregator aggregator,
-      Duration granularity, Map<String, String> queryTags,
-      Instant start, Instant end) {
-    return getMetricGroupFlux(metricKey)
-        .flatMap(
-            metricName -> {
-              return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end);
-            }
-        )
-        .switchIfEmpty(getQueryDownsampled(tenant, metricKey, aggregator, granularity, queryTags, start, end))
-        .checkpoint();
+  public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
+      Aggregator aggregator, Duration granularity, Map<String,String> queryTags, Instant start,
+      Instant end)  {
+    if(StringUtils.isNotEmpty(metricName))  {
+      return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
+    }  else {
+      return getMetricsFlux(metricGroup)
+          .flatMap(
+              metric -> {
+                return getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end);
+              }
+          )
+          .checkpoint();
+    }
   }
 
-  private Flux<String> getMetricGroupFlux(String metricKey) {
-    return reactiveRedisTemplate.opsForSet().members(metricKey)
-        .flatMap(Flux::fromIterable);
-  }
-
-  private Flux<QueryResult> getQueryDownsampled(String tenant, String metricKey,
+  private Flux<QueryResult> getQueryDownsampled(String tenant, String metricName,
       Aggregator aggregator, Duration granularity, Map<String, String> queryTags, Instant start,
       Instant end) {
     // given the queryTags filter, locate the series-set that apply
-    return metadataService.locateSeriesSetHashes(tenant, metricKey, queryTags)
+    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // then perform a retrieval for each series-set
         .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
             // over each time slot partition of the [start,end) range
@@ -158,6 +159,11 @@ public class QueryService {
                         .metrics()
                 ), buildMetaData(aggregator, start, end, granularity)
         ));
+  }
+
+  private Flux<String> getMetricsFlux(String metricGroup) {
+    return reactiveRedisTemplate.opsForSet().members(metricGroup)
+        .flatMap(Flux::fromIterable);
   }
 
   private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows, Metadata metadata) {
