@@ -3,6 +3,7 @@ package com.rackspace.ceres.app.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -15,7 +16,6 @@ import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
-import com.rackspace.ceres.app.validator.QueryRequestValidator;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -41,9 +41,6 @@ public class QueryControllerTest {
 
   @MockBean
   QueryService queryService;
-
-  @MockBean
-  QueryRequestValidator queryRequestValidator;
 
   @Autowired
   private WebTestClient webTestClient;
@@ -74,6 +71,7 @@ public class QueryControllerTest {
         .returnResult(QueryResult.class).getResponseBody();
 
     StepVerifier.create(result).assertNext(queryResult -> {
+      System.out.println("queryResult "+ queryResult.getData());
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
     }).verifyComplete();
@@ -219,6 +217,8 @@ public class QueryControllerTest {
             .build())
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
+
+    assertThat(result).isNotNull();
 
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());

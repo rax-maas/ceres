@@ -23,11 +23,11 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
-import com.rackspace.ceres.app.validator.QueryRequestValidator;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,14 +46,21 @@ public class QueryController {
 
   private final QueryService queryService;
   private final DownsampleProperties downsampleProperties;
-  private final QueryRequestValidator queryRequestValidator;
 
   @Autowired
-  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties,
-                          QueryRequestValidator queryRequestValidator) {
+  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties) {
     this.queryService = queryService;
     this.downsampleProperties = downsampleProperties;
-    this.queryRequestValidator = queryRequestValidator;
+  }
+
+  private static void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
+    if(StringUtils.isEmpty(metricGroup) && StringUtils.isEmpty(metricName)) {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
+    }
+
+    if(StringUtils.isNotEmpty(metricGroup) && StringUtils.isNotEmpty(metricName)) {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
+    }
   }
 
   @GetMapping
@@ -65,7 +72,7 @@ public class QueryController {
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
-    queryRequestValidator.validateMetricNameAndMetricGroup(metricName, metricGroup);
+   validateMetricNameAndMetricGroup(metricName, metricGroup);
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
