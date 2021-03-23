@@ -53,16 +53,6 @@ public class QueryController {
     this.downsampleProperties = downsampleProperties;
   }
 
-  private static void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
-    if(StringUtils.isEmpty(metricGroup) && StringUtils.isEmpty(metricName)) {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
-    }
-
-    if(StringUtils.isNotEmpty(metricGroup) && StringUtils.isNotEmpty(metricName)) {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
-    }
-  }
-
   @GetMapping
   public Flux<QueryResult> query(@RequestParam(name = "tenant") String tenantParam,
       @RequestParam(required = false) String metricName,
@@ -93,6 +83,16 @@ public class QueryController {
           convertPairsListToMap(tag),
           startTime, endTime
       );
+    }
+  }
+
+  private static void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
+    if(StringUtils.isBlank(metricGroup) && StringUtils.isBlank(metricName)) {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
+    }
+
+    if(!StringUtils.isBlank(metricGroup) && !StringUtils.isBlank(metricName)) {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
     }
   }
 }

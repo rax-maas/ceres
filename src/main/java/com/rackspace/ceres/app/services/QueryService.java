@@ -70,9 +70,9 @@ public class QueryService {
   public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
       Map<String, String> queryTags,
       Instant start, Instant end) {
-    if(StringUtils.isNotEmpty(metricName))  {
+    if(!StringUtils.isBlank(metricName) && !"null".equals(metricName))  {
       return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
-    } else {
+    } else if(!StringUtils.isBlank(metricGroup) && !"null".equals(metricGroup)) {
       return getMetricsFlux(metricGroup)
           .flatMap(
               metric -> {
@@ -80,12 +80,14 @@ public class QueryService {
               }
           )
           .checkpoint();
+    } else {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
   }
 
   private Flux<QueryResult> getQueryResultFlux(String tenant, Map<String, String> queryTags,
-      Instant start, Instant end, String metricNameWithGroup) {
-    return metadataService.locateSeriesSetHashes(tenant, metricNameWithGroup, queryTags)
+      Instant start, Instant end, String metricName) {
+    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // then perform a retrieval for each series-set
         .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
               // over each time slot partition of the [start,end) range
@@ -126,9 +128,9 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
       Aggregator aggregator, Duration granularity, Map<String,String> queryTags, Instant start,
       Instant end)  {
-    if(StringUtils.isNotEmpty(metricName))  {
+    if(!StringUtils.isBlank(metricName) && !"null".equals(metricName))  {
       return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
-    }  else {
+    }  else if(!StringUtils.isBlank(metricGroup) && !"null".equals(metricGroup)) {
       return getMetricsFlux(metricGroup)
           .flatMap(
               metric -> {
@@ -136,6 +138,8 @@ public class QueryService {
               }
           )
           .checkpoint();
+    } else {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
   }
 
