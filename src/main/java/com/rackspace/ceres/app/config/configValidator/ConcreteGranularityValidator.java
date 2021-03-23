@@ -8,34 +8,32 @@ import org.springframework.beans.BeanWrapperImpl;
 
 public class ConcreteGranularityValidator implements ConstraintValidator<GranularityValidator, Object> {
 
-  public void initialize() {
-
-  }
+  public void initialize() { }
 
   @Override
   public boolean isValid(Object o, ConstraintValidatorContext constraintValidatorContext) {
-    List<Granularity> fieldValue = (List<Granularity>) new BeanWrapperImpl(o)
+    List<Granularity> granularityList = (List<Granularity>) new BeanWrapperImpl(o)
         .getPropertyValue("granularities");
-    if(fieldValue == null) {
+    if(granularityList == null) {
       return true;
     }
 
-    fieldValue.sort((g1, g2) -> g1.getWidth().compareTo(g2.getWidth()));
+    granularityList.sort((g1, g2) -> g1.getWidth().compareTo(g2.getWidth()));
 
-    for(int i = 0; i < fieldValue.size(); i++) {
-      if(i != fieldValue.size()-1 && fieldValue.get(i+1).getWidth().getSeconds() % fieldValue.get(i).getWidth().getSeconds() != 0) {
+    for(int i = 0; i < granularityList.size()-1; i++) {
+      if(i != granularityList.size() && granularityList.get(i+1).getWidth().getSeconds() % granularityList.get(i).getWidth().getSeconds() != 0) {
         return false;
       }
     }
 
     Granularity largest = null;
-    for(Granularity granularity : fieldValue) {
-      if(largest == null || granularity.getWidth().getSeconds() > largest.getWidth().getSeconds()) {
+    for(Granularity granularity : granularityList) {
+      if(largest == null || largest.getWidth().getSeconds() < granularity.getWidth().getSeconds()){
         largest = granularity;
       }
     }
 
-    for(Granularity granularity : fieldValue) {
+    for(Granularity granularity : granularityList) {
       if(largest.getWidth().getSeconds() % granularity.getWidth().getSeconds() != 0) {
         return false;
       }

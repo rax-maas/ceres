@@ -11,15 +11,7 @@ import javax.validation.Payload;
 @Target({ ElementType.TYPE })
 @Retention(RetentionPolicy.RUNTIME)
 public @interface GranularityValidator {
-
   String message() default "Granularities are not multiples of each other";
   Class<?>[] groups() default {};
   Class<? extends Payload>[] payload() default {};
-  /*
-  @Constraint(validatedBy = FieldsValueMatchValidator.class)
-@Target({ ElementType.TYPE })
-@Retention(RetentionPolicy.RUNTIME)
-public @interface FieldsValueMatch {
-   */
-
 }
