@@ -50,7 +50,7 @@ public class QueryService {
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
-  private ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
+  private final ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,

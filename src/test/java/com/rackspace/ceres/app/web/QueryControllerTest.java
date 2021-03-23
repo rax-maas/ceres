@@ -3,7 +3,7 @@ package com.rackspace.ceres.app.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -47,9 +47,8 @@ public class QueryControllerTest {
 
   @Test
   public void testQueryApiWithMetricName() {
-    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     Map<String, String> queryTags = Map
-        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
+        .of("os", "linux", "deployment", "dev", "host", "h-1");
 
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
@@ -57,7 +56,7 @@ public class QueryControllerTest {
         .of(new QueryResult().setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
             .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
 
-    when(queryService.queryRaw(anyString(), anyString(), anyString(), any(), any(), any()))
+    when(queryService.queryRaw(anyString(), anyString(), eq(null), any(), any(), any()))
         .thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
@@ -71,9 +70,40 @@ public class QueryControllerTest {
         .returnResult(QueryResult.class).getResponseBody();
 
     StepVerifier.create(result).assertNext(queryResult -> {
-      System.out.println("queryResult "+ queryResult.getData());
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
+    }).verifyComplete();
+  }
+
+  @Test
+  public void testQueryApiWithMetricGroup() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Map<String, String> queryTags = Map
+        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
+
+    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
+
+    List<QueryResult> queryResults = List
+        .of(new QueryResult().setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
+            .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
+
+    when(queryService.queryRaw(anyString(), eq(null), anyString(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(queryResults));
+
+    Flux<QueryResult> result = webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricGroup", metricGroup)
+            .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .queryParam("tenant", "t-1")
+            .build())
+        .exchange().expectStatus().isOk()
+        .returnResult(QueryResult.class).getResponseBody();
+
+    StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
+      assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
+      assertThat(queryResult.getData().getTags().get("metricGroup")).isEqualTo(metricGroup);
     }).verifyComplete();
   }
 
@@ -100,7 +130,7 @@ public class QueryControllerTest {
                     .setStartTime(Instant.ofEpochSecond(1605611015))
                     .setEndTime(Instant.ofEpochSecond(1605697439))));
 
-    when(queryService.queryDownsampled(anyString(), anyString(), anyString(), any(), any(), any(), any(), any()))
+    when(queryService.queryDownsampled(anyString(), anyString(), eq(null), any(), any(), any(), any(), any()))
         .thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
@@ -123,7 +153,7 @@ public class QueryControllerTest {
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "cpu-idle", "", Aggregator.min, Duration.ofMinutes(1), queryTags,
+        .queryDownsampled("t-1", "cpu-idle", null, Aggregator.min, Duration.ofMinutes(1), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);
@@ -152,7 +182,7 @@ public class QueryControllerTest {
                     .setStartTime(Instant.ofEpochSecond(1605611015))
                     .setEndTime(Instant.ofEpochSecond(1605697439))));
 
-    when(queryService.queryDownsampled(anyString(), anyString(), anyString(), any(), any(), any(), any(), any()))
+    when(queryService.queryDownsampled(anyString(), eq(null), anyString(), any(), any(), any(), any(), any()))
         .thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
@@ -175,7 +205,7 @@ public class QueryControllerTest {
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "", metricGroup, Aggregator.min, Duration.ofMinutes(1), queryTags,
+        .queryDownsampled("t-1", null, metricGroup, Aggregator.min, Duration.ofMinutes(1), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);
@@ -203,7 +233,7 @@ public class QueryControllerTest {
                     .setStartTime(Instant.ofEpochSecond(1605611015))
                     .setEndTime(Instant.ofEpochSecond(1605697439))));
 
-    when(queryService.queryDownsampled(anyString(), anyString(), anyString(), any(), any(), any(), any(), any()))
+    when(queryService.queryDownsampled(anyString(), anyString(), eq(null), any(), any(), any(), any(), any()))
         .thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
@@ -226,7 +256,7 @@ public class QueryControllerTest {
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "cpu-idle", "", Aggregator.max, Duration.ofMinutes(2), queryTags,
+        .queryDownsampled("t-1", "cpu-idle", null, Aggregator.max, Duration.ofMinutes(2), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);
