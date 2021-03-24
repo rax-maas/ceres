@@ -70,9 +70,9 @@ public class QueryService {
   public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
       Map<String, String> queryTags,
       Instant start, Instant end) {
-    if(!StringUtils.isBlank(metricName) && !"null".equals(metricName))  {
+    if(!StringUtils.isBlank(metricName))  {
       return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
-    } else if(!StringUtils.isBlank(metricGroup) && !"null".equals(metricGroup)) {
+    } else {
       return getMetricsFlux(metricGroup)
           .flatMap(
               metric -> {
@@ -80,8 +80,6 @@ public class QueryService {
               }
           )
           .checkpoint();
-    } else {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
   }
 
@@ -128,9 +126,9 @@ public class QueryService {
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
       Aggregator aggregator, Duration granularity, Map<String,String> queryTags, Instant start,
       Instant end)  {
-    if(!StringUtils.isBlank(metricName) && !"null".equals(metricName))  {
+    if(!StringUtils.isBlank(metricName))  {
       return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
-    }  else if(!StringUtils.isBlank(metricGroup) && !"null".equals(metricGroup)) {
+    }  else {
       return getMetricsFlux(metricGroup)
           .flatMap(
               metric -> {
@@ -138,8 +136,6 @@ public class QueryService {
               }
           )
           .checkpoint();
-    } else {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
   }
 

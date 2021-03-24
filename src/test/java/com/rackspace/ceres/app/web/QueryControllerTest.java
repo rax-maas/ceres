@@ -294,4 +294,19 @@ public class QueryControllerTest {
 
     verifyNoInteractions(queryService);
   }
+
+  @Test
+  public void testQueryApiWithNoMetricNameAndMetricGroup() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400);
+
+    verifyNoInteractions(queryService);
+  }
 }
