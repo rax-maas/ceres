@@ -27,11 +27,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
-import lombok.extern.log4j.Log4j2;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-@Log4j2
 @Component
 @Profile("ingest")
 public class IngestBoundsValidator implements ConstraintValidator<IngestBounds, Instant> {
