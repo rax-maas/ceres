@@ -297,7 +297,6 @@ public class QueryControllerTest {
 
   @Test
   public void testQueryApiWithNoMetricNameAndMetricGroup() {
-    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("tag", "os=linux")
