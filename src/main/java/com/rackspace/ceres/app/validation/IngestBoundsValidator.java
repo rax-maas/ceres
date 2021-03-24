@@ -1,14 +1,35 @@
+/*
+ * Copyright 2021 Rackspace US, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.rackspace.ceres.app.validation;
 
+import static java.time.LocalTime.MAX;
+import static java.time.ZonedDateTime.of;
+import static java.time.temporal.ChronoUnit.DAYS;
+
 import com.rackspace.ceres.app.config.AppProperties;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
-import java.time.*;
-import java.time.temporal.ChronoUnit;
 
 @Log4j2
 @Component
@@ -16,57 +37,29 @@ import java.time.temporal.ChronoUnit;
 public class IngestBoundsValidator implements ConstraintValidator<IngestBounds, Instant> {
 
   private final AppProperties appProperties;
+  private Duration startDuration = Duration.ofDays(7);
+  private Duration endDuration = Duration.ofDays(1);
 
   public IngestBoundsValidator(AppProperties appProperties) {
     this.appProperties = appProperties;
   }
 
   @Override
+  public void initialize(IngestBounds constraintAnnotation) {
+    if (appProperties.getIngestStartTime() != null && appProperties.getIngestEndTime() != null) {
+      startDuration = appProperties.getIngestStartTime();
+      endDuration = appProperties.getIngestEndTime();
+    }
+  }
+
+  @Override
   public boolean isValid(Instant value, ConstraintValidatorContext context) {
-    log.info("Field Value - {}", value);
-    value = value.atZone(ZoneId.of("UTC")).toInstant();
-    return !(value.isBefore(getStartTime()) || value.isAfter(getEndTime()));
-  }
-
-  /**
-   * This method calculates the start ingested metrics time, in case no value is provided the
-   * default value is set to 1 week in the past.
-   *
-   * @return - {@code Instant}
-   */
-  private Instant getStartTime() {
-    int startParams;
-    if (appProperties.getIngestStartTime() == null || appProperties.getIngestStartTime()
-        .isEmpty()) {
-      startParams = 7;
-    } else {
-      String extractStartTime = appProperties.getIngestStartTime().replaceAll("[^0-9]", "");
-      startParams = Integer.parseInt(extractStartTime);
-    }
-
-    LocalDateTime dateTime = LocalDate.now().atStartOfDay().minus(startParams, ChronoUnit.DAYS);
-    Instant startTimeStamp = ZonedDateTime.of(dateTime, ZoneId.of("UTC")).toInstant();
-    log.info("Start Time Stamp - {}", startTimeStamp);
-    return startTimeStamp;
-  }
-
-  /**
-   * This method calculates the end ingested metrics time, in case no value is provided the default
-   * value is set to 1 day in the future.
-   *
-   * @return - {@code Instant}
-   */
-  private Instant getEndTime() {
-    int endParams;
-    if (appProperties.getIngestEndTime() == null || appProperties.getIngestEndTime().isEmpty()) {
-      endParams = 1;
-    } else {
-      String extractEndTime = appProperties.getIngestEndTime().replaceAll("[^0-9]", "");
-      endParams = Integer.parseInt(extractEndTime);
-    }
-    LocalDateTime dateTime = LocalDate.now().atTime(LocalTime.MAX).plus(endParams, ChronoUnit.DAYS);
-    Instant endTimeStamp = ZonedDateTime.of(dateTime, ZoneId.of("UTC")).toInstant();
-    log.info("End Time Stamp - {}", endTimeStamp);
-    return endTimeStamp;
+    ZoneId utc = ZoneId.of("UTC");
+    LocalDate today = LocalDate.now();
+    var startPeriod = today.atStartOfDay().minus(startDuration.toDays(), DAYS);
+    var endPeriod = today.atTime(MAX).plus(endDuration.toDays(), DAYS);
+    boolean startTime = value.isAfter(of(startPeriod, utc).toInstant());
+    boolean endTime = value.isBefore(of(endPeriod, utc).toInstant());
+    return startTime && endTime;
   }
 }
