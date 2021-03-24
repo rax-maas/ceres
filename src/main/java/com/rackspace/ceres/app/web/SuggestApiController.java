@@ -22,8 +22,18 @@ public class SuggestApiController {
     this.suggestApiService = suggestApiService;
   }
 
+  /**
+   * This endpoint provides a means of implementing an auto-complete.
+   *
+   * @param tenant tenant of the customer
+   * @param type   This is the type of data we want to suggest. It can be anything from {@link
+   *               SuggestType}
+   * @param q      This is the text for which we have to suggest matching entries.
+   * @param max    Limit on number of results to return
+   * @return list of string containing the auto complete suggestions.
+   */
   @GetMapping
-  public Mono<List<String>> getSuggest(@RequestHeader("X-Tenant") String tenant,
+  public Mono<List<String>> getSuggestions(@RequestHeader("X-Tenant") String tenant,
       @RequestParam SuggestType type, @RequestParam(required = false) String q,
       @RequestParam(required = false, defaultValue = "25") int max) {
     if(type == SuggestType.tagk)

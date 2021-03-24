@@ -13,27 +13,40 @@ import reactor.core.publisher.Mono;
 @Service
 public class SuggestApiService {
 
-  private final DataTablesStatements dataTablesStatements;
-  private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
 
   @Autowired
-  public SuggestApiService(DataTablesStatements dataTablesStatements, ReactiveCqlTemplate cqlTemplate,
-      MetadataService metadataService) {
-    this.dataTablesStatements = dataTablesStatements;
-    this.cqlTemplate = cqlTemplate;
+  public SuggestApiService(MetadataService metadataService) {
     this.metadataService = metadataService;
   }
 
+  /**
+   * Method used to return the list of tag keys associated with particular tenant with limit set to
+   * max
+   *
+   * @param tenant
+   * @param tagK
+   * @param max
+   * @return
+   */
   public Mono<List<String>> suggestTagKeys(String tenant, String tagK, int max) {
     return metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable)
         .flatMap(metric -> metadataService.getTagKeys(tenant, metric).flatMapMany(Flux::fromIterable)
         .filter(tagKey -> !StringUtils.hasText(tagK) || tagKey.startsWith(tagK)))
+        .distinct()
         .limitRequest(max)
         .collectList();
-    //return cqlTemplate.queryForFlux(cqlStatement, String.class, tenantId).filter(str -> str.startsWith(tagK)).distinct();
   }
 
+  /**
+   * Method used to return the list of metric names that starts with metric for a tenant and limits
+   * the result to max.
+   *
+   * @param tenant
+   * @param metric
+   * @param max
+   * @return
+   */
   public Mono<List<String>> suggestMetricNames(String tenant, String metric, int max) {
     return metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable)
         .filter(metricName -> !StringUtils.hasText(metric) || metricName.startsWith(metric))
@@ -41,11 +54,21 @@ public class SuggestApiService {
         .collectList();
   }
 
+  /**
+   * Method used to return the list of tag values that starts with tagV for a tenant and limits
+   * the result to max.
+   *
+   * @param tenant
+   * @param tagV
+   * @param max
+   * @return
+   */
   public Mono<List<String>> suggestTagValues(String tenant, String tagV, int max) {
     return metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable)
         .flatMap(metric -> metadataService.getTagKeys(tenant, metric).flatMapMany(Flux::fromIterable)
         .flatMap(tagK -> metadataService.getTagValues(tenant, metric, tagK).flatMapMany(Flux::fromIterable)))
         .filter(tagValue -> !StringUtils.hasText(tagV) || tagValue.startsWith(tagV))
+        .distinct()
         .limitRequest(max)
         .collectList();
   }
