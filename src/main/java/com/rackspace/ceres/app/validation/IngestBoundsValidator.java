@@ -16,15 +16,11 @@
 
 package com.rackspace.ceres.app.validation;
 
-import static java.time.LocalTime.MAX;
-import static java.time.ZonedDateTime.of;
-import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
 import org.springframework.context.annotation.Profile;
@@ -35,8 +31,8 @@ import org.springframework.stereotype.Component;
 public class IngestBoundsValidator implements ConstraintValidator<IngestBounds, Instant> {
 
   private final AppProperties appProperties;
-  private Duration startDuration = Duration.ofDays(7);
-  private Duration endDuration = Duration.ofDays(1);
+  private Duration startDuration;
+  private Duration endDuration;
 
   public IngestBoundsValidator(AppProperties appProperties) {
     this.appProperties = appProperties;
@@ -44,20 +40,15 @@ public class IngestBoundsValidator implements ConstraintValidator<IngestBounds, 
 
   @Override
   public void initialize(IngestBounds constraintAnnotation) {
-    if (appProperties.getIngestStartTime() != null && appProperties.getIngestEndTime() != null) {
-      startDuration = appProperties.getIngestStartTime();
-      endDuration = appProperties.getIngestEndTime();
-    }
+    startDuration = appProperties.getIngestStartTime();
+    endDuration = appProperties.getIngestEndTime();
   }
 
   @Override
   public boolean isValid(Instant value, ConstraintValidatorContext context) {
-    ZoneId utc = ZoneId.of("UTC");
-    LocalDate today = LocalDate.now();
-    var startPeriod = today.atStartOfDay().minus(startDuration.toDays(), DAYS);
-    var endPeriod = today.atTime(MAX).plus(endDuration.toDays(), DAYS);
-    boolean startTime = value.isAfter(of(startPeriod, utc).toInstant());
-    boolean endTime = value.isBefore(of(endPeriod, utc).toInstant());
-    return startTime && endTime;
+    Instant currentInstant = Instant.now();
+    var startPeriod = currentInstant.minus(startDuration.toSeconds(), SECONDS);
+    var endPeriod = currentInstant.plus(endDuration.toSeconds(), SECONDS);
+    return value.isAfter(startPeriod) && value.isBefore(endPeriod);
   }
 }

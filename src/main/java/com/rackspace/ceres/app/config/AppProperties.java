@@ -111,7 +111,7 @@ public class AppProperties {
 
   List<String> excludedTagKeys;
 
-  Duration ingestStartTime;
+  Duration ingestStartTime = Duration.ofDays(7);
 
-  Duration ingestEndTime;
+  Duration ingestEndTime = Duration.ofDays(1);
 }
