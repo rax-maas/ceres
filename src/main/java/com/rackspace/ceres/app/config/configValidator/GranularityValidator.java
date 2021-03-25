@@ -8,7 +8,7 @@ import javax.validation.Constraint;
 import javax.validation.Payload;
 
 @Constraint(validatedBy = ConcreteGranularityValidator.class)
-@Target({ ElementType.TYPE })
+@Target({ ElementType.FIELD })
 @Retention(RetentionPolicy.RUNTIME)
 public @interface GranularityValidator {
   String message() default "Granularities are not multiples of each other";
