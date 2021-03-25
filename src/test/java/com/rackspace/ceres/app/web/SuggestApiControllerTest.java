@@ -3,6 +3,7 @@ package com.rackspace.ceres.app.web;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.services.SuggestApiService;
+import java.util.Collections;
 import java.util.List;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -75,6 +76,35 @@ public class SuggestApiControllerTest {
         .queryParam("q", "h-")
         .queryParam("max", 10)
         .build()).header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isBadRequest();
+  }
+
+  @Test
+  public void testGetSuggestionsMax0() {
+    when(suggestApiService.suggestTagValues("t-1", "h-", 0))
+        .thenReturn(Mono.just(Collections.emptyList()));
+
+    webTestClient.get().uri(uriBuilder -> uriBuilder.path("/api/suggest")
+        .queryParam("type", "tagv")
+        .queryParam("q", "h-")
+        .queryParam("max", 0)
+        .build()).header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(List.class)
+        .isEqualTo(Collections.emptyList());
+  }
+
+  @Test
+  public void testGetSuggestionsTenantHeaderMissing() {
+    when(suggestApiService.suggestTagValues("t-1", "h-", 0))
+        .thenReturn(Mono.just(Collections.emptyList()));
+
+    webTestClient.get().uri(uriBuilder -> uriBuilder.path("/api/suggest")
+        .queryParam("type", "tagv")
+        .queryParam("q", "h-")
+        .queryParam("max", 10)
+        .build())
         .exchange()
         .expectStatus().isBadRequest();
   }

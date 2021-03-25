@@ -34,7 +34,7 @@ public class SuggestApiService {
         .flatMap(metric -> metadataService.getTagKeys(tenant, metric).flatMapMany(Flux::fromIterable)
         .filter(tagKey -> !StringUtils.hasText(tagK) || tagKey.startsWith(tagK)))
         .distinct()
-        .limitRequest(max)
+        .take(max)
         .collectList();
   }
 
@@ -50,7 +50,7 @@ public class SuggestApiService {
   public Mono<List<String>> suggestMetricNames(String tenant, String metric, int max) {
     return metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable)
         .filter(metricName -> !StringUtils.hasText(metric) || metricName.startsWith(metric))
-        .limitRequest(max)
+        .take(max)
         .collectList();
   }
 
@@ -69,7 +69,7 @@ public class SuggestApiService {
         .flatMap(tagK -> metadataService.getTagValues(tenant, metric, tagK).flatMapMany(Flux::fromIterable)))
         .filter(tagValue -> !StringUtils.hasText(tagV) || tagValue.startsWith(tagV))
         .distinct()
-        .limitRequest(max)
+        .take(max)
         .collectList();
   }
 }

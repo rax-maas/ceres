@@ -36,11 +36,10 @@ public class SuggestApiController {
   public Mono<List<String>> getSuggestions(@RequestHeader("X-Tenant") String tenant,
       @RequestParam SuggestType type, @RequestParam(required = false) String q,
       @RequestParam(required = false, defaultValue = "25") int max) {
-    if(type == SuggestType.tagk)
-      return suggestApiService.suggestTagKeys(tenant, q, max);
-    else if(type == SuggestType.tagv)
-      return suggestApiService.suggestTagValues(tenant, q, max);
-    else
-      return suggestApiService.suggestMetricNames(tenant, q, max);
+    return switch (type) {
+      case tagk -> suggestApiService.suggestTagKeys(tenant, q, max);
+      case tagv -> suggestApiService.suggestTagValues(tenant, q, max);
+      case metrics -> suggestApiService.suggestMetricNames(tenant, q, max);
+    };
   }
 }

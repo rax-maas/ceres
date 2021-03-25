@@ -43,6 +43,11 @@ public class SuggestApiServiceTest {
         .assertNext(metricNameList -> {
           Assertions.assertThat(metricNameList).isEmpty();
         }).verifyComplete();
+
+    StepVerifier.create(suggestApiService.suggestMetricNames("t-1", "cp", 0))
+        .assertNext(metricNameList -> {
+          Assertions.assertThat(metricNameList).isEmpty();
+        }).verifyComplete();
   }
 
   @Test
