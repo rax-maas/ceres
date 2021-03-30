@@ -14,12 +14,15 @@ public class GranularityValidatorTest {
 
   @Test
   public void invalidGranularities() {
-    Granularity granularity = new Granularity();
-    granularity.setWidth(Duration.parse("PT3M"));
+    Granularity granularity = new Granularity()
+        .setWidth(Duration.parse("PT2M"));
     List<Granularity> granularities = new LinkedList();
     granularities.add(granularity);
-    granularity = new Granularity();
-    granularity.setWidth(Duration.parse("PT7M"));
+    granularity = new Granularity()
+        .setWidth(Duration.parse("PT8M")); // invalid
+    granularities.add(granularity);
+    granularity = new Granularity()
+        .setWidth(Duration.parse("PT20M"));
     granularities.add(granularity);
 
     ConcreteGranularityValidator validator = new ConcreteGranularityValidator();
@@ -28,12 +31,15 @@ public class GranularityValidatorTest {
 
   @Test
   public void validGranularities() {
-    Granularity granularity = new Granularity();
-    granularity.setWidth(Duration.parse("PT3M"));
+    Granularity granularity = new Granularity()
+        .setWidth(Duration.parse("PT2M"));
     List<Granularity> granularities = new LinkedList();
     granularities.add(granularity);
-    granularity = new Granularity();
-    granularity.setWidth(Duration.parse("PT9M"));
+    granularity = new Granularity()
+        .setWidth(Duration.parse("PT4M"));
+    granularities.add(granularity);
+    granularity = new Granularity()
+        .setWidth(Duration.parse("PT16M"));
     granularities.add(granularity);
 
     ConcreteGranularityValidator validator = new ConcreteGranularityValidator();
