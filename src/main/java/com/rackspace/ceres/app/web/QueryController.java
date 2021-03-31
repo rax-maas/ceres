@@ -47,16 +47,16 @@ public class QueryController {
 
   private final QueryService queryService;
   private final DownsampleProperties downsampleProperties;
-  private final Counter queryCounter;
-  private final Counter aggregatorCounter;
+  private final Counter aggregatorQueryCounter;
+  private final Counter noAggregatorQueryCounter;
 
   @Autowired
   public QueryController(QueryService queryService, DownsampleProperties downsampleProperties,
       MeterRegistry meterRegistry) {
     this.queryService = queryService;
     this.downsampleProperties = downsampleProperties;
-    aggregatorCounter = meterRegistry.counter("Ceres.QueryApi", "Query", "Without_Aggregator");
-    queryCounter = meterRegistry.counter("Ceres.QueryApi", "Query", "With_Aggregator");
+    noAggregatorQueryCounter = meterRegistry.counter("Ceres.QueryApi", "Query", "Without_Aggregator");
+    aggregatorQueryCounter = meterRegistry.counter("Ceres.QueryApi", "Query", "With_Aggregator");
   }
 
   @GetMapping
@@ -71,7 +71,7 @@ public class QueryController {
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
-      aggregatorCounter.increment();
+      noAggregatorQueryCounter.increment();
       return queryService.queryRaw(tenantParam, metricName,
           convertPairsListToMap(tag),
           startTime, endTime
@@ -81,7 +81,7 @@ public class QueryController {
         granularity = DateTimeUtils
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
-      queryCounter.increment();
+      aggregatorQueryCounter.increment();
       return queryService.queryDownsampled(tenantParam, metricName,
           aggregator,
           granularity,
