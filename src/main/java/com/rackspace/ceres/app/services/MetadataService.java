@@ -223,30 +223,30 @@ public class MetadataService {
         )
         .flatMapMany(Flux::fromIterable);
   }
-  
+
   public Flux<TsdbQuery> getMetricsAndTagsAndMetadata(List<TsdbQueryRequest> queries, List<Granularity> granularities) {
     List<TsdbQuery> result = new ArrayList<TsdbQuery>();
-    
+
     for (TsdbQueryRequest query : queries) {
       List<Map<String, String>> filters = query.getFilters();
-      
+
       for (Map<String, String> filter : filters) {
         String[] splitValues = filter.get("filter").split("\\|");
         for (int i = 0; i < splitValues.length; i++) {
 
           Map<String, String> tags = new HashMap<String, String>();
           tags.put(filter.get("tagk"), splitValues[i]);
-                    
+
           String downsample = query.getDownsample();
           String[] values = downsample.split("-");
           Duration duration0 = Duration.parse("PT" + values[0].toUpperCase());
-          
+
           TsdbQuery tsdbQuery = new TsdbQuery()
-              .setMetricName(query.getMetric())
-              .setTags(tags)
-              .setGranularity(DateTimeUtils.getGranularity(duration0, granularities))
-              .setAggregator(Aggregator.valueOf(values[1]));
-          
+            .setMetricName(query.getMetric())
+            .setTags(tags)
+            .setGranularity(DateTimeUtils.getGranularity(duration0, granularities))
+            .setAggregator(Aggregator.valueOf(values[1]));
+
           result.add(tsdbQuery);
         }
       }

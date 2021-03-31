@@ -129,22 +129,22 @@ public class QueryService {
         ))
         .checkpoint();
   }
-  
+
   public Flux<TsdbQueryResult> queryTsdbDownsampled(String tenant, List<TsdbQueryRequest> queries, Instant start, Instant end,
-      List<Granularity> granularities) {
+                                                    List<Granularity> granularities) {
     return metadataService.getMetricsAndTagsAndMetadata(queries, granularities)
-        .flatMap(metricData -> metadataService
-            .locateSeriesSetHashes(tenant, metricData.getMetricName(), metricData.getTags())
-            // then perform a retrieval for each series-set
-            .flatMap(seriesSet -> mapTsdbSeriesSetResult(tenant, seriesSet,
-                // over each time slot partition of the [start,end] range
-                Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, metricData.getGranularity()))
-                    .concatMap(timeSlot -> cqlTemplate
-                        .queryForRows(dataTablesStatements.downsampleQuery(metricData.getGranularity()), tenant,
-                            timeSlot, seriesSet, metricData.getAggregator().name(), start, end)
-                        .name("queryTsdbDownsampled").metrics()),
-                metricData)))
-        .checkpoint();
+      .flatMap(metricData -> metadataService
+        .locateSeriesSetHashes(tenant, metricData.getMetricName(), metricData.getTags())
+        // then perform a retrieval for each series-set
+        .flatMap(seriesSet -> mapTsdbSeriesSetResult(tenant, seriesSet,
+          // over each time slot partition of the [start,end] range
+          Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, metricData.getGranularity()))
+            .concatMap(timeSlot -> cqlTemplate
+              .queryForRows(dataTablesStatements.downsampleQuery(metricData.getGranularity()), tenant,
+                timeSlot, seriesSet, metricData.getAggregator().name(), start, end)
+              .name("queryTsdbDownsampled").metrics()),
+          metricData)))
+      .checkpoint();
   }
   
   private Mono<TsdbQueryResult> mapTsdbSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows,

@@ -57,12 +57,12 @@ public class QueryController {
     this.queryService = queryService;
     this.downsampleProperties = downsampleProperties;
   }
-  
+
   @PostMapping
   public Flux<TsdbQueryResult> queryTsdb(@RequestBody TsdbQueryRequestData timeQueryData,
-      @RequestHeader(value = "X-Tenant", required = true) String tenant) {
+                                         @RequestHeader(value = "X-Tenant", required = true) String tenant) {
     return queryService.queryTsdbDownsampled(tenant, timeQueryData.getQueries(), timeQueryData.getStart(),
-        timeQueryData.getEnd(), downsampleProperties.getGranularities());
+      timeQueryData.getEnd(), downsampleProperties.getGranularities());
   }
 
   @GetMapping

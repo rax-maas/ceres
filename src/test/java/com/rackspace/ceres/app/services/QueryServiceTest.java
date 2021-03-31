@@ -261,64 +261,64 @@ class QueryServiceTest {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
 
     final Map<String, String> tags = Map.of(
-        "host", "h-1"
+      "host", "h-1"
     );
 
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
-    
+
     TsdbQuery tsdbQuery = new TsdbQuery()
-        .setMetricName(metricName)
-        .setTags(tags)
-        .setGranularity(Duration.ofMinutes(2))
-        .setAggregator(Aggregator.avg);
-    
+      .setMetricName(metricName)
+      .setTags(tags)
+      .setGranularity(Duration.ofMinutes(2))
+      .setAggregator(Aggregator.avg);
+
     when(metadataService.getMetricsAndTagsAndMetadata(any(), any())).thenReturn(Flux.just(tsdbQuery));
-    
+
     final Map<String, String> filter = Map.of(
-        "type", "literal_or",
-        "tagk", "host",
-        "filter", "h-1"
+      "type", "literal_or",
+      "tagk", "host",
+      "filter", "h-1"
     );
-    
+
     TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
-        .setMetric(metricName)
-        .setDownsample("2m-avg")
-        .setFilters(List.of(filter));
-    
+      .setMetric(metricName)
+      .setDownsample("2m-avg")
+      .setFilters(List.of(filter));
+
     List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
 
     Instant now = Instant.ofEpochSecond(epochSecondsNow.longValue());
-    
+
     downsampleProcessor.downsampleData(
-        Flux.just(
-            singleValue(now.toString(), 1.2),
-            singleValue(now.plusSeconds(5).toString(), 1.5),
-            singleValue(now.plusSeconds(10).toString(), 1.1),
-            singleValue(now.plusSeconds(15).toString(), 3.4),
-            singleValue(now.plusSeconds(200).toString(), 8.4)
-        ), tenant, seriesSetHash,
-        granularities.iterator(),
-        false
+      Flux.just(
+        singleValue(now.toString(), 1.2),
+        singleValue(now.plusSeconds(5).toString(), 1.5),
+        singleValue(now.plusSeconds(10).toString(), 1.1),
+        singleValue(now.plusSeconds(15).toString(), 3.4),
+        singleValue(now.plusSeconds(200).toString(), 8.4)
+      ), tenant, seriesSetHash,
+      granularities.iterator(),
+      false
     ).block();
 
     final Map<String, Integer> expectedDps = Map.of(
-        epochSecondsNow.toString(), 2,
-        epochSecondsNowPlus2Min.toString(), 8
+      epochSecondsNow.toString(), 2,
+      epochSecondsNowPlus2Min.toString(), 8
     );
-    
+
     Instant start = now.minusSeconds(5 * 60);
     Instant end = now.plusSeconds(24 * 60 * 60);
     StepVerifier.create(
-        queryService.queryTsdbDownsampled(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
-        .assertNext(result -> {
-          assertThat(result).isNotEmpty();
-          assertThat(result.get(0).getMetric()).isEqualTo(metricName);
-          assertThat(result.get(0).getTags()).isEqualTo(tags);
-          assertThat(result.get(0).getAggregatedTags()).isEqualTo(Collections.emptyList());
-          assertThat(result.get(0).getDps()).isEqualTo(expectedDps);
-        }).verifyComplete();
+      queryService.queryTsdbDownsampled(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
+      .assertNext(result -> {
+        assertThat(result).isNotEmpty();
+        assertThat(result.get(0).getMetric()).isEqualTo(metricName);
+        assertThat(result.get(0).getTags()).isEqualTo(tags);
+        assertThat(result.get(0).getAggregatedTags()).isEqualTo(Collections.emptyList());
+        assertThat(result.get(0).getDps()).isEqualTo(expectedDps);
+      }).verifyComplete();
   }
 
   private ValueSet singleValue(String timestamp, double value) {
