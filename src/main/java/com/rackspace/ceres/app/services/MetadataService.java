@@ -237,16 +237,23 @@ public class MetadataService {
           Map<String, String> tags = new HashMap<String, String>();
           tags.put(filter.get("tagk"), splitValues[i]);
 
+          TsdbQuery tsdbQuery = new TsdbQuery();
           String downsample = query.getDownsample();
-          String[] values = downsample.split("-");
-          Duration duration0 = Duration.parse("PT" + values[0].toUpperCase());
+          if (downsample != null && !downsample.isEmpty()) {
+            String[] values = downsample.split("-");
+            Duration granularity =
+              DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()), granularities);
 
-          TsdbQuery tsdbQuery = new TsdbQuery()
-            .setMetricName(query.getMetric())
-            .setTags(tags)
-            .setGranularity(DateTimeUtils.getGranularity(duration0, granularities))
-            .setAggregator(Aggregator.valueOf(values[1]));
-
+            tsdbQuery.setMetricName(query.getMetric())
+              .setTags(tags)
+              .setGranularity(granularity)
+              .setAggregator(Aggregator.valueOf(values[1]));
+          } else {
+            tsdbQuery.setMetricName(query.getMetric())
+              .setTags(tags)
+              .setGranularity(null)
+              .setAggregator(Aggregator.raw);
+          }
           result.add(tsdbQuery);
         }
       }
