@@ -36,6 +36,7 @@ import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -405,6 +406,30 @@ class MetadataServiceTest {
     assertEquals(2, metricCpuIdle);
     assertEquals(2, metricCpuActive);
     assertTrue(cpuActiveH1 && cpuActiveH2 && cpuIdleH1 && cpuIdleH2);
+  }
+
+  @Test
+  void getMetricsAndTagsAndMetadataRawQuery() {
+    final Map<String, String> filter = Map.of(
+      "type", "literal_or",
+      "tagk", "host",
+      "filter", "h-1"
+    );
+
+    TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
+      .setMetric("cpu_idle")
+      .setDownsample(null)
+      .setFilters(List.of(filter));
+
+    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
+      List.of(tsdbQueryRequest), Collections.emptyList()).collectList().block();
+    TsdbQuery result = results.get(0);
+
+    assertEquals(1, results.size());
+    assertTrue(result.getMetricName().equals("cpu_idle"));
+    assertTrue(result.getTags().get("host").equals("h-1"));
+    assertEquals(null, result.getGranularity());
+    assertEquals(Aggregator.raw, result.getAggregator());
   }
 
   private String unhashedSeriesSet(String metricName, Map<String, String> tags) {
