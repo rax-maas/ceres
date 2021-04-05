@@ -110,4 +110,8 @@ public class AppProperties {
   @NotNull Integer tagValueLimit = 50;
 
   List<String> excludedTagKeys;
+
+  Duration ingestStartTime = Duration.ofDays(7);
+
+  Duration ingestEndTime = Duration.ofDays(1);
 }

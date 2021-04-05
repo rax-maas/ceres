@@ -15,6 +15,8 @@ ceres:
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]
+  ingest-start-time: 7d
+  ingest-end-time: 1d
 spring:
   data:
     cassandra:
