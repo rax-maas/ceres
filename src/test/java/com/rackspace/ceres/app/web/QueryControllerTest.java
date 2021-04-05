@@ -15,7 +15,6 @@ import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
-import com.rackspace.ceres.app.web.QueryControllerTest.MeterRegistryConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.cumulative.CumulativeCounter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -28,9 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
@@ -39,7 +36,7 @@ import reactor.test.StepVerifier;
 @ActiveProfiles(profiles = {"test", "query"})
 @SpringBootTest(classes = {QueryController.class, AppProperties.class,
     RestWebExceptionHandler.class,
-    DownsampleProperties.class, MeterRegistryConfig.class})
+    DownsampleProperties.class, SimpleMeterRegistry.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
 public class QueryControllerTest {
@@ -202,14 +199,5 @@ public class QueryControllerTest {
         .jsonPath("$.status").isEqualTo(400);
 
     verifyNoInteractions(queryService);
-  }
-
-  @TestConfiguration
-  static class MeterRegistryConfig {
-
-    @Bean
-    public MeterRegistry meterRegistry() {
-      return new SimpleMeterRegistry();
-    }
   }
 }
