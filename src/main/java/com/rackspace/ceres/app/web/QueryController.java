@@ -23,6 +23,8 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -45,11 +47,16 @@ public class QueryController {
 
   private final QueryService queryService;
   private final DownsampleProperties downsampleProperties;
+  private final Counter rawQueryCounter;
+  private final Counter downSampleQueryCounter;
 
   @Autowired
-  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties) {
+  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties,
+      MeterRegistry meterRegistry) {
     this.queryService = queryService;
     this.downsampleProperties = downsampleProperties;
+    rawQueryCounter = meterRegistry.counter("ceres.query", "type", "raw");
+    downSampleQueryCounter = meterRegistry.counter("ceres.query", "type", "downsample");
   }
 
   @GetMapping
@@ -64,6 +71,7 @@ public class QueryController {
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
+      rawQueryCounter.increment();
       return queryService.queryRaw(tenantParam, metricName,
           convertPairsListToMap(tag),
           startTime, endTime
@@ -73,6 +81,7 @@ public class QueryController {
         granularity = DateTimeUtils
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
+      downSampleQueryCounter.increment();
       return queryService.queryDownsampled(tenantParam, metricName,
           aggregator,
           granularity,

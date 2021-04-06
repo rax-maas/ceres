@@ -15,6 +15,9 @@ import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.cumulative.CumulativeCounter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -31,14 +34,18 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @ActiveProfiles(profiles = {"test", "query"})
-@SpringBootTest(classes = {QueryController.class, AppProperties.class, RestWebExceptionHandler.class,
-    DownsampleProperties.class})
+@SpringBootTest(classes = {QueryController.class, AppProperties.class,
+    RestWebExceptionHandler.class,
+    DownsampleProperties.class, SimpleMeterRegistry.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
 public class QueryControllerTest {
 
   @MockBean
   QueryService queryService;
+
+  @Autowired
+  MeterRegistry meterRegistry;
 
   @Autowired
   private WebTestClient webTestClient;
@@ -66,6 +73,9 @@ public class QueryControllerTest {
             .build())
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
+
+    double count = ((CumulativeCounter) meterRegistry.getMeters().get(1)).count();
+    assertThat(count).isEqualTo(1.0);
 
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
@@ -159,6 +169,9 @@ public class QueryControllerTest {
             .build())
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
+
+    double count = ((CumulativeCounter) meterRegistry.getMeters().get(0)).count();
+    assertThat(count).isEqualTo(1.0);
 
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());

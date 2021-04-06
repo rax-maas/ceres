@@ -35,7 +35,6 @@ import org.springframework.validation.annotation.Validated;
 @Component
 @Data
 @Validated
-@GranularityValidator
 public class DownsampleProperties {
   /**
    * Specifies how many partitions should be used when tracking ingested data for downsampling.
@@ -94,6 +93,7 @@ public class DownsampleProperties {
   /**
    * Target granularities to downsample from raw data.
    */
+  @GranularityValidator
   List<Granularity> granularities;
 
   @Data
