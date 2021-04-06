@@ -28,8 +28,10 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
+import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.TsdbFilter;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
@@ -351,11 +353,10 @@ class MetadataServiceTest {
     Duration granularityPT2M = Duration.ofMinutes(2);
     Duration granularityPT1M = Duration.ofMinutes(1);
 
-    final Map<String, String> filter = Map.of(
-      "type", "literal_or",
-      "tagk", "host",
-      "filter", "h-1|h-2"
-    );
+    final TsdbFilter filter = new TsdbFilter()
+            .setType(FilterType.literal_or)
+            .setTagk("host")
+            .setFilter("h-1|h-2");
 
     TsdbQueryRequest tsdbQueryRequest1 = new TsdbQueryRequest()
       .setMetric("cpu_idle")
@@ -410,11 +411,10 @@ class MetadataServiceTest {
 
   @Test
   void getMetricsAndTagsAndMetadataRawQuery() {
-    final Map<String, String> filter = Map.of(
-      "type", "literal_or",
-      "tagk", "host",
-      "filter", "h-1"
-    );
+    final TsdbFilter filter = new TsdbFilter()
+            .setType(FilterType.literal_or)
+            .setTagk("host")
+            .setFilter("h-1");
 
     TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
       .setMetric("cpu_idle")

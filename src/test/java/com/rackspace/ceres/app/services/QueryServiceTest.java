@@ -35,6 +35,8 @@ import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.model.TsdbQueryResult;
+import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 
 import java.time.Duration;
@@ -276,11 +278,10 @@ class QueryServiceTest {
 
     when(metadataService.getMetricsAndTagsAndMetadata(any(), any())).thenReturn(Flux.just(tsdbQuery));
 
-    final Map<String, String> filter = Map.of(
-      "type", "literal_or",
-      "tagk", "host",
-      "filter", "h-1"
-    );
+    final TsdbFilter filter = new TsdbFilter()
+            .setType(FilterType.literal_or)
+            .setTagk("host")
+            .setFilter("h-1");
 
     TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
       .setMetric(metricName)
