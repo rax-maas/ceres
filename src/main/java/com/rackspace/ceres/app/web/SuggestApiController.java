@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 Rackspace US, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.rackspace.ceres.app.web;
 
 import com.rackspace.ceres.app.model.SuggestType;
@@ -36,10 +52,11 @@ public class SuggestApiController {
   public Mono<List<String>> getSuggestions(@RequestHeader("X-Tenant") String tenant,
       @RequestParam SuggestType type, @RequestParam(required = false) String q,
       @RequestParam(required = false, defaultValue = "25") int max) {
+
     return switch (type) {
-      case tagk -> suggestApiService.suggestTagKeys(tenant, q, max);
-      case tagv -> suggestApiService.suggestTagValues(tenant, q, max);
-      case metrics -> suggestApiService.suggestMetricNames(tenant, q, max);
+      case TAGK ->  suggestApiService.suggestTagKeys(tenant, q, max);
+      case TAGV -> suggestApiService.suggestTagValues(tenant, q, max);
+      case METRICS -> suggestApiService.suggestMetricNames(tenant, q, max);
     };
   }
 }

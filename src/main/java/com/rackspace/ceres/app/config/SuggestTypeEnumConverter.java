@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 
-package com.rackspace.ceres.app.model;
+package com.rackspace.ceres.app.config;
 
-public enum SuggestType {
-  METRICS,
-  TAGK,
-  TAGV;
+import com.rackspace.ceres.app.model.SuggestType;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SuggestTypeEnumConverter implements Converter<String, SuggestType> {
+  @Override
+  public SuggestType convert(String s) {
+    return SuggestType.valueOf(s.toUpperCase());
+  }
 }
