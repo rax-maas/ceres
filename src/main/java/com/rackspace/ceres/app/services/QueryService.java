@@ -130,7 +130,7 @@ public class QueryService {
         .checkpoint();
   }
 
-  public Flux<TsdbQueryResult> queryTsdbDownsampled(String tenant, List<TsdbQueryRequest> queries,
+  public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
                                                     Instant start, Instant end, List<Granularity> granularities) {
     return metadataService.getMetricsAndTagsAndMetadata(queries, granularities)
       .flatMap(metricData -> metadataService
@@ -140,7 +140,7 @@ public class QueryService {
           // over each time slot partition of the [start,end] range
           Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, metricData.getGranularity()))
             .concatMap(timeSlot -> queryForRows(metricData, tenant, timeSlot, seriesSet, start, end)
-              .name("queryTsdbDownsampled").metrics()),
+              .name("queryTsdb").metrics()),
           metricData)))
       .checkpoint();
   }
@@ -154,7 +154,7 @@ public class QueryService {
     } else {
       return cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(tsdbQuery.getGranularity()),
         tenant, timeSlot, seriesSet, tsdbQuery.getAggregator().name(), start, end)
-        .name("queryTsdbDownsampled")
+        .name("queryTsdb")
         .metrics();
     }
   }

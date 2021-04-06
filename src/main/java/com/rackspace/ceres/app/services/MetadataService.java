@@ -32,6 +32,7 @@ import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbFilter;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 
 import io.micrometer.core.instrument.Counter;
@@ -228,14 +229,14 @@ public class MetadataService {
     List<TsdbQuery> result = new ArrayList<TsdbQuery>();
 
     for (TsdbQueryRequest query : queries) {
-      List<Map<String, String>> filters = query.getFilters();
+      List<TsdbFilter> filters = query.getFilters();
 
-      for (Map<String, String> filter : filters) {
-        String[] splitValues = filter.get("filter").split("\\|");
+      for (TsdbFilter filter : filters) {
+        String[] splitValues = filter.getFilter().split("\\|");
         for (int i = 0; i < splitValues.length; i++) {
 
           Map<String, String> tags = new HashMap<String, String>();
-          tags.put(filter.get("tagk"), splitValues[i]);
+          tags.put(filter.getTagk(), splitValues[i]);
 
           TsdbQuery tsdbQuery = new TsdbQuery();
           String downsample = query.getDownsample();

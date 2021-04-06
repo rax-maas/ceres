@@ -311,7 +311,7 @@ class QueryServiceTest {
     Instant start = now.minusSeconds(5 * 60);
     Instant end = now.plusSeconds(24 * 60 * 60);
     StepVerifier.create(
-      queryService.queryTsdbDownsampled(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
+      queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
       .assertNext(result -> {
         assertThat(result).isNotEmpty();
         assertThat(result.get(0).getMetric()).isEqualTo(metricName);
