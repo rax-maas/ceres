@@ -20,15 +20,21 @@ import static java.util.Objects.requireNonNull;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryResult;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,6 +130,55 @@ public class QueryService {
         .checkpoint();
   }
 
+  public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
+                                                    Instant start, Instant end, List<Granularity> granularities) {
+    return metadataService.getMetricsAndTagsAndMetadata(queries, granularities)
+      .flatMap(metricData -> metadataService
+        .locateSeriesSetHashes(tenant, metricData.getMetricName(), metricData.getTags())
+        // then perform a retrieval for each series-set
+        .flatMap(seriesSet -> mapTsdbSeriesSetResult(tenant, seriesSet,
+          // over each time slot partition of the [start,end] range
+          Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, metricData.getGranularity()))
+            .concatMap(timeSlot -> queryForRows(metricData, tenant, timeSlot, seriesSet, start, end)
+              .name("queryTsdb").metrics()),
+          metricData)))
+      .checkpoint();
+  }
+
+  private Flux<Row> queryForRows(TsdbQuery tsdbQuery, String tenant, Instant timeSlot, String seriesSet,
+                                 Instant start, Instant end) {
+    if (tsdbQuery.getAggregator() == Aggregator.raw) {
+      return cqlTemplate.queryForRows(dataTablesStatements.rawQuery(), tenant, timeSlot, seriesSet, start, end)
+        .name("queryRawWithSeriesSet")
+        .metrics();
+    } else {
+      return cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(tsdbQuery.getGranularity()),
+        tenant, timeSlot, seriesSet, tsdbQuery.getAggregator().name(), start, end)
+        .name("queryTsdb")
+        .metrics();
+    }
+  }
+
+  private Mono<TsdbQueryResult> mapTsdbSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows,
+                                                       TsdbQuery metricData) {
+    return rows
+      .map(row -> Map.entry(
+        requireNonNull((Long.toString(row.getInstant(0).getEpochSecond()))),
+        (int) Math.round(row.getDouble(1))))
+      // collect the ts->value entries into an ordered, LinkedHashMap
+      .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new).filter(values -> !values.isEmpty())
+      .flatMap(values -> buildTsdbQueryResult(tenant, seriesSet, values, metricData));
+  }
+
+  private Mono<TsdbQueryResult> buildTsdbQueryResult(String tenant, String seriesSet, Map<String, Integer> values,
+                                                     TsdbQuery metricData) {
+    return Mono.just(new TsdbQueryResult()
+      .setMetric(metricData.getMetricName())
+      .setTags(metricData.getTags())
+      .setAggregatedTags(Collections.emptyList()) // TODO: in case of multiple queries set this!
+      .setDps(values));
+  }
+  
   private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows, Metadata metadata) {
     return rows
         .map(row -> Map.entry(

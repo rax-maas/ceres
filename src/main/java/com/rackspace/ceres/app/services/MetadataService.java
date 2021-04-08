@@ -23,13 +23,24 @@ import static org.springframework.data.cassandra.core.query.Query.query;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
+import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -214,6 +225,42 @@ public class MetadataService {
         .flatMapMany(Flux::fromIterable);
   }
 
+  public Flux<TsdbQuery> getMetricsAndTagsAndMetadata(List<TsdbQueryRequest> queries, List<Granularity> granularities) {
+    List<TsdbQuery> result = new ArrayList<TsdbQuery>();
+
+    for (TsdbQueryRequest query : queries) {
+      List<TsdbFilter> filters = query.getFilters();
+
+      for (TsdbFilter filter : filters) {
+        String[] splitValues = filter.getFilter().split("\\|");
+        for (int i = 0; i < splitValues.length; i++) {
+
+          Map<String, String> tags = new HashMap<String, String>();
+          tags.put(filter.getTagk(), splitValues[i]);
+
+          TsdbQuery tsdbQuery = new TsdbQuery();
+          String downsample = query.getDownsample();
+          if (downsample != null && !downsample.isEmpty()) {
+            String[] values = downsample.split("-");
+            Duration granularity =
+              DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()), granularities);
+
+            tsdbQuery.setMetricName(query.getMetric())
+              .setTags(tags)
+              .setGranularity(granularity)
+              .setAggregator(Aggregator.valueOf(values[1]));
+          } else {
+            tsdbQuery.setMetricName(query.getMetric())
+              .setTags(tags)
+              .setGranularity(null)
+              .setAggregator(Aggregator.raw);
+          }
+          result.add(tsdbQuery);
+        }
+      }
+    }
+    return Flux.fromIterable(result);
+  }
 
   public Mono<MetricNameAndTags> resolveSeriesSetHash(String tenant, String seriesSetHash) {
     return cassandraTemplate.selectOne(
