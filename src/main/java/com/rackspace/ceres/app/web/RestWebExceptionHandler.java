@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.web;
 
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.boot.autoconfigure.web.ResourceProperties;
 import org.springframework.boot.autoconfigure.web.reactive.error.AbstractErrorWebExceptionHandler;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
@@ -81,10 +82,9 @@ public class RestWebExceptionHandler extends
    * @return
    */
   private Mono<ServerResponse> respondWith(Map<String, Object> body, String exceptionClass) {
-    if (exceptionClass.equals(IllegalArgumentException.class.getName())) {
-      return respondWithBadRequest(body);
-    }
-    else if (exceptionClass.equals(ServerWebInputException.class.getName())) {
+    if (exceptionClass.equals(IllegalArgumentException.class.getName()) || exceptionClass
+        .equals(ServerWebInputException.class.getName()) || exceptionClass.equals(
+        TypeMismatchException.class.getName())) {
       return respondWithBadRequest(body);
     }
     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(BodyInserters.fromValue(

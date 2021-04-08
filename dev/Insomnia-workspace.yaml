@@ -3,6 +3,58 @@ __export_format: 4
 __export_date: 2021-02-19T08:59:59.174Z
 __export_source: insomnia.desktop.app:v2020.5.2
 resources:
+  - _id: req_0f668a996e1d4c66a17ee7c58f20d60d
+    parentId: fld_d7700ed860b740ce8c350442b50dbe56
+    modified: 1617276147028
+    created: 1617275121335
+    url: "{{ _.api_public }}/api/suggest"
+    name: Suggest API
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: type
+        value: tagk
+        description: ""
+        id: pair_dfc424b0367a4c88b32e767466a20a05
+      - name: q
+        value: ho
+        description: ""
+        id: pair_2decedfd355442f3ba66d2bd30f9fccd
+      - name: max
+        value: "5"
+        description: ""
+        id: pair_528f32fde3ab416f85e96b4c717d0fbe
+        disabled: false
+    headers:
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_962d0050a76449a7bbf98564e030d289
+      - name: X-Auth-Token
+        value: "{{ _.auth_token }}"
+        description: ""
+        id: pair_1f38ca31ff2646a4955f864ac599b083
+    authentication: {}
+    metaSortKey: -1617275121335
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_d7700ed860b740ce8c350442b50dbe56
+    parentId: fld_76f005b356994fb6a17aa0229edd5089
+    modified: 1617275095666
+    created: 1617275095666
+    name: Opentsdb
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1617275095666
+    _type: request_group
   - _id: req_ea9cca38d7924d218ca2b1d0831c93d7
     parentId: fld_48b9ea2fb7374017b2992b281547a65f
     modified: 1612946583590
