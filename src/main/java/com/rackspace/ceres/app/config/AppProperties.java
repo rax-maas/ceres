@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.config;
 import com.rackspace.ceres.app.model.TagFilter;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import lombok.Data;
@@ -107,4 +108,10 @@ public class AppProperties {
   @NotNull TagFilter tagFilter = TagFilter.EXCLUDE;
 
   @NotNull Integer tagValueLimit = 50;
+
+  List<String> excludedTagKeys;
+
+  Duration ingestStartTime = Duration.ofDays(7);
+
+  Duration ingestEndTime = Duration.ofDays(1);
 }

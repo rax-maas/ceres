@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Rackspace US, Inc.
+ * Copyright 2021 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,8 @@
 
 package com.rackspace.ceres.app.model;
 
-import java.time.Instant;
-import java.util.Map;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-
-import com.rackspace.ceres.app.validation.IngestBounds;
-import lombok.Data;
-
-@Data
-public class Metric {
-
-  @IngestBounds
-  @NotNull
-  Instant timestamp;
-  @NotBlank
-  String metric;
-  @NotEmpty
-  Map<String, String> tags;
-  @NotNull
-  Number value;
+public enum SuggestType {
+  METRICS,
+  TAGK,
+  TAGV;
 }

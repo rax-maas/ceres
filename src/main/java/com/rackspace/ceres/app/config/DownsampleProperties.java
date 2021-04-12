@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.config;
 
+import com.rackspace.ceres.app.config.configValidator.GranularityValidator;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -92,6 +93,7 @@ public class DownsampleProperties {
   /**
    * Target granularities to downsample from raw data.
    */
+  @GranularityValidator
   List<Granularity> granularities;
 
   @Data

@@ -21,8 +21,13 @@ import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
+import com.rackspace.ceres.app.model.TsdbQueryResult;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.TsdbQueryRequestData;
 import com.rackspace.ceres.app.services.QueryService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -31,6 +36,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,11 +54,23 @@ public class QueryController {
 
   private final QueryService queryService;
   private final DownsampleProperties downsampleProperties;
+  private final Counter rawQueryCounter;
+  private final Counter downSampleQueryCounter;
 
   @Autowired
-  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties) {
+  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties,
+      MeterRegistry meterRegistry) {
     this.queryService = queryService;
     this.downsampleProperties = downsampleProperties;
+    rawQueryCounter = meterRegistry.counter("ceres.query", "type", "raw");
+    downSampleQueryCounter = meterRegistry.counter("ceres.query", "type", "downsample");
+  }
+
+  @PostMapping
+  public Flux<TsdbQueryResult> queryTsdb(@RequestBody TsdbQueryRequestData timeQueryData,
+                                         @RequestHeader(value = "X-Tenant", required = true) String tenant) {
+    return queryService.queryTsdb(tenant, timeQueryData.getQueries(), timeQueryData.getStart(),
+      timeQueryData.getEnd(), downsampleProperties.getGranularities());
   }
 
   @GetMapping
@@ -68,6 +88,7 @@ public class QueryController {
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
+        rawQueryCounter.increment();
         return queryService.queryRaw(tenantParam, metricName, metricGroup,
             convertPairsListToMap(tag),
             startTime, endTime
@@ -77,6 +98,7 @@ public class QueryController {
         granularity = DateTimeUtils
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
+      downSampleQueryCounter.increment();
       return queryService.queryDownsampled(tenantParam, metricName, metricGroup,
           aggregator,
           granularity,

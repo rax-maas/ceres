@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Rackspace US, Inc.
+ * Copyright 2021 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,16 @@
  * limitations under the License.
  */
 
-package com.rackspace.ceres.app.model;
+package com.rackspace.ceres.app.config;
 
-import java.time.Instant;
-import java.util.Map;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import com.rackspace.ceres.app.model.SuggestType;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.stereotype.Component;
 
-import com.rackspace.ceres.app.validation.IngestBounds;
-import lombok.Data;
-
-@Data
-public class Metric {
-
-  @IngestBounds
-  @NotNull
-  Instant timestamp;
-  @NotBlank
-  String metric;
-  @NotEmpty
-  Map<String, String> tags;
-  @NotNull
-  Number value;
+@Component
+public class SuggestTypeEnumConverter implements Converter<String, SuggestType> {
+  @Override
+  public SuggestType convert(String s) {
+    return SuggestType.valueOf(s.toUpperCase());
+  }
 }

@@ -91,6 +91,19 @@ public class DateTimeUtils {
       return getAbsoluteTimeFromRelativeTime(instant);
     }
   }
+  
+  public static Duration getGranularity(Duration duration, List<Granularity> granularities) {
+    granularities = granularities.stream()
+        .sorted(Comparator.comparingLong(value -> value.getTtl().toHours()))
+        .collect(Collectors.toList());
+
+    // Find the first granularity less or equal to the suggested width or return the last one
+    Granularity granularity = granularities.stream()
+        .filter(granularity1 -> duration.toMinutes() <= granularity1.getWidth().toMinutes())
+        .findFirst()
+        .orElse(granularities.get(granularities.size() - 1));
+    return granularity.getWidth();
+  }
 
   public static Duration getGranularity(Instant startTime, Instant endTime,
       List<Granularity> granularities) {
