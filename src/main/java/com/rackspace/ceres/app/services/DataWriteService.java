@@ -22,10 +22,13 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -43,6 +46,9 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
+  private ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
+
+  private static final String LABEL_METRIC_GROUP = "metricGroup";
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -51,7 +57,8 @@ public class DataWriteService {
                           DataTablesStatements dataTablesStatements,
                           TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties) {
+                          AppProperties appProperties,
+                          ReactiveRedisTemplate reactiveRedisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -59,6 +66,7 @@ public class DataWriteService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
+    this.reactiveRedisTemplate = reactiveRedisTemplate;
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
@@ -80,6 +88,7 @@ public class DataWriteService {
             .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
                 metric.getTags()))
             .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+            .and(storeMetricGroup(metric))
             .then(Mono.just(metric));
   }
 
@@ -87,7 +96,7 @@ public class DataWriteService {
     tags.entrySet()
         .removeIf(entry ->
             !StringUtils.hasText(entry.getKey()) ||
-            !StringUtils.hasText(entry.getValue()));
+                !StringUtils.hasText(entry.getValue()));
   }
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
@@ -137,5 +146,10 @@ public class DataWriteService {
         .flatMap(cqlTemplate::execute)
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
         .checkpoint();
+  }
+
+  private Mono<?> storeMetricGroup(Metric metric) {
+    return reactiveRedisTemplate.opsForSet()
+        .add(metric.getTags().get(LABEL_METRIC_GROUP), Arrays.asList(metric.getMetric()));
   }
 }

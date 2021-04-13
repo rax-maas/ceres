@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -74,33 +75,46 @@ public class QueryController {
 
   @GetMapping
   public Flux<QueryResult> query(@RequestParam(name = "tenant") String tenantParam,
-      @RequestParam String metricName,
+      @RequestParam(required = false) String metricName,
+      @RequestParam(required = false) String metricGroup,
       @RequestParam(defaultValue = "raw") Aggregator aggregator,
       @RequestParam(required = false) Duration granularity,
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
+   validateMetricNameAndMetricGroup(metricName, metricGroup);
+
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
-      rawQueryCounter.increment();
-      return queryService.queryRaw(tenantParam, metricName,
-          convertPairsListToMap(tag),
-          startTime, endTime
-      );
+        rawQueryCounter.increment();
+        return queryService.queryRaw(tenantParam, metricName, metricGroup,
+            convertPairsListToMap(tag),
+            startTime, endTime
+        );
     } else {
       if (granularity == null) {
         granularity = DateTimeUtils
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
       downSampleQueryCounter.increment();
-      return queryService.queryDownsampled(tenantParam, metricName,
+      return queryService.queryDownsampled(tenantParam, metricName, metricGroup,
           aggregator,
           granularity,
           convertPairsListToMap(tag),
           startTime, endTime
       );
+    }
+  }
+
+  private static void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
+    if(StringUtils.isBlank(metricGroup) && StringUtils.isBlank(metricName)) {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
+    }
+
+    if(!StringUtils.isBlank(metricGroup) && !StringUtils.isBlank(metricName)) {
+      throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
     }
   }
 }

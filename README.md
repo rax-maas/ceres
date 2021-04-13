@@ -31,12 +31,13 @@ POST http://localhost:8080/api/put
 Content-Type: application/json
 
 {
-  "metric": "cpu_idle",
+  "metric": "idle",
   "tags": {
     "tenant": "t-1",
     "os": "linux",
     "host": "h-1",
-    "deployment": "prod"
+    "deployment": "prod",
+    "metricGroup": "cpu"
   },
   "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
@@ -67,6 +68,8 @@ GET http://localhost:8080/api/metadata/tagValues?
 
 ### Query data
 
+Using metricName
+
 ```http request
 GET http://localhost:8080/api/query?
   tenant=t-1
@@ -85,7 +88,8 @@ Responds with query results per series-set, such as:
     "tags": {
       "host": "h-1",
       "os": "linux",
-      "deployment": "prod"
+      "deployment": "prod",
+      "metricGroup": "cpu"
     },
     "values": {
       "2020-08-24T00:13:16Z": 491.0,
@@ -99,7 +103,54 @@ Responds with query results per series-set, such as:
     "tags": {
       "host": "h-3",
       "os": "linux",
-      "deployment": "dev"
+      "deployment": "dev",
+      "metricGroup": "cpu"
+    },
+    "values": {
+      "2020-08-24T00:15:52Z": 84.0,
+      "2020-08-24T00:15:55Z": 498.0
+    }
+  }
+]
+```
+
+Using metricGroup
+
+```http request
+GET http://localhost:8080/api/query?
+  tenant=t-1
+  &metricGroup=cpu
+  &tag=os=linux
+  &start=2020-08-23T17:53:00Z
+  &end=2020-08-23T17:54:40Z
+```
+
+Responds with query results per series-set, such as:
+```json
+[
+  {
+    "tenant": "t-1",
+    "metricName": "cpu_idle",
+    "tags": {
+      "host": "h-1",
+      "os": "linux",
+      "deployment": "prod",
+      "metricGroup": "cpu"
+    },
+    "values": {
+      "2020-08-24T00:13:16Z": 491.0,
+      "2020-08-24T00:13:20Z": 792.0,
+      "2020-08-24T00:13:21Z": 824.0
+    }
+  },
+  {
+    "tenant": "t-1",
+    "metricName": "cpu_idle",
+    "tags": {
+      "host": "h-3",
+      "os": "linux",
+      "deployment": "dev",
+      "metricGroup": "cpu"
     },
     "values": {
       "2020-08-24T00:15:52Z": 84.0,

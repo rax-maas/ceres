@@ -360,12 +360,13 @@ resources:
       mimeType: application/json
       text: |-
         {
-          "metric": "memory_free",
+          "metric": "free",
           "tags": {
             "tenant": "t-1",
             "os": "linux",
             "host": "h-1",
-            "deployment": "prod"
+            "deployment": "prod",
+            "metricGroup": "memory"
           },
           "timestamp": 1611244004,
           "value": 5
