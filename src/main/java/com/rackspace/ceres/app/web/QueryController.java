@@ -21,9 +21,8 @@ import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.QueryResult;
-import com.rackspace.ceres.app.model.TsdbQueryResult;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.model.TsdbQueryRequestData;
+import com.rackspace.ceres.app.model.TsdbQueryResult;
 import com.rackspace.ceres.app.services.QueryService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
@@ -68,13 +67,15 @@ public class QueryController {
 
   @PostMapping
   public Flux<TsdbQueryResult> queryTsdb(@RequestBody TsdbQueryRequestData timeQueryData,
-                                         @RequestHeader(value = "X-Tenant", required = true) String tenant) {
-    return queryService.queryTsdb(tenant, timeQueryData.getQueries(), timeQueryData.getStart(),
-      timeQueryData.getEnd(), downsampleProperties.getGranularities());
+      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+    return queryService
+        .queryTsdb(tenantHeader, timeQueryData.getQueries(), timeQueryData.getStart(),
+            timeQueryData.getEnd(), downsampleProperties.getGranularities());
   }
 
   @GetMapping
-  public Flux<QueryResult> query(@RequestParam(name = "tenant") String tenantParam,
+  public Flux<QueryResult> query(
+      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @RequestParam(defaultValue = "raw") Aggregator aggregator,
@@ -82,14 +83,14 @@ public class QueryController {
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
-   validateMetricNameAndMetricGroup(metricName, metricGroup);
+    validateMetricNameAndMetricGroup(metricName, metricGroup);
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
         rawQueryCounter.increment();
-        return queryService.queryRaw(tenantParam, metricName, metricGroup,
+        return queryService.queryRaw(tenantHeader, metricName, metricGroup,
             convertPairsListToMap(tag),
             startTime, endTime
         );
@@ -99,7 +100,7 @@ public class QueryController {
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
       downSampleQueryCounter.increment();
-      return queryService.queryDownsampled(tenantParam, metricName, metricGroup,
+      return queryService.queryDownsampled(tenantHeader, metricName, metricGroup,
           aggregator,
           granularity,
           convertPairsListToMap(tag),

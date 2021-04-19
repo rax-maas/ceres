@@ -18,20 +18,36 @@ package com.rackspace.ceres.app.web;
 
 import static org.mockito.Mockito.when;
 
+import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.SuggestTypeEnumConverter;
 import com.rackspace.ceres.app.services.SuggestApiService;
 import java.util.Collections;
 import java.util.List;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.client.AutoConfigureWebClient;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.ImportResource;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
 @ActiveProfiles(profiles = {"test"})
-@WebFluxTest(SuggestApiController.class)
+@SpringBootTest(classes = {SuggestApiController.class, AppProperties.class,
+    SuggestTypeEnumConverter.class})
+@AutoConfigureWebTestClient
+@AutoConfigureWebFlux
 public class SuggestApiControllerTest {
 
   @MockBean
@@ -49,7 +65,8 @@ public class SuggestApiControllerTest {
         .queryParam("type", "metrics")
         .queryParam("q", "cpu")
         .queryParam("max", 10)
-        .build()).header("X-Tenant", "t-1")
+        .build())
+        .header("X-Tenant", "t-1")
         .exchange()
         .expectStatus().isOk().expectBody(List.class)
         .value(val -> Assertions.assertThat(val).contains("cpu_idle", "cpu_busy"));

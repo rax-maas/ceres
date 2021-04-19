@@ -24,12 +24,15 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
@@ -41,6 +44,7 @@ import reactor.test.StepVerifier;
     DownsampleProperties.class, SimpleMeterRegistry.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
+@DirtiesContext(classMode = ClassMode.BEFORE_EACH_TEST_METHOD)
 public class QueryControllerTest {
 
   @MockBean
@@ -71,15 +75,16 @@ public class QueryControllerTest {
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
-            .queryParam("tenant", "t-1")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
-    double count = ((CumulativeCounter) meterRegistry.getMeters().get(1)).count();
+    double count = meterRegistry.get("ceres.query").tag("type", "raw").counter().count();
     assertThat(count).isEqualTo(1.0);
 
     StepVerifier.create(result).assertNext(queryResult -> {
+      assertThat(meterRegistry.get("ceres.query").tag("type", "raw").counter().count()).isEqualTo(1);
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
     }).verifyComplete();
@@ -105,8 +110,8 @@ public class QueryControllerTest {
             .queryParam("metricGroup", metricGroup)
             .queryParam("tag", "os=linux")
             .queryParam("start", "1d-ago")
-            .queryParam("tenant", "t-1")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
@@ -145,7 +150,6 @@ public class QueryControllerTest {
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
-            .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
             .queryParam("start", "1605611015")
@@ -153,6 +157,7 @@ public class QueryControllerTest {
             .queryParam("aggregator", "min")
             .queryParam("granularity", "pt1m")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
@@ -197,7 +202,6 @@ public class QueryControllerTest {
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
-            .queryParam("tenant", "t-1")
             .queryParam("metricGroup", metricGroup)
             .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
             .queryParam("start", "1605611015")
@@ -205,6 +209,7 @@ public class QueryControllerTest {
             .queryParam("aggregator", "min")
             .queryParam("granularity", "pt1m")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
@@ -248,13 +253,13 @@ public class QueryControllerTest {
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
-            .queryParam("tenant", "t-1")
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux,deployment=dev,host=h-1,")
             .queryParam("start", "1605611015")
             .queryParam("end", "1605697439")
             .queryParam("aggregator", "max")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 

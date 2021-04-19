@@ -9,16 +9,11 @@ import com.rackspace.ceres.app.services.MetadataService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
@@ -48,14 +43,15 @@ public class MetadataControllerTest {
   }
 
   @Test
-  public void testGetMetricNamesWithTenantParam() {
+  public void testGetMetricNames() {
 
     when(metadataService.getMetricNames("t-1"))
         .thenReturn(Mono.just(List.of("metric-1", "metric-2")));
 
     webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/metricNames").queryParam("tenant", "t-1")
+        uriBuilder -> uriBuilder.path("/api/metadata/metricNames")
             .build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .expectBody(List.class)
         .isEqualTo(List.of("metric-1", "metric-2"));
@@ -65,14 +61,15 @@ public class MetadataControllerTest {
   }
 
   @Test
-  public void testGetTagKeysWithTenantParam() {
+  public void testGetTagKeys() {
 
     when(metadataService.getTagKeys("t-1", "metric-1"))
         .thenReturn(Mono.just(List.of("os", "host")));
 
     webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/tagKeys").queryParam("tenant", "t-1")
+        uriBuilder -> uriBuilder.path("/api/metadata/tagKeys")
             .queryParam("metricName", "metric-1").build())
+        .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
         .expectBody(List.class)
         .isEqualTo(List.of("os", "host"));
@@ -82,13 +79,13 @@ public class MetadataControllerTest {
   }
 
   @Test
-  public void testGetTagValuesWithTenantParam() {
+  public void testGetTagValues() {
 
     when(metadataService.getTagValues("t-1", "metric-1", "os"))
         .thenReturn(Mono.just(List.of("linux")));
 
     webTestClient.get().uri(
-        uriBuilder -> uriBuilder.path("/api/metadata/tagValues").queryParam("tenant", "t-1")
+        uriBuilder -> uriBuilder.path("/api/metadata/tagValues")
             .queryParam("metricName", "metric-1").queryParam("tagKey", "os").build())
         .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
