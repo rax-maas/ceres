@@ -28,7 +28,7 @@ public class TsdbQueryController {
 
     @GetMapping("/lookup")
     public Mono<LookupResult> query(@RequestParam(name = "m") String m,
-                                    @RequestParam(name = "limit") Integer limit,
+                                    @RequestParam(name = "limit", required = false) Integer limit,
                                     @RequestHeader(value = "X-Tenant", required = true) String tenantHeader) {
 
         List<SeriesData> results = new ArrayList<SeriesData>();
@@ -41,7 +41,7 @@ public class TsdbQueryController {
                                 .flatMapMany(Flux::fromIterable)
                                 .flatMap(tagValue -> {
                                     if (metricNameAndTags.getTags().isEmpty()) {
-                                        if (results.size() < limit) {
+                                        if (limit == null || results.size() < limit) {
                                             results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
                                         }
                                     } else {
@@ -52,7 +52,7 @@ public class TsdbQueryController {
                                             if ((tagKey.equals(k) && tagValue.equals(v)) ||
                                                     (tagKey.equals(k) && v.equals("*")) ||
                                                     (k.equals("*") && tagValue.equals(v))) {
-                                                if (results.size() < limit) {
+                                                if (limit == null || results.size() < limit) {
                                                     results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
                                                 }
                                                 // TODO: else should break here!
@@ -82,7 +82,7 @@ public class TsdbQueryController {
         return metricNameAndTags;
     }
 
-    private Mono<LookupResult> getResult(List<SeriesData> results, String metric, int limit) {
+    private Mono<LookupResult> getResult(List<SeriesData> results, String metric, Integer limit) {
         LookupResult result = new LookupResult()
                 .setType("LOOKUP")
                 .setMetric(metric)
