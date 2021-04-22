@@ -39,29 +39,33 @@ public class TsdbQueryController {
                 .flatMap(tagKey ->
                         metadataService.getTagValues(tenantHeader, metricNameAndTags.getMetricName(), tagKey)
                                 .flatMapMany(Flux::fromIterable)
-                                .flatMap(tagValue -> {
-                                    if (metricNameAndTags.getTags().isEmpty()) {
-                                        if (limit == null || results.size() < limit) {
-                                            results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
-                                        }
-                                    } else {
-                                        metricNameAndTags.getTags().forEach(tag -> {
-                                            Map.Entry<String,String> entry = tag.entrySet().iterator().next();
-                                            String k = entry.getKey();
-                                            String v = entry.getValue();
-                                            if ((tagKey.equals(k) && tagValue.equals(v)) ||
-                                                    (tagKey.equals(k) && v.equals("*")) ||
-                                                    (k.equals("*") && tagValue.equals(v))) {
-                                                if (limit == null || results.size() < limit) {
-                                                    results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
-                                                }
-                                                // TODO: else should break here!
-                                            }
-                                        });
-                                    }
-                                    return Mono.just("");
-                                })
+                                .flatMap(tagValue ->
+                                        handleTagValue(limit, tagKey, tagValue, metricNameAndTags.getTags(), results)
+                                )
                 ).then(getResult(results, metricNameAndTags.getMetricName(), limit));
+    }
+
+    private Mono<String> handleTagValue(
+            Integer limit, String tagKey, String tagValue, List<Map<String, String>> tags, List<SeriesData> results) {
+        if (tags.isEmpty()) {
+            if (limit == null || results.size() < limit) {
+                results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+            }
+        } else {
+            tags.forEach(tag -> {
+                Map.Entry<String,String> entry = tag.entrySet().iterator().next();
+                String k = entry.getKey();
+                String v = entry.getValue();
+                if ((tagKey.equals(k) && tagValue.equals(v)) ||
+                        (tagKey.equals(k) && v.equals("*")) ||
+                        (k.equals("*") && tagValue.equals(v))) {
+                    if (limit == null || results.size() < limit) {
+                        results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+                    }
+                }
+            });
+        }
+        return Mono.just("");
     }
 
     private MetricNameAndMultiTags getMetric(String m) {
