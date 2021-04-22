@@ -39,13 +39,15 @@ public class TsdbQueryController {
                 .flatMap(tagKey ->
                         metadataService.getTagValues(tenantHeader, metricNameAndTags.getMetricName(), tagKey)
                                 .flatMapMany(Flux::fromIterable)
-                                .flatMap(tagValue ->
-                                        handleTagValue(limit, tagKey, tagValue, metricNameAndTags.getTags(), results)
+                                .flatMap(tagValue -> {
+                                            handleTagValue(limit, tagKey, tagValue, metricNameAndTags.getTags(), results);
+                                            return Mono.just("");
+                                        }
                                 )
                 ).then(getResult(results, metricNameAndTags.getMetricName(), limit));
     }
 
-    private Mono<String> handleTagValue(
+    private void handleTagValue(
             Integer limit, String tagKey, String tagValue, List<Map<String, String>> tags, List<SeriesData> results) {
         if (tags.isEmpty()) {
             if (limit == null || results.size() < limit) {
@@ -65,7 +67,6 @@ public class TsdbQueryController {
                 }
             });
         }
-        return Mono.just("");
     }
 
     private MetricNameAndMultiTags getMetric(String m) {
