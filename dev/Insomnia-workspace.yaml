@@ -1,11 +1,11 @@
 _type: export
 __export_format: 4
-__export_date: 2021-02-19T08:59:59.174Z
+__export_date: 2021-04-22T11:12:13.775Z
 __export_source: insomnia.desktop.app:v2020.5.2
 resources:
   - _id: req_0f668a996e1d4c66a17ee7c58f20d60d
     parentId: fld_d7700ed860b740ce8c350442b50dbe56
-    modified: 1617276147028
+    modified: 1619089507760
     created: 1617275121335
     url: "{{ _.api_public }}/api/suggest"
     name: Suggest API
@@ -35,6 +35,21 @@ resources:
         value: "{{ _.auth_token }}"
         description: ""
         id: pair_1f38ca31ff2646a4955f864ac599b083
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        disabled: true
+        id: pair_df5572766e914a299b8c21eb4fdfe1c0
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        disabled: true
+        id: pair_98a1606c9e304033a646ffd08c5a6c9d
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        disabled: true
+        id: pair_0e5a301a4a974277b4d33d2bd4901213
     authentication: {}
     metaSortKey: -1617275121335
     isPrivate: false
@@ -55,9 +70,27 @@ resources:
     environmentPropertyOrder: null
     metaSortKey: -1617275095666
     _type: request_group
+  - _id: fld_76f005b356994fb6a17aa0229edd5089
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1612880827070
+    created: 1612880827070
+    name: PUBLIC
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612880827070
+    _type: request_group
+  - _id: wrk_8fc4b25f197147728096ac966f73b62e
+    parentId: null
+    modified: 1612868139531
+    created: 1612868139531
+    name: Ceres Workspace
+    description: ""
+    scope: null
+    _type: workspace
   - _id: req_ea9cca38d7924d218ca2b1d0831c93d7
     parentId: fld_48b9ea2fb7374017b2992b281547a65f
-    modified: 1612946583590
+    modified: 1619089620934
     created: 1612880288559
     url: "{{ api_public }}/api/query"
     name: Get Downsampled Data
@@ -65,10 +98,6 @@ resources:
     method: GET
     body: {}
     parameters:
-      - name: tenant
-        value: t-1
-        description: ""
-        id: pair_b733d24c32904ab5a8cc102428f5ea68
       - name: metricName
         value: memory_free
         description: ""
@@ -94,6 +123,26 @@ resources:
         value: "{{ auth_token }}"
         description: ""
         id: pair_35ae097e7eb1403ebc77d88f4bc06eff
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_b0f30ea835aa46c5ba12827da6134868
+        disabled: false
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_eb064861c8cb4893addf8d240c1c4141
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_5284ec0c71b94e77897483653ce2f089
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_414fa1399bf44dd18f93254b65da5efa
+        disabled: true
     authentication: {}
     metaSortKey: -1612880185210
     isPrivate: false
@@ -114,27 +163,9 @@ resources:
     environmentPropertyOrder: null
     metaSortKey: -1612880053505
     _type: request_group
-  - _id: fld_76f005b356994fb6a17aa0229edd5089
-    parentId: wrk_8fc4b25f197147728096ac966f73b62e
-    modified: 1612880827070
-    created: 1612880827070
-    name: PUBLIC
-    description: ""
-    environment: {}
-    environmentPropertyOrder: null
-    metaSortKey: -1612880827070
-    _type: request_group
-  - _id: wrk_8fc4b25f197147728096ac966f73b62e
-    parentId: null
-    modified: 1612868139531
-    created: 1612868139531
-    name: Ceres Workspace
-    description: ""
-    scope: null
-    _type: workspace
   - _id: req_4b1cb0c9dde648b5af7e0c42679ac13d
     parentId: fld_48b9ea2fb7374017b2992b281547a65f
-    modified: 1612946597587
+    modified: 1619089604767
     created: 1612880185160
     url: "{{ api_public }}/api/query"
     name: Get Raw Data
@@ -142,10 +173,6 @@ resources:
     method: GET
     body: {}
     parameters:
-      - name: tenant
-        value: t-1
-        description: ""
-        id: pair_4c6890ee1f5a40c6865408c8965efc09
       - name: metricName
         value: memory_free
         description: ""
@@ -163,6 +190,25 @@ resources:
         value: "{{ auth_token }}"
         description: ""
         id: pair_fbc26cd9cd8f4f4584cfc22fb9d56ccf
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_55445111155d4f8daf03d73bcec534ee
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_6dcebb1aa99447b784d81e7a7d7129d6
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_8ae830e23c9c41e5bfd477d7f24e642a
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_06fa799bcb3340d4a339917b42529a87
+        disabled: true
     authentication: {}
     metaSortKey: -1612880185160
     isPrivate: false
@@ -175,7 +221,7 @@ resources:
     _type: request
   - _id: req_5fe272d5901e4c0c87479e9ffab5f5cd
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612946615696
+    modified: 1619089741760
     created: 1612879881619
     url: "{{ api_public }}/api/metadata/tagKeys"
     name: Get TagKeys
@@ -183,10 +229,6 @@ resources:
     method: GET
     body: {}
     parameters:
-      - name: tenant
-        value: t-1
-        description: ""
-        id: pair_b047b73dd97d4bb6a384e301c30f9c48
       - name: metricName
         value: memory_free
         description: ""
@@ -196,6 +238,25 @@ resources:
         value: "{{ auth_token }}"
         description: ""
         id: pair_4c8a62551e9841b2af171d1c35c4e6a1
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_75366b0cd19b47e698486ad3e32ca4d6
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_a7f926533cfb4ce58e3fc4aef74cf59b
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_bf2628023a304e7db1ad3a0e1dd9fae2
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_dfb095540cd249538a73747c9c81b52f
+        disabled: true
     authentication: {}
     metaSortKey: -1612875952595
     isPrivate: false
@@ -218,7 +279,7 @@ resources:
     _type: request_group
   - _id: req_1df3e61522154c28822299e5a2fb34eb
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612946639030
+    modified: 1619089737269
     created: 1612879993589
     url: "{{ api_public }}/api/metadata/tagValues"
     name: Get TagValues
@@ -226,10 +287,6 @@ resources:
     method: GET
     body: {}
     parameters:
-      - name: tenant
-        value: t-1
-        description: ""
-        id: pair_b047b73dd97d4bb6a384e301c30f9c48
       - name: metricName
         value: memory_free
         description: ""
@@ -243,6 +300,25 @@ resources:
         value: "{{ auth_token }}"
         description: ""
         id: pair_132cacd71ad241ab87f8ea974e92a25e
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_5936c67957b84dcdaface76870170252
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_e2c1fb1e247c4e83abc347f0d3e25c80
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_2c4c885844484b9590f2773339dc8a0e
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_87af5e4b5baf481f88c3d866d89d63dc
+        disabled: true
     authentication: {}
     metaSortKey: -1612875952570
     isPrivate: false
@@ -255,23 +331,38 @@ resources:
     _type: request
   - _id: req_2fcc1ce03cd74744b5291cbf2922e750
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612946648746
+    modified: 1619089788985
     created: 1612875952545
     url: "{{ api_public }}/api/metadata/metricNames"
     name: Get MetricNames
     description: ""
     method: GET
     body: {}
-    parameters:
-      - name: tenant
-        value: t-1
-        description: ""
-        id: pair_e512e2003a59464789c2246251cd7bce
+    parameters: []
     headers:
       - name: X-Auth-Token
         value: "{{ auth_token }}"
         description: ""
         id: pair_9240c9b8177746dd8836922322f902a0
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_d157e9e419dd4526be7567f62c4fa463
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_b72e0d2abcaf497a9c6af462e75050bb
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_ebe13862ef0d4384af81357f1584a2c0
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_b70460aabdbe40f78a5a1953b97fc8d3
+        disabled: true
     authentication: {}
     metaSortKey: -1612875952545
     isPrivate: false
@@ -284,7 +375,7 @@ resources:
     _type: request
   - _id: req_fdb1e61dd1a94c3fb37b18bef9e4bac7
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
-    modified: 1612946654943
+    modified: 1619089851874
     created: 1612875898359
     url: "{{ api_public }}/api/metadata/tenants"
     name: Get Tenants
@@ -297,6 +388,21 @@ resources:
         value: "{{ auth_token }}"
         description: ""
         id: pair_114c77eb90e641f7a6d7c1c5fc822b6e
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_4b78d723e550437ba519f13ce677d77c
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_7ce58e769ec94e2e9964bc3acab8506f
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_7111a699786a499cabc78bfd39cb6f7c
+        disabled: true
     authentication: {}
     metaSortKey: -1612875898359
     isPrivate: false
@@ -375,9 +481,9 @@ resources:
     headers:
       - name: Content-Type
         value: application/json
-        id: pair_e8d14d12f0e54e2e8e5056ac6db56e60
+        id: pair_73e2807a9bae43a0900fd15636c96ccc
     authentication: {}
-    metaSortKey: -1612868616093
+    metaSortKey: -1612875431553
     isPrivate: false
     settingStoreCookies: true
     settingSendCookies: true
@@ -398,14 +504,20 @@ resources:
     _type: request_group
   - _id: env_db1ddaf8dc0221ac4c45bfffe6c8784ed2ac86b4
     parentId: wrk_8fc4b25f197147728096ac966f73b62e
-    modified: 1612946564540
+    modified: 1619089491045
     created: 1612868139606
     name: Base Environment
     data:
       auth_token: abc
+      username: user
+      password: pass
+      api_key: key
     dataPropertyOrder:
       "&":
         - auth_token
+        - username
+        - password
+        - api_key
     color: null
     isPrivate: false
     metaSortKey: 1612868139606

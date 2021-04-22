@@ -50,20 +50,25 @@ where the above IntelliJ HTTP request snippet substitutes current epoch seconds 
 
 Metric names, such as
 ```http request
-GET http://localhost:8080/api/metadata/metricNames?tenant=t-1
+GET http://localhost:8080/api/metadata/metricNames
+X-Auth-Token: abc
+X-Tenant: t-1
 ```
 
 Tag keys, such as
 ```http request
-GET http://localhost:8080/api/metadata/tagKeys?tenant=t-1&metricName=cpu_idle
+GET http://localhost:8080/api/metadata/tagKeys?metricName=cpu_idle
+X-Auth-Token: abc
+X-Tenant: t-1
 ```
 
 Tag values, such as
 ```http request
 GET http://localhost:8080/api/metadata/tagValues?
-  tenant=t-1
-  &metricName=cpu_idle
+  metricName=cpu_idle
   &tagKey=os
+X-Auth-Token: abc
+X-Tenant: t-1
 ```
 
 ### Query data
@@ -72,11 +77,12 @@ Using metricName
 
 ```http request
 GET http://localhost:8080/api/query?
-  tenant=t-1
-  &metricName=cpu_idle
+  metricName=cpu_idle
   &tag=os=linux
   &start=2020-08-23T17:53:00Z
   &end=2020-08-23T17:54:40Z
+X-Auth-Token: abc
+X-Tenant: t-1
 ```
 
 Responds with query results per series-set, such as:
@@ -118,11 +124,12 @@ Using metricGroup
 
 ```http request
 GET http://localhost:8080/api/query?
-  tenant=t-1
-  &metricGroup=cpu
+  metricGroup=cpu
   &tag=os=linux
   &start=2020-08-23T17:53:00Z
   &end=2020-08-23T17:54:40Z
+X-Auth-Token: abc
+X-Tenant: t-1
 ```
 
 Responds with query results per series-set, such as:
@@ -202,14 +209,15 @@ Querying for downsample data uses the same endpoint as raw data; however, the ad
 
 ```http request
 GET http://localhost:8080/api/query?
-  tenant=t-1
-  &metricName=cpu_idle
+  metricName=cpu_idle
   &aggregator=min
   &granularity=PT2M
   &tag=os=linux
   &tag=deployment=prod
   &start=2020-09-15T16:00:00Z
   &end=2020-09-15T17:00:00Z
+X-Auth-Token: abc
+X-Tenant: t-1
 ```
 
 ## Design
