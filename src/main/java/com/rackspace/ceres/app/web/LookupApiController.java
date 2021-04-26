@@ -13,16 +13,17 @@ import reactor.core.publisher.Mono;
 import java.util.*;
 
 /**
- * Native Ceres search API endpoints.
+ * Native Ceres lookup API endpoints.
  */
 @RestController
 @RequestMapping("/api/search")
 @Profile("query")
-public class TsdbQueryController {
+public class LookupApiController {
     private final MetadataService metadataService;
+    private final static String tagValueRegex = ".*\\{.*\\}$";
 
     @Autowired
-    public TsdbQueryController(MetadataService metadataService) {
+    public LookupApiController(MetadataService metadataService) {
         this.metadataService = metadataService;
     }
 
@@ -32,19 +33,19 @@ public class TsdbQueryController {
                                     @RequestHeader(value = "X-Tenant", required = true) String tenantHeader) {
 
         List<SeriesData> results = new ArrayList<SeriesData>();
-        final MetricNameAndMultiTags metricNameAndTags = getMetric(m);
+        final MetricNameAndMultiTags metricAndTags = getMetric(m);
 
-        return metadataService.getTagKeys(tenantHeader, metricNameAndTags.getMetricName())
+        return metadataService.getTagKeys(tenantHeader, metricAndTags.getMetricName())
                 .flatMapMany(Flux::fromIterable)
                 .flatMap(tagKey ->
-                        metadataService.getTagValues(tenantHeader, metricNameAndTags.getMetricName(), tagKey)
+                        metadataService.getTagValues(tenantHeader, metricAndTags.getMetricName(), tagKey)
                                 .flatMapMany(Flux::fromIterable)
                                 .flatMap(tagValue -> {
-                                            handleTagValue(limit, tagKey, tagValue, metricNameAndTags.getTags(), results);
+                                            handleTagValue(limit, tagKey, tagValue, metricAndTags.getTags(), results);
                                             return Mono.just("");
                                         }
                                 )
-                ).then(getResult(results, metricNameAndTags.getMetricName(), limit));
+                ).then(getResult(results, metricAndTags.getMetricName(), limit));
     }
 
     private void handleTagValue(
@@ -55,7 +56,7 @@ public class TsdbQueryController {
             }
         } else {
             tags.forEach(tag -> {
-                Map.Entry<String,String> entry = tag.entrySet().iterator().next();
+                Map.Entry<String, String> entry = tag.entrySet().iterator().next();
                 String k = entry.getKey();
                 String v = entry.getValue();
                 if ((tagKey.equals(k) && tagValue.equals(v)) ||
@@ -72,7 +73,7 @@ public class TsdbQueryController {
     private MetricNameAndMultiTags getMetric(String m) {
         MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
         List<Map<String, String>> tags = new ArrayList<Map<String, String>>();
-        if (m.matches(".*\\{.*\\}$")) {
+        if (m.matches(tagValueRegex)) {
             String tagKeys = m.substring(m.indexOf("{") + 1, m.indexOf("}"));
             String metricName = m.split("\\{")[0];
             Arrays.stream(tagKeys.split("\\,")).forEach(tagKey -> {

@@ -19,10 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 @ActiveProfiles(profiles = {"test", "query", "dev"})
-@SpringBootTest(classes = {TsdbQueryController.class})
+@SpringBootTest(classes = {LookupApiController.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
-public class TsdbQueryControllerTest {
+public class LookupApiControllerTest {
 
     @MockBean
     MetadataService metadataService;
