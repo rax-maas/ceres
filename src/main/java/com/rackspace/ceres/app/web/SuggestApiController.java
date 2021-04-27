@@ -41,7 +41,7 @@ public class SuggestApiController {
   /**
    * This endpoint provides a means of implementing an auto-complete.
    *
-   * @param tenant tenant of the customer
+   * @param tenantHeader tenant of the customer
    * @param type   This is the type of data we want to suggest. It can be anything from {@link
    *               SuggestType}
    * @param q      This is the text for which we have to suggest matching entries.
@@ -49,14 +49,15 @@ public class SuggestApiController {
    * @return list of string containing the auto complete suggestions.
    */
   @GetMapping
-  public Mono<List<String>> getSuggestions(@RequestHeader("X-Tenant") String tenant,
+  public Mono<List<String>> getSuggestions(
+      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam SuggestType type, @RequestParam(required = false) String q,
       @RequestParam(required = false, defaultValue = "25") int max) {
 
     return switch (type) {
-      case TAGK ->  suggestApiService.suggestTagKeys(tenant, q, max);
-      case TAGV -> suggestApiService.suggestTagValues(tenant, q, max);
-      case METRICS -> suggestApiService.suggestMetricNames(tenant, q, max);
+      case TAGK ->  suggestApiService.suggestTagKeys(tenantHeader, q, max);
+      case TAGV -> suggestApiService.suggestTagValues(tenantHeader, q, max);
+      case METRICS -> suggestApiService.suggestMetricNames(tenantHeader, q, max);
     };
   }
 }
