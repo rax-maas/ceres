@@ -107,6 +107,90 @@ public class MetricDeletionServiceTest {
     assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
   }
 
+  @Test
+  public void testDeleteMetricsByMetricName() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
+
+    Instant currentTime = Instant.now();
+    Metric metric = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    metricDeletionService.deleteMetrics(tenantId, metricName, null,
+        Instant.now().minusSeconds(60), Instant.now()).then().block();
+
+    assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
+  }
+
+  @Test
+  public void testDeleteMetricsByMetricNameAndTag() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
+
+    Instant currentTime = Instant.now();
+    Metric metric = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    metricDeletionService.deleteMetrics(tenantId, metricName, List.of("os","tag"),
+        Instant.now().minusSeconds(60), Instant.now()).then().block();
+
+    assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
+  }
+
   private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash, Metric metric) {
     //validate data raw
     final List<Row> queryRawResult = cqlTemplate.queryForRows(
