@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 public class TagListConverter {
 
-  static Map<String, String> convertPairsListToMap(List<String> tag) {
+  public static Map<String, String> convertPairsListToMap(List<String> tag) {
     return tag.stream()
         .map(s -> s.split("=", 2))
         .filter(strings -> strings.length == 2)
