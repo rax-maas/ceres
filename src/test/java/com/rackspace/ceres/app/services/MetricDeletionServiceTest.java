@@ -11,6 +11,7 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -90,10 +91,11 @@ public class MetricDeletionServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
 
+    Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
         tenantId,
         new Metric()
-            .setTimestamp(Instant.now())
+            .setTimestamp(currentTime)
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
@@ -102,23 +104,48 @@ public class MetricDeletionServiceTest {
     metricDeletionService.deleteMetrics(tenantId, "", null,
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
-    assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
+    assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
   }
 
-  private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
-      Metric metric) {
-    final List<Row> results = cqlTemplate.queryForRows(
-        "SELECT ts, value FROM data_raw_p_pt1h"
+  private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash, Metric metric) {
+    //validate data raw
+    final List<Row> queryRawResult = cqlTemplate.queryForRows(
+        "SELECT * FROM data_raw_p_pt1h"
             + " WHERE tenant = ?"
-            + " AND time_slot = ?"
-            + " AND series_set_hash = ?",
-        tenant, timeSlot, seriesSetHash
+            + " AND time_slot = ?",
+        tenant, timeSlot
     ).collectList().block();
 
-    assertThat(results).isNotNull();
-    assertThat(results).hasSize(1);
-    // only millisecond resolution retained by cassandra
-    assertThat(results.get(0).getInstant(0)).isEqualTo("2020-09-12T18:42:23.658Z");
-    assertThat(results.get(0).getDouble(1)).isEqualTo(metric.getValue());
+    assertThat(queryRawResult).hasSize(0);
+
+    //validate series_set_hashes
+    final List<Row> seriesSetHashesResult = cqlTemplate.queryForRows(
+        "SELECT * FROM series_set_hashes"
+            + " WHERE tenant = ?"
+            + " AND series_set_hash = ?",
+        tenant, seriesSetHash
+    ).collectList().block();
+
+    assertThat(seriesSetHashesResult).hasSize(0);
+
+    //validate series_sets
+    final List<Row> seriesSetsResult = cqlTemplate.queryForRows(
+        "SELECT * FROM series_sets"
+            + " WHERE tenant = ?"
+            + " AND metric_name = ?",
+        tenant, metric.getMetric()
+    ).collectList().block();
+
+    assertThat(seriesSetsResult).hasSize(0);
+
+    //validate metric_names
+    final List<Row> metricNamesResult = cqlTemplate.queryForRows(
+        "SELECT * FROM metric_names"
+            + " WHERE tenant = ?"
+            + " AND metric_name = ?",
+        tenant, metric.getMetric()
+    ).collectList().block();
+
+    assertThat(metricNamesResult).hasSize(0);
   }
 }
