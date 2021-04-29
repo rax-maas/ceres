@@ -1,21 +1,12 @@
 package com.rackspace.ceres.app.web;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.model.Metadata;
-import com.rackspace.ceres.app.model.QueryData;
-import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.MetricDeletionService;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
