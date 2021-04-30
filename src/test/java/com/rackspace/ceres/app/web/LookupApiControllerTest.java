@@ -136,12 +136,10 @@ public class LookupApiControllerTest {
                 .thenReturn(Mono.just(List.of("linux")));
         when(metadataService.getTagValues("t-1", m, "host"))
                 .thenReturn(Mono.just(List.of("h-1", "h-2")));
-        List<Map<String, String>> tags = new ArrayList<>();
-        tags.add(Map.of("host", "*"));
         when(metadataService.getMetricNameAndTags(m))
                 .thenReturn(new MetricNameAndMultiTags()
                         .setMetricName(m)
-                        .setTags(tags));
+                        .setTags(List.of(Map.of("host", "*"))));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -186,14 +184,13 @@ public class LookupApiControllerTest {
                 .thenReturn(Mono.just(List.of("linux", "windows")));
         when(metadataService.getTagValues("t-1", m, "host"))
                 .thenReturn(Mono.just(List.of("h-1", "h-2")));
-        List<Map<String, String>> tags = new ArrayList<>();
-        tags.add(Map.of("host", "*"));
-        tags.add(Map.of("os", "linux"));
-        tags.add(Map.of("os", "windows"));
         when(metadataService.getMetricNameAndTags(m))
                 .thenReturn(new MetricNameAndMultiTags()
                         .setMetricName(m)
-                        .setTags(tags));
+                        .setTags(List.of(
+                                Map.of("host", "*"),
+                                Map.of("os", "linux"),
+                                Map.of("os", "windows"))));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -245,7 +242,7 @@ public class LookupApiControllerTest {
         when(metadataService.getMetricNameAndTags(m))
                 .thenReturn(new MetricNameAndMultiTags()
                         .setMetricName(m)
-                        .setTags(tags));
+                        .setTags(List.of(Map.of("*", "linux"))));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
