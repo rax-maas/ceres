@@ -28,21 +28,14 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
@@ -59,6 +52,7 @@ public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
   private static final String DELIM = "|";
+  private static final String TAG_VALUE_REGEX = ".*\\{.*\\}$";
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
@@ -260,6 +254,24 @@ public class MetadataService {
       }
     }
     return Flux.fromIterable(result);
+  }
+
+  public MetricNameAndMultiTags getMetricNameAndTags(String m) {
+    MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
+    List<Map<String, String>> tags = new ArrayList<>();
+    if (m.matches(TAG_VALUE_REGEX)) {
+      String tagKeys = m.substring(m.indexOf("{") + 1, m.indexOf("}"));
+      String metricName = m.split("\\{")[0];
+      Arrays.stream(tagKeys.split("\\,")).forEach(tagKey -> {
+        String[] splitTag = tagKey.split("\\=");
+        tags.add(Map.of(splitTag[0], splitTag[1]));
+      });
+      metricNameAndTags.setMetricName(metricName);
+    } else {
+      metricNameAndTags.setMetricName(m);
+    }
+    metricNameAndTags.setTags(tags);
+    return metricNameAndTags;
   }
 
   public Mono<MetricNameAndTags> resolveSeriesSetHash(String tenant, String seriesSetHash) {

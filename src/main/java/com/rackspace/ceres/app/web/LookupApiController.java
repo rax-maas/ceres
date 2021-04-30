@@ -32,8 +32,8 @@ public class LookupApiController {
                                     @RequestParam(name = "limit", required = false) Integer limit,
                                     @RequestHeader(value = "X-Tenant", required = true) String tenantHeader) {
 
-        List<SeriesData> results = new ArrayList<SeriesData>();
-        final MetricNameAndMultiTags metricAndTags = getMetric(m);
+        List<SeriesData> results = new ArrayList<>();
+        final MetricNameAndMultiTags metricAndTags = metadataService.getMetricNameAndTags(m);
 
         return metadataService.getTagKeys(tenantHeader, metricAndTags.getMetricName())
                 .flatMapMany(Flux::fromIterable)
@@ -68,24 +68,6 @@ public class LookupApiController {
                 }
             });
         }
-    }
-
-    private MetricNameAndMultiTags getMetric(String m) {
-        MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
-        List<Map<String, String>> tags = new ArrayList<Map<String, String>>();
-        if (m.matches(tagValueRegex)) {
-            String tagKeys = m.substring(m.indexOf("{") + 1, m.indexOf("}"));
-            String metricName = m.split("\\{")[0];
-            Arrays.stream(tagKeys.split("\\,")).forEach(tagKey -> {
-                String[] splitTag = tagKey.split("\\=");
-                tags.add(Map.of(splitTag[0], splitTag[1]));
-            });
-            metricNameAndTags.setMetricName(metricName);
-        } else {
-            metricNameAndTags.setMetricName(m);
-        }
-        metricNameAndTags.setTags(tags);
-        return metricNameAndTags;
     }
 
     private Mono<LookupResult> getResult(List<SeriesData> results, String metric, Integer limit) {
