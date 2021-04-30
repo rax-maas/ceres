@@ -44,7 +44,7 @@ public class LookupApiControllerTest {
         when(metadataService.getMetricNameAndTags("cpu_active"))
                 .thenReturn(new MetricNameAndMultiTags()
                         .setMetricName("cpu_active")
-                        .setTags(new ArrayList<>()));
+                        .setTags(List.of()));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -91,7 +91,7 @@ public class LookupApiControllerTest {
         when(metadataService.getMetricNameAndTags("cpu_active"))
                 .thenReturn(new MetricNameAndMultiTags()
                         .setMetricName("cpu_active")
-                        .setTags(new ArrayList<>()));
+                        .setTags(List.of()));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
