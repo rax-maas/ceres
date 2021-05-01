@@ -28,12 +28,7 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
-import com.rackspace.ceres.app.model.FilterType;
-import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.TsdbFilter;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
 
 import java.time.Duration;
@@ -430,6 +425,24 @@ class MetadataServiceTest {
     assertTrue(result.getTags().get("host").equals("h-1"));
     assertEquals(null, result.getGranularity());
     assertEquals(Aggregator.raw, result.getAggregator());
+  }
+
+  @Test
+  void getMetricNameAndTags() {
+    MetricNameAndMultiTags metricNameAndTags = metadataService.getMetricNameAndTags("cpu_active");
+    assertEquals("cpu_active", metricNameAndTags.getMetricName());
+    assertEquals(List.of(), metricNameAndTags.getTags());
+
+    metricNameAndTags = metadataService.getMetricNameAndTags("cpu_active{host=*}");
+    assertEquals("cpu_active", metricNameAndTags.getMetricName());
+    assertEquals(List.of(Map.of("host", "*")), metricNameAndTags.getTags());
+
+    metricNameAndTags = metadataService.getMetricNameAndTags("cpu_active{os=linux,host=*,*=windows}");
+    assertEquals("cpu_active", metricNameAndTags.getMetricName());
+    assertEquals(List.of(
+            Map.of("os", "linux"),
+            Map.of("host", "*"),
+            Map.of("*", "windows")), metricNameAndTags.getTags());
   }
 
   private String unhashedSeriesSet(String metricName, Map<String, String> tags) {
