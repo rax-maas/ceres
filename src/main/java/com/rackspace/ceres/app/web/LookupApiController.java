@@ -21,6 +21,9 @@ import java.util.*;
 public class LookupApiController {
     private final MetadataService metadataService;
     private final static String tagValueRegex = ".*\\{.*\\}$";
+    private Integer limit;
+    private List<SeriesData> results;
+    private MetricNameAndMultiTags metricAndTags;
 
     @Autowired
     public LookupApiController(MetadataService metadataService) {
@@ -30,44 +33,42 @@ public class LookupApiController {
     @GetMapping("/lookup")
     public Mono<LookupResult> query(@RequestParam(name = "m") String m,
                                     @RequestParam(name = "limit", required = false) Integer limit,
-                                    @RequestHeader(value = "X-Tenant", required = true) String tenantHeader) {
+                                    @RequestHeader(value = "X-Tenant") String tenantHeader) {
 
-        List<SeriesData> results = new ArrayList<>();
-        final MetricNameAndMultiTags metricAndTags = metadataService.getMetricNameAndTags(m);
+        this.limit = limit;
+        this.results = new ArrayList<>();
+        this.metricAndTags = metadataService.getMetricNameAndTags(m);
 
-        return metadataService.getTagKeys(tenantHeader, metricAndTags.getMetricName())
+        return metadataService.getTagKeysMaps(tenantHeader, metricAndTags.getMetricName())
                 .flatMapMany(Flux::fromIterable)
-                .flatMap(tagKey ->
-                        metadataService.getTagValues(tenantHeader, metricAndTags.getMetricName(), tagKey)
-                                .flatMapMany(Flux::fromIterable)
-                                .flatMap(tagValue -> {
-                                            handleTagValue(limit, tagKey, tagValue, metricAndTags.getTags(), results);
-                                            return Mono.just("");
-                                        }
-                                )
-                ).then(getResult(results, metricAndTags.getMetricName(), limit));
+                .flatMap(tagKeyMap -> metadataService.getTagValueMaps(tagKeyMap)
+                        .flatMapMany(Flux::fromIterable)
+                        .flatMap(this::handleTagValue)
+                ).then(getResult(this.results, this.metricAndTags.getMetricName(), this.limit));
     }
 
-    private void handleTagValue(
-            Integer limit, String tagKey, String tagValue, List<Map<String, String>> tags, List<SeriesData> results) {
-        if (tags.isEmpty()) {
-            if (limit == null || results.size() < limit) {
-                results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+    private Mono<String> handleTagValue(Map<String, String> tag) {
+        String tagKey = tag.get("tagKey");
+        String tagValue = tag.get("tagValue");
+        if (this.metricAndTags.getTags().isEmpty()) {
+            if (this.limit == null || this.results.size() < this.limit) {
+                this.results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
             }
         } else {
-            tags.forEach(tag -> {
-                Map.Entry<String, String> entry = tag.entrySet().iterator().next();
+            this.metricAndTags.getTags().forEach(tagItem -> {
+                Map.Entry<String, String> entry = tagItem.entrySet().iterator().next();
                 String k = entry.getKey();
                 String v = entry.getValue();
                 if ((tagKey.equals(k) && tagValue.equals(v)) ||
                         (tagKey.equals(k) && v.equals("*")) ||
                         (k.equals("*") && tagValue.equals(v))) {
-                    if (limit == null || results.size() < limit) {
-                        results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+                    if (this.limit == null || results.size() < this.limit) {
+                        this.results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
                     }
                 }
             });
         }
+        return Mono.just("");
     }
 
     private Mono<LookupResult> getResult(List<SeriesData> results, String metric, Integer limit) {

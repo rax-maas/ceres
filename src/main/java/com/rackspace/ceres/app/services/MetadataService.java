@@ -168,25 +168,53 @@ public class MetadataService {
   }
 
   public Mono<List<String>> getTagKeys(String tenant, String metricName) {
+    return getTagKeysRaw(tenant, metricName).collectList();
+  }
+
+  public Mono<List<Map<String, String>>> getTagKeysMaps(String tenant, String metricName) {
+    return getTagKeysRaw(tenant, metricName)
+            .map(tagKey -> Map.of(
+                    "tagKey", tagKey,
+                    "tenant", tenant,
+                    "metricName", metricName
+            )).collectList();
+  }
+
+  private Flux<String> getTagKeysRaw(String tenant, String metricName) {
     return cqlTemplate.queryForFlux(
-        "SELECT tag_key FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ?"
-            // use GROUP BY since unable to SELECT DISTINCT on primary key column
-            + " GROUP BY tag_key",
-        String.class,
-        tenant, metricName
-    ).collectList();
+            "SELECT tag_key FROM series_sets"
+                    + " WHERE tenant = ? AND metric_name = ?"
+                    // use GROUP BY since unable to SELECT DISTINCT on primary key column
+                    + " GROUP BY tag_key",
+            String.class,
+            tenant, metricName
+    );
   }
 
   public Mono<List<String>> getTagValues(String tenant, String metricName, String tagKey) {
+    return getTagValuesRaw(tenant, metricName, tagKey).collectList();
+  }
+
+  public Mono<List<Map<String, String>>> getTagValueMaps(Map<String, String> tagKeyMap) {
+    return getTagValuesRaw(
+            tagKeyMap.get("tenant"),
+            tagKeyMap.get("metricName"),
+            tagKeyMap.get("tagKey"))
+            .map(tagValue -> Map.of(
+                    "tagKey", tagKeyMap.get("tagKey"),
+                    "tagValue", tagValue
+            )).collectList();
+  }
+
+  private Flux<String> getTagValuesRaw(String tenant, String metricName, String tagKey) {
     return cqlTemplate.queryForFlux(
-        "SELECT tag_value FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?"
-            // use GROUP BY since unable to SELECT DISTINCT on primary key column
-            + " GROUP BY tag_value",
-        String.class,
-        tenant, metricName, tagKey
-    ).collectList();
+            "SELECT tag_value FROM series_sets"
+                    + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?"
+                    // use GROUP BY since unable to SELECT DISTINCT on primary key column
+                    + " GROUP BY tag_value",
+            String.class,
+            tenant, metricName, tagKey
+    );
   }
 
   /**
