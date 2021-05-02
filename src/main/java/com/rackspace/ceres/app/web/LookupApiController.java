@@ -20,7 +20,6 @@ import java.util.*;
 @Profile("query")
 public class LookupApiController {
     private final MetadataService metadataService;
-    private final static String tagValueRegex = ".*\\{.*\\}$";
     private Integer limit;
     private List<SeriesData> results;
     private MetricNameAndMultiTags metricAndTags;
@@ -44,7 +43,7 @@ public class LookupApiController {
                 .flatMap(tagKeyMap -> metadataService.getTagValueMaps(tagKeyMap)
                         .flatMapMany(Flux::fromIterable)
                         .flatMap(this::handleTagValue)
-                ).then(getResult(this.results, this.metricAndTags.getMetricName(), this.limit));
+                ).then(this.getResult());
     }
 
     private Mono<String> handleTagValue(Map<String, String> tag) {
@@ -71,12 +70,12 @@ public class LookupApiController {
         return Mono.just("");
     }
 
-    private Mono<LookupResult> getResult(List<SeriesData> results, String metric, Integer limit) {
+    private Mono<LookupResult> getResult() {
         LookupResult result = new LookupResult()
                 .setType("LOOKUP")
-                .setMetric(metric)
-                .setLimit(limit)
-                .setResults(results);
+                .setMetric(this.metricAndTags.getMetricName())
+                .setLimit(this.limit)
+                .setResults(this.results);
         return Mono.just(result);
     }
 }
