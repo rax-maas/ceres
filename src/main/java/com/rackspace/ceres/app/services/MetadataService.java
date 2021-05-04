@@ -167,11 +167,24 @@ public class MetadataService {
     ).collectList();
   }
 
+  public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {
+    return this.getTagKeysMaps(tenantHeader, metricName)
+            .flatMapMany(Flux::fromIterable)
+            .flatMap(tagKeyMap -> this.getTagValueMaps(tagKeyMap)
+                    .flatMapMany(Flux::fromIterable)
+                    .flatMap(Mono::just)
+            );
+  }
+
   public Mono<List<String>> getTagKeys(String tenant, String metricName) {
     return getTagKeysRaw(tenant, metricName).collectList();
   }
 
-  public Mono<List<Map<String, String>>> getTagKeysMaps(String tenant, String metricName) {
+  public Mono<List<String>> getTagValues(String tenant, String metricName, String tagKey) {
+    return getTagValuesRaw(tenant, metricName, tagKey).collectList();
+  }
+
+  private Mono<List<Map<String, String>>> getTagKeysMaps(String tenant, String metricName) {
     return getTagKeysRaw(tenant, metricName)
             .map(tagKey -> Map.of(
                     "tagKey", tagKey,
@@ -191,19 +204,12 @@ public class MetadataService {
     );
   }
 
-  public Mono<List<String>> getTagValues(String tenant, String metricName, String tagKey) {
-    return getTagValuesRaw(tenant, metricName, tagKey).collectList();
-  }
-
-  public Mono<List<Map<String, String>>> getTagValueMaps(Map<String, String> tagKeyMap) {
+  private Mono<List<Map<String, String>>> getTagValueMaps(Map<String, String> tagKeyMap) {
     return getTagValuesRaw(
             tagKeyMap.get("tenant"),
             tagKeyMap.get("metricName"),
             tagKeyMap.get("tagKey"))
-            .map(tagValue -> Map.of(
-                    "tagKey", tagKeyMap.get("tagKey"),
-                    "tagValue", tagValue
-            )).collectList();
+            .map(tagValue -> Map.of(tagKeyMap.get("tagKey"), tagValue)).collectList();
   }
 
   private Flux<String> getTagValuesRaw(String tenant, String metricName, String tagKey) {

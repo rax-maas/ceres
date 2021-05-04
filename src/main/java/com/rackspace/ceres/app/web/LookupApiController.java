@@ -22,7 +22,7 @@ public class LookupApiController {
     private final MetadataService metadataService;
     private Integer limit;
     private List<SeriesData> results;
-    private MetricNameAndMultiTags metricAndTags;
+    private MetricNameAndMultiTags lookupMetricAndTags;
 
     @Autowired
     public LookupApiController(MetadataService metadataService) {
@@ -33,28 +33,25 @@ public class LookupApiController {
     public Mono<LookupResult> query(@RequestParam(name = "m") String m,
                                     @RequestParam(name = "limit", required = false) Integer limit,
                                     @RequestHeader(value = "X-Tenant") String tenantHeader) {
-
         this.limit = limit;
         this.results = new ArrayList<>();
-        this.metricAndTags = metadataService.getMetricNameAndTags(m);
+        this.lookupMetricAndTags = metadataService.getMetricNameAndTags(m);
 
-        return metadataService.getTagKeysMaps(tenantHeader, metricAndTags.getMetricName())
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(tagKeyMap -> metadataService.getTagValueMaps(tagKeyMap)
-                        .flatMapMany(Flux::fromIterable)
-                        .flatMap(this::handleTagValue)
-                ).then(this.getResult());
+        return metadataService.getTags(tenantHeader, this.lookupMetricAndTags.getMetricName())
+                .flatMap(this::handleTagValue)
+                .then(this.getResult());
     }
 
     private Mono<String> handleTagValue(Map<String, String> tag) {
-        String tagKey = tag.get("tagKey");
-        String tagValue = tag.get("tagValue");
-        if (this.metricAndTags.getTags().isEmpty()) {
+        if (this.lookupMetricAndTags.getTags().isEmpty()) {
             if (this.limit == null || this.results.size() < this.limit) {
-                this.results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+                this.results.add(new SeriesData().setTags(tag));
             }
         } else {
-            this.metricAndTags.getTags().forEach(tagItem -> {
+            this.lookupMetricAndTags.getTags().forEach(tagItem -> {
+                Map.Entry<String, String> tagEntry = tag.entrySet().iterator().next();
+                String tagKey = tagEntry.getKey();
+                String tagValue = tagEntry.getValue();
                 Map.Entry<String, String> entry = tagItem.entrySet().iterator().next();
                 String k = entry.getKey();
                 String v = entry.getValue();
@@ -62,7 +59,7 @@ public class LookupApiController {
                         (tagKey.equals(k) && v.equals("*")) ||
                         (k.equals("*") && tagValue.equals(v))) {
                     if (this.limit == null || results.size() < this.limit) {
-                        this.results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+                        this.results.add(new SeriesData().setTags(tag));
                     }
                 }
             });
@@ -73,7 +70,7 @@ public class LookupApiController {
     private Mono<LookupResult> getResult() {
         LookupResult result = new LookupResult()
                 .setType("LOOKUP")
-                .setMetric(this.metricAndTags.getMetricName())
+                .setMetric(this.lookupMetricAndTags.getMetricName())
                 .setLimit(this.limit)
                 .setResults(this.results);
         return Mono.just(result);
