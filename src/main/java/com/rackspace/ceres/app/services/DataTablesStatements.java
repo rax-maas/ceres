@@ -77,8 +77,7 @@ public class DataTablesStatements {
         + " VALUES (?, ?, ?, ?, ?)";
     rawQuery = "SELECT " + String.join(",", TIMESTAMP, VALUE)
         + " FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-        + " WHERE"
-        + "  " + TENANT + " = ?"
+        + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?"
         + "  AND " + SERIES_SET_HASH + " = ?"
         + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
@@ -117,8 +116,7 @@ public class DataTablesStatements {
               "SELECT " + String.join(",", TIMESTAMP, VALUE)
                   + " FROM " + tableNameDownsampled(granularity.getWidth(),
                   granularity.getPartitionWidth())
-                  + " WHERE"
-                  + "  " + TENANT + " = ?"
+                  + " WHERE " + TENANT + " = ?"
                   + "  AND " + TIME_PARTITION_SLOT + " = ?"
                   + "  AND " + SERIES_SET_HASH + " = ?"
                   + "  AND " + AGGREGATOR + " = ?"

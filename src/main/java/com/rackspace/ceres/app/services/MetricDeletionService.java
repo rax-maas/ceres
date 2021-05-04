@@ -63,9 +63,9 @@ public class MetricDeletionService {
   private Mono<Void> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
     log.info("inside deleteMetricsByTenantId method with tenant {} ", tenant);
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
-        .flatMap(timeSlot -> {
-          return deleteMetricsByTenantId(downsampleProperties.getGranularities(), tenant, timeSlot);
-        }).then();
+        .flatMap(timeSlot ->
+            deleteMetricsByTenantId(downsampleProperties.getGranularities(), tenant, timeSlot))
+        .then();
   }
 
   private Mono<Void> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
