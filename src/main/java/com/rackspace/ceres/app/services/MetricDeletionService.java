@@ -20,6 +20,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks.Empty;
 
 @Service
 @Slf4j
@@ -49,7 +50,7 @@ public class MetricDeletionService {
     this.redisTemplate = redisTemplate;
   }
 
-  public Mono<Void> deleteMetrics(String tenant, String metricName, List<String> tag,
+  public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
       Instant start, Instant end) {
     if (StringUtils.isAllBlank(metricName)) {
       return deleteMetricsByTenantId(tenant, start, end);
@@ -60,15 +61,15 @@ public class MetricDeletionService {
     }
   }
 
-  private Mono<Void> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
+  private Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
     log.info("inside deleteMetricsByTenantId method with tenant {} ", tenant);
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .flatMap(timeSlot ->
             deleteMetricsByTenantId(downsampleProperties.getGranularities(), tenant, timeSlot))
-        .then();
+        .then(Mono.empty());
   }
 
-  private Mono<Void> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
+  private Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
       Instant end) {
     log.info("inside deleteMetricsByMetricName method with tenant {}, metricName {} ", tenant,
         metricName);
@@ -78,10 +79,10 @@ public class MetricDeletionService {
               metricName);
           return deleteMetric(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
-        }).then();
+        }).then(Mono.empty());
   }
 
-  private Mono<Void> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
+  private Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
       List<String> tag, Instant start, Instant end) {
     log.info(
         "inside deleteMetricsByMetricNameAndTag method with tenant {}, metricName {} and tag {} ",
@@ -93,7 +94,7 @@ public class MetricDeletionService {
               metricName, queryTags);
           return deleteMetric(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
-        }).then();
+        }).then(Mono.empty());
   }
 
   private Mono<Boolean> deleteMetric(List<Granularity> granularities, String tenant,

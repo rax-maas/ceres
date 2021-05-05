@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks.Empty;
 
 @RestController
 @RequestMapping("/api/metric")
@@ -26,7 +27,7 @@ public class DeleteMetricController {
   }
 
   @DeleteMapping
-  public Mono<Void> deleteMetrics(@RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+  public Mono<Empty> deleteMetrics(@RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) List<String> tag,
       @RequestParam String start,
