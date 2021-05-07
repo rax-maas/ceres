@@ -62,7 +62,7 @@ public class MetricDeletionService {
   }
 
   private Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
-    log.info("inside deleteMetricsByTenantId method with tenant {} ", tenant);
+    log.debug("Deleting metrics for tenant: {}", tenant);
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .flatMap(timeSlot ->
             deleteMetricsByTenantId(downsampleProperties.getGranularities(), tenant, timeSlot))
@@ -71,8 +71,8 @@ public class MetricDeletionService {
 
   private Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
       Instant end) {
-    log.info("inside deleteMetricsByMetricName method with tenant {}, metricName {} ", tenant,
-        metricName);
+    log.debug("Deleting metrics {} for tenant: {} ", metricName,
+        tenant);
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .flatMap(timeSlot -> {
           Flux<String> seriesSetHashes = getSeriesSetHashFromSeriesSets(tenant,
@@ -84,9 +84,9 @@ public class MetricDeletionService {
 
   private Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
       List<String> tag, Instant start, Instant end) {
-    log.info(
-        "inside deleteMetricsByMetricNameAndTag method with tenant {}, metricName {} and tag {} ",
-        tenant, metricName, tag);
+    log.debug(
+        "Deleting metrics {} with tag {} for tenant: {}  ",
+        metricName, tag, tenant);
     Map<String, String> queryTags = convertPairsListToMap(tag);
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .flatMap(timeSlot -> {
