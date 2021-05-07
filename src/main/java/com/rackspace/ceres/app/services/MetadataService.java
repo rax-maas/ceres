@@ -35,7 +35,11 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.Duration;
-import java.util.*;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
@@ -241,42 +245,53 @@ public class MetadataService {
         .flatMapMany(Flux::fromIterable);
   }
 
-  public Flux<TsdbQuery> getMetricsAndTagsAndMetadata(List<TsdbQueryRequest> queries, List<Granularity> granularities) {
-    List<TsdbQuery> result = new ArrayList<TsdbQuery>();
-
-    for (TsdbQueryRequest query : queries) {
-      List<TsdbFilter> filters = query.getFilters();
-
-      for (TsdbFilter filter : filters) {
-        String[] splitValues = filter.getFilter().split("\\|");
-        for (int i = 0; i < splitValues.length; i++) {
-
-          Map<String, String> tags = new HashMap<String, String>();
-          tags.put(filter.getTagk(), splitValues[i]);
-
-          TsdbQuery tsdbQuery = new TsdbQuery();
-          String downsample = query.getDownsample();
-          if (downsample != null && !downsample.isEmpty()) {
-            String[] values = downsample.split("-");
-            Duration granularity =
-              DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()), granularities);
-
-            tsdbQuery.setMetricName(query.getMetric())
-              .setTags(tags)
-              .setGranularity(granularity)
-              .setAggregator(Aggregator.valueOf(values[1]));
-          } else {
-            tsdbQuery.setMetricName(query.getMetric())
-              .setTags(tags)
-              .setGranularity(null)
-              .setAggregator(Aggregator.raw);
-          }
-          result.add(tsdbQuery);
-        }
-      }
+    public Flux<TsdbQuery> locateSeriesSetHashesFromQuery(TsdbQuery query) {
+        return locateSeriesSetHashes(query.getTenant(), query.getMetricName(), query.getTags())
+                .flatMap(seriesSet -> {
+                    query.setSeriesSet(seriesSet);
+                    return Flux.just(query);
+                });
     }
-    return Flux.fromIterable(result);
-  }
+
+    public Flux<TsdbQuery> getMetricsAndTagsAndMetadata(
+            String tenant, Instant start, Instant end, List<TsdbQueryRequest> queries, List<Granularity> granularities) {
+        List<TsdbQuery> result = new ArrayList<>();
+
+        for (TsdbQueryRequest query : queries) {
+            List<TsdbFilter> filters = query.getFilters();
+
+            for (TsdbFilter filter : filters) {
+                String[] splitValues = filter.getFilter().split("\\|");
+                for (int i = 0; i < splitValues.length; i++) {
+
+                    Map<String, String> tags = new HashMap<>();
+                    tags.put(filter.getTagk(), splitValues[i]);
+
+                    TsdbQuery tsdbQuery = new TsdbQuery().setTenant(tenant).setStart(start).setEnd(end);
+                    String downsample = query.getDownsample();
+
+                    if (downsample != null && !downsample.isEmpty()) {
+                        String[] values = downsample.split("-");
+
+                        Duration granularity =
+                                DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()), granularities);
+
+                        tsdbQuery.setMetricName(query.getMetric())
+                                .setTags(tags)
+                                .setGranularity(granularity)
+                                .setAggregator(Aggregator.valueOf(values[1]));
+                    } else {
+                        tsdbQuery.setMetricName(query.getMetric())
+                                .setTags(tags)
+                                .setGranularity(null)
+                                .setAggregator(Aggregator.raw);
+                    }
+                    result.add(tsdbQuery);
+                }
+            }
+        }
+        return Flux.fromIterable(result);
+    }
 
   public MetricNameAndMultiTags getMetricNameAndTags(String m) {
     MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();

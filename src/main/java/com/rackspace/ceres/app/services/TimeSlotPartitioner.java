@@ -26,8 +26,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.rackspace.ceres.app.model.TsdbQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 @Component
 public class TimeSlotPartitioner {
@@ -112,5 +114,9 @@ public class TimeSlotPartitioner {
     }
 
     return partitions;
+  }
+
+  public Flux<Instant> partitionsOverRangeFromQuery(TsdbQuery query) {
+    return Flux.fromIterable(partitionsOverRange(query.getStart(), query.getEnd(), query.getGranularity()));
   }
 }
