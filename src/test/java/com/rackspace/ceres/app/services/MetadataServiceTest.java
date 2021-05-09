@@ -343,89 +343,97 @@ class MetadataServiceTest {
         .setTagValue(tagValue).setSeriesSetHash(seriesSetHash);
   }
 
-//  @Test
-//  void getMetricsAndTagsAndMetadata() {
-//    Duration granularityPT2M = Duration.ofMinutes(2);
-//    Duration granularityPT1M = Duration.ofMinutes(1);
-//
-//    final TsdbFilter filter = new TsdbFilter()
-//            .setType(FilterType.literal_or)
-//            .setTagk("host")
-//            .setFilter("h-1|h-2");
-//
-//    TsdbQueryRequest tsdbQueryRequest1 = new TsdbQueryRequest()
-//      .setMetric("cpu_idle")
-//      .setDownsample("2m-avg")
-//      .setFilters(List.of(filter));
-//
-//    TsdbQueryRequest tsdbQueryRequest2 = new TsdbQueryRequest()
-//      .setMetric("cpu_active")
-//      .setDownsample("1m-sum")
-//      .setFilters(List.of(filter));
-//
-//    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
-//
-//    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
-//      List.of(tsdbQueryRequest1, tsdbQueryRequest2), granularities).collectList().block();
-//
-//    assertEquals(4, results.size());
-//
-//    int metricCpuIdle = 0;
-//    int metricCpuActive = 0;
-//    boolean cpuActiveH1 = false;
-//    boolean cpuActiveH2 = false;
-//    boolean cpuIdleH1 = false;
-//    boolean cpuIdleH2 = false;
-//
-//    for (TsdbQuery result : results) {
-//      if (result.getMetricName().equals("cpu_idle")) {
-//        metricCpuIdle++;
-//        assertThat(result.getGranularity()).isEqualTo(granularityPT2M);
-//        assertThat(result.getAggregator()).isEqualTo(Aggregator.avg);
-//        if (result.getTags().get("host").equals("h-1")) {
-//          cpuIdleH1 = true;
-//        } else if (result.getTags().get("host").equals("h-2")) {
-//          cpuIdleH2 = true;
-//        }
-//      } else if (result.getMetricName().equals("cpu_active")) {
-//        metricCpuActive++;
-//        assertThat(result.getGranularity()).isEqualTo(granularityPT1M);
-//        assertThat(result.getAggregator()).isEqualTo(Aggregator.sum);
-//        if (result.getTags().get("host").equals("h-1")) {
-//          cpuActiveH1 = true;
-//        } else if (result.getTags().get("host").equals("h-2")) {
-//          cpuActiveH2 = true;
-//        }
-//      }
-//    }
-//
-//    assertEquals(2, metricCpuIdle);
-//    assertEquals(2, metricCpuActive);
-//    assertTrue(cpuActiveH1 && cpuActiveH2 && cpuIdleH1 && cpuIdleH2);
-//  }
-//
-//  @Test
-//  void getMetricsAndTagsAndMetadataRawQuery() {
-//    final TsdbFilter filter = new TsdbFilter()
-//            .setType(FilterType.literal_or)
-//            .setTagk("host")
-//            .setFilter("h-1");
-//
-//    TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
-//      .setMetric("cpu_idle")
-//      .setDownsample(null)
-//      .setFilters(List.of(filter));
-//
-//    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
-//      List.of(tsdbQueryRequest), Collections.emptyList()).collectList().block();
-//    TsdbQuery result = results.get(0);
-//
-//    assertEquals(1, results.size());
-//    assertTrue(result.getMetricName().equals("cpu_idle"));
-//    assertTrue(result.getTags().get("host").equals("h-1"));
-//    assertEquals(null, result.getGranularity());
-//    assertEquals(Aggregator.raw, result.getAggregator());
-//  }
+  @Test
+  void getMetricsAndTagsAndMetadata() {
+    Duration granularityPT2M = Duration.ofMinutes(2);
+    Duration granularityPT1M = Duration.ofMinutes(1);
+
+    final TsdbFilter filter = new TsdbFilter()
+            .setType(FilterType.literal_or)
+            .setTagk("host")
+            .setFilter("h-1|h-2");
+
+    TsdbQueryRequest tsdbQueryRequest1 = new TsdbQueryRequest()
+            .setMetric("cpu_idle")
+            .setDownsample("2m-avg")
+            .setFilters(List.of(filter));
+
+    TsdbQueryRequest tsdbQueryRequest2 = new TsdbQueryRequest()
+            .setMetric("cpu_active")
+            .setDownsample("1m-sum")
+            .setFilters(List.of(filter));
+
+    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
+
+    String tenant = "t-1";
+    Instant start = Instant.now();
+    Instant end = Instant.now();
+    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
+            tenant, start, end,
+            List.of(tsdbQueryRequest1, tsdbQueryRequest2), granularities).collectList().block();
+
+    assertEquals(4, results.size());
+
+    int metricCpuIdle = 0;
+    int metricCpuActive = 0;
+    boolean cpuActiveH1 = false;
+    boolean cpuActiveH2 = false;
+    boolean cpuIdleH1 = false;
+    boolean cpuIdleH2 = false;
+
+    for (TsdbQuery result : results) {
+      if (result.getMetricName().equals("cpu_idle")) {
+        metricCpuIdle++;
+        assertThat(result.getGranularity()).isEqualTo(granularityPT2M);
+        assertThat(result.getAggregator()).isEqualTo(Aggregator.avg);
+        if (result.getTags().get("host").equals("h-1")) {
+          cpuIdleH1 = true;
+        } else if (result.getTags().get("host").equals("h-2")) {
+          cpuIdleH2 = true;
+        }
+      } else if (result.getMetricName().equals("cpu_active")) {
+        metricCpuActive++;
+        assertThat(result.getGranularity()).isEqualTo(granularityPT1M);
+        assertThat(result.getAggregator()).isEqualTo(Aggregator.sum);
+        if (result.getTags().get("host").equals("h-1")) {
+          cpuActiveH1 = true;
+        } else if (result.getTags().get("host").equals("h-2")) {
+          cpuActiveH2 = true;
+        }
+      }
+    }
+
+    assertEquals(2, metricCpuIdle);
+    assertEquals(2, metricCpuActive);
+    assertTrue(cpuActiveH1 && cpuActiveH2 && cpuIdleH1 && cpuIdleH2);
+  }
+
+  @Test
+  void getMetricsAndTagsAndMetadataRawQuery() {
+    final TsdbFilter filter = new TsdbFilter()
+            .setType(FilterType.literal_or)
+            .setTagk("host")
+            .setFilter("h-1");
+
+    TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
+            .setMetric("cpu_idle")
+            .setDownsample(null)
+            .setFilters(List.of(filter));
+
+    String tenant = "t-1";
+    Instant start = Instant.now();
+    Instant end = Instant.now();
+
+    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(tenant, start, end,
+            List.of(tsdbQueryRequest), Collections.emptyList()).collectList().block();
+    TsdbQuery result = results.get(0);
+
+    assertEquals(1, results.size());
+    assertTrue(result.getMetricName().equals("cpu_idle"));
+    assertTrue(result.getTags().get("host").equals("h-1"));
+    assertEquals(null, result.getGranularity());
+    assertEquals(Aggregator.raw, result.getAggregator());
+  }
 
   @Test
   void getMetricNameAndTags() {
