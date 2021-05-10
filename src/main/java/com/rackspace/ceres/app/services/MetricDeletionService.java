@@ -32,6 +32,7 @@ public class MetricDeletionService {
 
   private final ReactiveCqlTemplate cqlTemplate;
   private final DataTablesStatements dataTablesStatements;
+  private final MetadataService metadataService;
   private AppProperties appProperties;
   private TimeSlotPartitioner timeSlotPartitioner;
   private DownsampleProperties downsampleProperties;
@@ -40,7 +41,7 @@ public class MetricDeletionService {
   @Autowired
   public MetricDeletionService(ReactiveCqlTemplate cqlTemplate,
       DataTablesStatements dataTablesStatements, AppProperties appProperties,
-      TimeSlotPartitioner timeSlotPartitioner,
+      TimeSlotPartitioner timeSlotPartitioner, MetadataService metadataService,
       DownsampleProperties downsampleProperties, ReactiveStringRedisTemplate redisTemplate) {
     this.cqlTemplate = cqlTemplate;
     this.dataTablesStatements = dataTablesStatements;
@@ -48,6 +49,7 @@ public class MetricDeletionService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;
     this.redisTemplate = redisTemplate;
+    this.metadataService = metadataService;
   }
 
   public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
@@ -90,7 +92,7 @@ public class MetricDeletionService {
     Map<String, String> queryTags = convertPairsListToMap(tag);
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .flatMap(timeSlot -> {
-          Flux<String> seriesSetHashes = getSeriesSetHashFromSeriesSets(tenant,
+          Flux<String> seriesSetHashes = metadataService.locateSeriesSetHashes(tenant,
               metricName, queryTags);
           return deleteMetric(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
@@ -143,7 +145,7 @@ public class MetricDeletionService {
     //get series set hashes from data raw table by tenant and timeSlot
     Flux<String> seriesSetHashes = getSeriesSetHashFromRaw(tenant, timeSlot);
     //get metricNames from metric_names table by tenant
-    Flux<String> metricNames = getMetricNames(tenant);
+    Flux<String> metricNames = metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable);
 
     return Flux.fromIterable(granularities)
         .flatMap(granularity ->
@@ -247,34 +249,4 @@ public class MetricDeletionService {
         String.class,
         tenant, metricName).distinct();
   }
-
-  private Flux<String> getSeriesSetHashFromSeriesSets(String tenant,
-      String metricName, Map<String, String> queryTags) {
-    return Flux.fromIterable(queryTags.entrySet())
-        // find the series-sets for each query tag
-        .flatMap(tagEntry ->
-            cqlTemplate.queryForFlux(
-                "SELECT series_set_hash FROM series_sets"
-                    + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?",
-                String.class,
-                tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
-            )
-                .collect(Collectors.toSet())
-        )
-        // and reduce to the intersection of those
-        .reduce((results1, results2) ->
-            results1.stream()
-                .filter(results2::contains)
-                .collect(Collectors.toSet())
-        )
-        .flatMapMany(Flux::fromIterable);
-  }
-
-  private Flux<String> getMetricNames(String tenant) {
-    return cqlTemplate
-        .queryForFlux("SELECT metric_name FROM metric_names WHERE tenant = ?", String.class,
-            tenant);
-  }
-
 }
-
