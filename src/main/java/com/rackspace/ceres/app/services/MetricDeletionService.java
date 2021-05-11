@@ -9,7 +9,6 @@ import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -81,7 +80,12 @@ public class MetricDeletionService {
               metricName);
           return deleteMetric(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
-        }).then(Mono.empty());
+        })
+        //delete entries from metric_names table
+        .flatMap(result ->
+            deleteMetricNamesByTenantAndMetricName(tenant, metricName)
+        )
+        .then(Mono.empty());
   }
 
   private Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
@@ -117,10 +121,6 @@ public class MetricDeletionService {
                 deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(),
                     tenant, timeSlot, seriesSetHash))
                 .then(Mono.just(true))
-        )
-        //delete entries from metric_names table
-        .flatMap(result ->
-            deleteMetricNamesByTenantAndMetricName(tenant, metricName)
         )
         //delete entries from series_set_hashes table
         .flatMap(result ->
