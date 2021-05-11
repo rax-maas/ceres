@@ -233,7 +233,6 @@ public class MetricDeletionService {
   private Mono<Boolean> removeEntryFromCache(String tenant, String seriesSetHash) {
     seriesSetExistenceCache.synchronous()
         .invalidate(new SeriesSetCacheKey(tenant, seriesSetHash));
-    log.info("cache evicted from caffine cache");
 
     return redisTemplate.delete(PREFIX_SERIES_SET_HASHES + DELIM + tenant + DELIM + seriesSetHash)
         .flatMap(result -> {
