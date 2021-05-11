@@ -3,9 +3,11 @@ package com.rackspace.ceres.app.services;
 
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
+import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
+import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -36,12 +38,14 @@ public class MetricDeletionService {
   private TimeSlotPartitioner timeSlotPartitioner;
   private DownsampleProperties downsampleProperties;
   private final ReactiveStringRedisTemplate redisTemplate;
+  private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
 
   @Autowired
   public MetricDeletionService(ReactiveCqlTemplate cqlTemplate,
       DataTablesStatements dataTablesStatements, AppProperties appProperties,
       TimeSlotPartitioner timeSlotPartitioner, MetadataService metadataService,
-      DownsampleProperties downsampleProperties, ReactiveStringRedisTemplate redisTemplate) {
+      DownsampleProperties downsampleProperties, ReactiveStringRedisTemplate redisTemplate,
+      AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache) {
     this.cqlTemplate = cqlTemplate;
     this.dataTablesStatements = dataTablesStatements;
     this.appProperties = appProperties;
@@ -49,6 +53,7 @@ public class MetricDeletionService {
     this.downsampleProperties = downsampleProperties;
     this.redisTemplate = redisTemplate;
     this.metadataService = metadataService;
+    this.seriesSetExistenceCache = seriesSetExistenceCache;
   }
 
   public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
@@ -226,6 +231,10 @@ public class MetricDeletionService {
   }
 
   private Mono<Boolean> removeEntryFromCache(String tenant, String seriesSetHash) {
+    seriesSetExistenceCache.synchronous()
+        .invalidate(new SeriesSetCacheKey(tenant, seriesSetHash));
+    log.info("cache evicted from caffine cache");
+
     return redisTemplate.delete(PREFIX_SERIES_SET_HASHES + DELIM + tenant + DELIM + seriesSetHash)
         .flatMap(result -> {
           if (result > 0) {
