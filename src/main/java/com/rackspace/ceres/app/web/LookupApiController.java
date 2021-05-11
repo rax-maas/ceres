@@ -20,7 +20,6 @@ import java.util.*;
 @Profile("query")
 public class LookupApiController {
     private final MetadataService metadataService;
-    private Integer limit;
     private List<SeriesData> results;
     private MetricNameAndMultiTags lookupMetricAndTags;
 
@@ -33,18 +32,17 @@ public class LookupApiController {
     public Mono<LookupResult> query(@RequestParam(name = "m") String m,
                                     @RequestParam(name = "limit", required = false) Integer limit,
                                     @RequestHeader(value = "X-Tenant") String tenantHeader) {
-        this.limit = limit;
         this.results = new ArrayList<>();
         this.lookupMetricAndTags = metadataService.getMetricNameAndTags(m);
 
         return metadataService.getTags(tenantHeader, this.lookupMetricAndTags.getMetricName())
-                .flatMap(this::handleTagValue)
-                .then(this.getResult());
+                .flatMap(tag -> this.handleTagValue(tag, limit))
+                .then(this.getResult(limit));
     }
 
-    private Mono<String> handleTagValue(Map<String, String> tag) {
+    private Mono<String> handleTagValue(Map<String, String> tag, Integer limit) {
         if (this.lookupMetricAndTags.getTags().isEmpty()) {
-            if (this.limit == null || this.results.size() < this.limit) {
+            if (limit == null || this.results.size() < limit) {
                 this.results.add(new SeriesData().setTags(tag));
             }
         } else {
@@ -58,7 +56,7 @@ public class LookupApiController {
                 if ((tagKey.equals(k) && tagValue.equals(v)) ||
                         (tagKey.equals(k) && v.equals("*")) ||
                         (k.equals("*") && tagValue.equals(v))) {
-                    if (this.limit == null || results.size() < this.limit) {
+                    if (limit == null || results.size() < limit) {
                         this.results.add(new SeriesData().setTags(tag));
                     }
                 }
@@ -67,11 +65,11 @@ public class LookupApiController {
         return Mono.just("");
     }
 
-    private Mono<LookupResult> getResult() {
+    private Mono<LookupResult> getResult(Integer limit) {
         LookupResult result = new LookupResult()
                 .setType("LOOKUP")
                 .setMetric(this.lookupMetricAndTags.getMetricName())
-                .setLimit(this.limit)
+                .setLimit(limit)
                 .setResults(this.results);
         return Mono.just(result);
     }
