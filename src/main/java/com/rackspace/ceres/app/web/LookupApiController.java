@@ -20,7 +20,8 @@ import java.util.*;
 @Profile("query")
 public class LookupApiController {
     private final MetadataService metadataService;
-    private final static String tagValueRegex = ".*\\{.*\\}$";
+    private List<SeriesData> results;
+    private MetricNameAndMultiTags lookupMetricAndTags;
 
     @Autowired
     public LookupApiController(MetadataService metadataService) {
@@ -30,70 +31,46 @@ public class LookupApiController {
     @GetMapping("/lookup")
     public Mono<LookupResult> query(@RequestParam(name = "m") String m,
                                     @RequestParam(name = "limit", required = false) Integer limit,
-                                    @RequestHeader(value = "X-Tenant", required = true) String tenantHeader) {
+                                    @RequestHeader(value = "X-Tenant") String tenantHeader) {
+        this.results = new ArrayList<>();
+        this.lookupMetricAndTags = metadataService.getMetricNameAndTags(m);
 
-        List<SeriesData> results = new ArrayList<SeriesData>();
-        final MetricNameAndMultiTags metricAndTags = getMetric(m);
-
-        return metadataService.getTagKeys(tenantHeader, metricAndTags.getMetricName())
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(tagKey ->
-                        metadataService.getTagValues(tenantHeader, metricAndTags.getMetricName(), tagKey)
-                                .flatMapMany(Flux::fromIterable)
-                                .flatMap(tagValue -> {
-                                            handleTagValue(limit, tagKey, tagValue, metricAndTags.getTags(), results);
-                                            return Mono.just("");
-                                        }
-                                )
-                ).then(getResult(results, metricAndTags.getMetricName(), limit));
+        return metadataService.getTags(tenantHeader, this.lookupMetricAndTags.getMetricName())
+                .flatMap(tag -> this.handleTagValue(tag, limit))
+                .then(this.getResult(limit));
     }
 
-    private void handleTagValue(
-            Integer limit, String tagKey, String tagValue, List<Map<String, String>> tags, List<SeriesData> results) {
-        if (tags.isEmpty()) {
-            if (limit == null || results.size() < limit) {
-                results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+    private Mono<String> handleTagValue(Map<String, String> tag, Integer limit) {
+        if (this.lookupMetricAndTags.getTags().isEmpty()) {
+            if (limit == null || this.results.size() < limit) {
+                this.results.add(new SeriesData().setTags(tag));
             }
         } else {
-            tags.forEach(tag -> {
-                Map.Entry<String, String> entry = tag.entrySet().iterator().next();
+            this.lookupMetricAndTags.getTags().forEach(tagItem -> {
+                Map.Entry<String, String> tagEntry = tag.entrySet().iterator().next();
+                String tagKey = tagEntry.getKey();
+                String tagValue = tagEntry.getValue();
+                Map.Entry<String, String> entry = tagItem.entrySet().iterator().next();
                 String k = entry.getKey();
                 String v = entry.getValue();
                 if ((tagKey.equals(k) && tagValue.equals(v)) ||
                         (tagKey.equals(k) && v.equals("*")) ||
                         (k.equals("*") && tagValue.equals(v))) {
                     if (limit == null || results.size() < limit) {
-                        results.add(new SeriesData().setTags(Map.of(tagKey, tagValue)));
+                        this.results.add(new SeriesData().setTags(tag));
                     }
                 }
             });
         }
+        return Mono.just("");
     }
 
-    private MetricNameAndMultiTags getMetric(String m) {
-        MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
-        List<Map<String, String>> tags = new ArrayList<Map<String, String>>();
-        if (m.matches(tagValueRegex)) {
-            String tagKeys = m.substring(m.indexOf("{") + 1, m.indexOf("}"));
-            String metricName = m.split("\\{")[0];
-            Arrays.stream(tagKeys.split("\\,")).forEach(tagKey -> {
-                String[] splitTag = tagKey.split("\\=");
-                tags.add(Map.of(splitTag[0], splitTag[1]));
-            });
-            metricNameAndTags.setMetricName(metricName);
-        } else {
-            metricNameAndTags.setMetricName(m);
-        }
-        metricNameAndTags.setTags(tags);
-        return metricNameAndTags;
-    }
-
-    private Mono<LookupResult> getResult(List<SeriesData> results, String metric, Integer limit) {
+    private Mono<LookupResult> getResult(Integer limit) {
         LookupResult result = new LookupResult()
                 .setType("LOOKUP")
-                .setMetric(metric)
+                .setMetric(this.lookupMetricAndTags.getMetricName())
                 .setLimit(limit)
-                .setResults(results);
+                .setResults(this.results);
         return Mono.just(result);
     }
 }

@@ -1,6 +1,7 @@
 package com.rackspace.ceres.app.web;
 
 import com.rackspace.ceres.app.model.LookupResult;
+import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.services.MetadataService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +11,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +28,13 @@ import static org.mockito.Mockito.*;
 @AutoConfigureWebFlux
 public class LookupApiControllerTest {
 
+    private final static List<Map<String, String>> TAGS = List.of(
+            Map.of("os", "linux"),
+            Map.of("host", "linux"),
+            Map.of("host", "h-1"),
+            Map.of("os", "windows"),
+            Map.of("host", "h-2"));
+
     @MockBean
     MetadataService metadataService;
 
@@ -32,12 +43,12 @@ public class LookupApiControllerTest {
 
     @Test
     public void testSimpleMetric() {
-        when(metadataService.getTagKeys("t-1", "cpu_active"))
-                .thenReturn(Mono.just(List.of("os", "host")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "os"))
-                .thenReturn(Mono.just(List.of("linux")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "host"))
-                .thenReturn(Mono.just(List.of("h-1", "h-2")));
+        when(metadataService.getMetricNameAndTags("cpu_active"))
+                .thenReturn(new MetricNameAndMultiTags()
+                        .setMetricName("cpu_active")
+                        .setTags(List.of()));
+        when(metadataService.getTags("t-1", "cpu_active"))
+                .thenReturn(Flux.fromIterable(TAGS));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -58,6 +69,8 @@ public class LookupApiControllerTest {
                             assertTrue(
                                     // The order of the results are not deterministic
                                     (s.getKey().equals("os") && s.getValue().equals("linux")) ||
+                                            (s.getKey().equals("os") && s.getValue().equals("windows")) ||
+                                            (s.getKey().equals("host") && s.getValue().equals("linux")) ||
                                             (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
                                             (s.getKey().equals("host") && s.getValue().equals("h-2"))
                             );
@@ -66,20 +79,20 @@ public class LookupApiControllerTest {
             });
         });
 
-        verify(metadataService).getTagKeys("t-1", "cpu_active");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "os");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "host");
+        verify(metadataService).getTags("t-1", "cpu_active");
+        verify(metadataService).getMetricNameAndTags("cpu_active");
         verifyNoMoreInteractions(metadataService);
     }
 
     @Test
     public void testSimpleMetricNoLimit() {
-        when(metadataService.getTagKeys("t-1", "cpu_active"))
-                .thenReturn(Mono.just(List.of("os", "host")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "os"))
-                .thenReturn(Mono.just(List.of("linux")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "host"))
-                .thenReturn(Mono.just(List.of("h-1", "h-2")));
+        when(metadataService.getMetricNameAndTags("cpu_active"))
+                .thenReturn(new MetricNameAndMultiTags()
+                        .setMetricName("cpu_active")
+                        .setTags(List.of()));
+        when(metadataService.getTags("t-1", "cpu_active"))
+                .thenReturn(Flux.fromIterable(TAGS));
+
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -91,13 +104,15 @@ public class LookupApiControllerTest {
 
             assertThat(response.getResponseBody().getType()).isEqualTo("LOOKUP");
             assertThat(response.getResponseBody().getMetric()).isEqualTo("cpu_active");
-            assertThat(response.getResponseBody().getResults().size()).isEqualTo(3);
+            assertThat(response.getResponseBody().getResults().size()).isEqualTo(5);
 
             response.getResponseBody().getResults().forEach(seriesData -> {
                 seriesData.getTags().entrySet().stream().forEach(s -> {
                             assertTrue(
                                     // The order of the results are not deterministic
                                     (s.getKey().equals("os") && s.getValue().equals("linux")) ||
+                                            (s.getKey().equals("os") && s.getValue().equals("windows")) ||
+                                            (s.getKey().equals("host") && s.getValue().equals("linux")) ||
                                             (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
                                             (s.getKey().equals("host") && s.getValue().equals("h-2"))
                             );
@@ -106,22 +121,22 @@ public class LookupApiControllerTest {
             });
         });
 
-        verify(metadataService).getTagKeys("t-1", "cpu_active");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "os");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "host");
+        verify(metadataService).getTags("t-1", "cpu_active");
+        verify(metadataService).getMetricNameAndTags("cpu_active");
         verifyNoMoreInteractions(metadataService);
     }
 
     @Test
     public void testTagValues() {
-        when(metadataService.getTagKeys("t-1", "cpu_active"))
-                .thenReturn(Mono.just(List.of("os", "host")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "os"))
-                .thenReturn(Mono.just(List.of("linux")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "host"))
-                .thenReturn(Mono.just(List.of("h-1", "h-2")));
-
         String tagValues = "{host=*}";
+        String m = "cpu_active" + tagValues;
+
+        when(metadataService.getMetricNameAndTags(m))
+                .thenReturn(new MetricNameAndMultiTags()
+                        .setMetricName("cpu_active")
+                        .setTags(List.of(Map.of("host", "*"))));
+        when(metadataService.getTags("t-1", "cpu_active"))
+                .thenReturn(Flux.fromIterable(TAGS));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -140,7 +155,8 @@ public class LookupApiControllerTest {
             response.getResponseBody().getResults().forEach(seriesData -> {
                 seriesData.getTags().entrySet().stream().forEach(s -> {
                             assertTrue(
-                                    (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
+                                    (s.getKey().equals("host") && s.getValue().equals("linux")) ||
+                                            (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
                                             (s.getKey().equals("host") && s.getValue().equals("h-2"))
                             );
                         }
@@ -148,22 +164,24 @@ public class LookupApiControllerTest {
             });
         });
 
-        verify(metadataService).getTagKeys("t-1", "cpu_active");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "os");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "host");
+        verify(metadataService).getTags("t-1", "cpu_active");
+        verify(metadataService).getMetricNameAndTags(m);
         verifyNoMoreInteractions(metadataService);
     }
 
     @Test
     public void testTagValuesMixed() {
-        when(metadataService.getTagKeys("t-1", "cpu_active"))
-                .thenReturn(Mono.just(List.of("os", "host")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "os"))
-                .thenReturn(Mono.just(List.of("linux", "windows")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "host"))
-                .thenReturn(Mono.just(List.of("h-1", "h-2")));
+        String tagValues = "{host=*,os=windows}";
+        String m = "cpu_active" + tagValues;
 
-        String tagValues = "{host=*,os=linux,os=windows}";
+        when(metadataService.getMetricNameAndTags(m))
+                .thenReturn(new MetricNameAndMultiTags()
+                        .setMetricName("cpu_active")
+                        .setTags(List.of(
+                                Map.of("host", "*"),
+                                Map.of("os", "windows"))));
+        when(metadataService.getTags("t-1", "cpu_active"))
+                .thenReturn(Flux.fromIterable(TAGS));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -182,9 +200,9 @@ public class LookupApiControllerTest {
             response.getResponseBody().getResults().forEach(seriesData -> {
                 seriesData.getTags().entrySet().stream().forEach(s -> {
                             assertTrue(
-                                    (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
+                                    (s.getKey().equals("host") && s.getValue().equals("linux")) ||
+                                            (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
                                             (s.getKey().equals("host") && s.getValue().equals("h-2")) ||
-                                            (s.getKey().equals("os") && s.getValue().equals("linux")) ||
                                             (s.getKey().equals("os") && s.getValue().equals("windows"))
                             );
                         }
@@ -192,22 +210,22 @@ public class LookupApiControllerTest {
             });
         });
 
-        verify(metadataService).getTagKeys("t-1", "cpu_active");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "os");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "host");
+        verify(metadataService).getTags("t-1", "cpu_active");
+        verify(metadataService).getMetricNameAndTags(m);
         verifyNoMoreInteractions(metadataService);
     }
 
     @Test
     public void testTagKeysWildcard() {
-        when(metadataService.getTagKeys("t-1", "cpu_active"))
-                .thenReturn(Mono.just(List.of("os", "host")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "os"))
-                .thenReturn(Mono.just(List.of("linux", "windows")));
-        when(metadataService.getTagValues("t-1", "cpu_active", "host"))
-                .thenReturn(Mono.just(List.of("linux", "h-2")));
-
         String tagValues = "{*=linux}";
+        String m = "cpu_active" + tagValues;
+
+        when(metadataService.getMetricNameAndTags(m))
+                .thenReturn(new MetricNameAndMultiTags()
+                        .setMetricName("cpu_active")
+                        .setTags(List.of(Map.of("*", "linux"))));
+        when(metadataService.getTags("t-1", "cpu_active"))
+                .thenReturn(Flux.fromIterable(TAGS));
 
         webTestClient.get().uri(
                 uriBuilder -> uriBuilder.path("/api/search/lookup")
@@ -234,9 +252,8 @@ public class LookupApiControllerTest {
             });
         });
 
-        verify(metadataService).getTagKeys("t-1", "cpu_active");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "os");
-        verify(metadataService).getTagValues("t-1", "cpu_active", "host");
+        verify(metadataService).getTags("t-1", "cpu_active");
+        verify(metadataService).getMetricNameAndTags(m);
         verifyNoMoreInteractions(metadataService);
     }
 }

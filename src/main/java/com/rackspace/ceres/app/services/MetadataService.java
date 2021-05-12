@@ -28,21 +28,14 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
@@ -59,6 +52,7 @@ public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
   private static final String DELIM = "|";
+  private static final String TAG_VALUE_REGEX = ".*\\{.*\\}$";
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
@@ -173,26 +167,48 @@ public class MetadataService {
     ).collectList();
   }
 
+  public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {
+    return this.getTagKeys(tenantHeader, metricName)
+            .flatMapMany(Flux::fromIterable)
+            .flatMap(tag -> this.getTagValueMaps(tag, tenantHeader, metricName)
+                    .flatMapMany(Flux::fromIterable)
+                    .flatMap(Mono::just)
+            );
+  }
+
   public Mono<List<String>> getTagKeys(String tenant, String metricName) {
-    return cqlTemplate.queryForFlux(
-        "SELECT tag_key FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ?"
-            // use GROUP BY since unable to SELECT DISTINCT on primary key column
-            + " GROUP BY tag_key",
-        String.class,
-        tenant, metricName
-    ).collectList();
+    return getTagKeysRaw(tenant, metricName).collectList();
   }
 
   public Mono<List<String>> getTagValues(String tenant, String metricName, String tagKey) {
+    return getTagValuesRaw(tenant, metricName, tagKey).collectList();
+  }
+
+  private Flux<String> getTagKeysRaw(String tenant, String metricName) {
     return cqlTemplate.queryForFlux(
-        "SELECT tag_value FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?"
-            // use GROUP BY since unable to SELECT DISTINCT on primary key column
-            + " GROUP BY tag_value",
-        String.class,
-        tenant, metricName, tagKey
-    ).collectList();
+            "SELECT tag_key FROM series_sets"
+                    + " WHERE tenant = ? AND metric_name = ?"
+                    // use GROUP BY since unable to SELECT DISTINCT on primary key column
+                    + " GROUP BY tag_key",
+            String.class,
+            tenant, metricName
+    );
+  }
+
+  private Mono<List<Map<String, String>>> getTagValueMaps(String tagKey, String tenantHeader, String metricName) {
+    return getTagValuesRaw(tenantHeader, metricName, tagKey)
+            .map(tagValue -> Map.of(tagKey, tagValue)).collectList();
+  }
+
+  private Flux<String> getTagValuesRaw(String tenant, String metricName, String tagKey) {
+    return cqlTemplate.queryForFlux(
+            "SELECT tag_value FROM series_sets"
+                    + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?"
+                    // use GROUP BY since unable to SELECT DISTINCT on primary key column
+                    + " GROUP BY tag_value",
+            String.class,
+            tenant, metricName, tagKey
+    );
   }
 
   /**
@@ -260,6 +276,24 @@ public class MetadataService {
       }
     }
     return Flux.fromIterable(result);
+  }
+
+  public MetricNameAndMultiTags getMetricNameAndTags(String m) {
+    MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
+    List<Map<String, String>> tags = new ArrayList<>();
+    if (m.matches(TAG_VALUE_REGEX)) {
+      String tagKeys = m.substring(m.indexOf("{") + 1, m.indexOf("}"));
+      String metricName = m.split("\\{")[0];
+      Arrays.stream(tagKeys.split("\\,")).forEach(tagKey -> {
+        String[] splitTag = tagKey.split("\\=");
+        tags.add(Map.of(splitTag[0], splitTag[1]));
+      });
+      metricNameAndTags.setMetricName(metricName);
+    } else {
+      metricNameAndTags.setMetricName(m);
+    }
+    metricNameAndTags.setTags(tags);
+    return metricNameAndTags;
   }
 
   public Mono<MetricNameAndTags> resolveSeriesSetHash(String tenant, String seriesSetHash) {
