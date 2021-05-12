@@ -381,9 +381,6 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     TsdbQuery tsdbQuery = new TsdbQuery()
-            .setTenant(tenant)
-            .setStart(start)
-            .setEnd(end)
             .setSeriesSet(seriesSetHash)
             .setMetricName(metricName)
             .setTags(tags)
@@ -402,9 +399,9 @@ class QueryServiceTest {
             .setDownsample("2m-avg")
             .setFilters(List.of(filter));
 
-    when(metadataService.locateSeriesSetHashesFromQuery(any())).thenReturn(Flux.just(tsdbQuery));
+    when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
     when(metadataService.getMetricsAndTagsAndMetadata(
-            tenant, start, end, List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
+            List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
 
     downsampleProcessor.downsampleData(
             Flux.just(

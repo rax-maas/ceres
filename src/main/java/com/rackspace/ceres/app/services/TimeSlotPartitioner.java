@@ -116,7 +116,7 @@ public class TimeSlotPartitioner {
     return partitions;
   }
 
-  public Flux<Instant> partitionsOverRangeFromQuery(TsdbQuery query) {
-    return Flux.fromIterable(partitionsOverRange(query.getStart(), query.getEnd(), query.getGranularity()));
+  public Flux<Instant> partitionsOverRangeFromQuery(Instant start, Instant end, Duration granularity) {
+    return Flux.fromIterable(partitionsOverRange(start, end, granularity));
   }
 }

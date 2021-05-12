@@ -245,8 +245,8 @@ public class MetadataService {
         .flatMapMany(Flux::fromIterable);
   }
 
-    public Flux<TsdbQuery> locateSeriesSetHashesFromQuery(TsdbQuery query) {
-        return locateSeriesSetHashes(query.getTenant(), query.getMetricName(), query.getTags())
+    public Flux<TsdbQuery> locateSeriesSetHashesFromQuery(String tenant, TsdbQuery query) {
+        return locateSeriesSetHashes(tenant, query.getMetricName(), query.getTags())
                 .flatMap(seriesSet -> {
                     query.setSeriesSet(seriesSet);
                     return Flux.just(query);
@@ -254,7 +254,7 @@ public class MetadataService {
     }
 
     public Flux<TsdbQuery> getMetricsAndTagsAndMetadata(
-            String tenant, Instant start, Instant end, List<TsdbQueryRequest> queries, List<Granularity> granularities) {
+            List<TsdbQueryRequest> queries, List<Granularity> granularities) {
         List<TsdbQuery> result = new ArrayList<>();
 
         for (TsdbQueryRequest query : queries) {
@@ -267,7 +267,7 @@ public class MetadataService {
                     Map<String, String> tags = new HashMap<>();
                     tags.put(filter.getTagk(), splitValues[i]);
 
-                    TsdbQuery tsdbQuery = new TsdbQuery().setTenant(tenant).setStart(start).setEnd(end);
+                    TsdbQuery tsdbQuery = new TsdbQuery();
                     String downsample = query.getDownsample();
 
                     if (downsample != null && !downsample.isEmpty()) {
