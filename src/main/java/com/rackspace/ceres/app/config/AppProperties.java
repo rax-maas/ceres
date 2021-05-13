@@ -105,6 +105,11 @@ public class AppProperties {
       .setMaxAttempts(5)
       .setMinBackoff(Duration.ofMillis(100));
 
+  @NotNull
+  RetrySpec retryDelete = new RetrySpec()
+      .setMaxAttempts(3)
+      .setMinBackoff(Duration.ofMillis(100));
+
   @NotNull TagFilter tagFilter = TagFilter.EXCLUDE;
 
   @NotNull Integer tagValueLimit = 50;

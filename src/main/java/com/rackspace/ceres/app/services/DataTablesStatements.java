@@ -25,8 +25,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Provides a consolidated declaration of insert and query statements that execute against the configuration-driven
- * data tables schema.
+ * Provides a consolidated declaration of insert and query statements that execute against the
+ * configuration-driven data tables schema.
  */
 @Component
 public class DataTablesStatements {
@@ -43,12 +43,18 @@ public class DataTablesStatements {
 
   private String rawInsert;
   private String rawQuery;
+  private String rawDelete;
+  private String rawGetHashQuery;
+  private String rawDeleteWithSeriesSetHash;
 
   private final Map<Duration, String> downsampleInserts = new HashMap<>();
   private final Map<Duration, String> downsampleQueries = new HashMap<>();
+  private final Map<Duration, String> downsampleDeletes = new HashMap<>();
+  private final Map<Duration, String> downsampleDeletesWithSeriesSetHash = new HashMap<>();
 
   @Autowired
-  public DataTablesStatements(AppProperties appProperties, DownsampleProperties downsampleProperties) {
+  public DataTablesStatements(AppProperties appProperties,
+      DownsampleProperties downsampleProperties) {
     buildRawStatements(appProperties);
     buildDownsampleStatements(downsampleProperties);
   }
@@ -56,7 +62,7 @@ public class DataTablesStatements {
   public String tableNameRaw(Duration partitionWidth) {
     return String.join("_",
         TABLE_PREFIX, RAW, partitionTableNameSuffix(partitionWidth)
-        );
+    );
   }
 
   String partitionTableNameSuffix(Duration width) {
@@ -65,17 +71,27 @@ public class DataTablesStatements {
 
   private void buildRawStatements(AppProperties appProperties) {
     rawInsert = "INSERT INTO " + tableNameRaw(appProperties.getRawPartitionWidth())
-                + " (" +
-                String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, VALUE)
-                + ")"
-                + " VALUES (?, ?, ?, ?, ?)";
+        + " (" +
+        String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, VALUE)
+        + ")"
+        + " VALUES (?, ?, ?, ?, ?)";
     rawQuery = "SELECT " + String.join(",", TIMESTAMP, VALUE)
-               + " FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-               + " WHERE"
-               + "  " + TENANT + " = ?"
-               + "  AND " + TIME_PARTITION_SLOT + " = ?"
-               + "  AND " + SERIES_SET_HASH + " = ?"
-               + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+        + " FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+        + " WHERE " + TENANT + " = ?"
+        + "  AND " + TIME_PARTITION_SLOT + " = ?"
+        + "  AND " + SERIES_SET_HASH + " = ?"
+        + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+    rawDelete = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+        + " WHERE " + TENANT + " = ?"
+        + "  AND " + TIME_PARTITION_SLOT + " = ?";
+    rawDeleteWithSeriesSetHash = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+        + " WHERE " + TENANT + " = ?"
+        + "  AND " + TIME_PARTITION_SLOT + " = ?"
+        + " AND series_set_hash = ?";
+    rawGetHashQuery =
+        "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+            + " WHERE " + TENANT + " = ?"
+            + "  AND " + TIME_PARTITION_SLOT + " = ?";
   }
 
   private void buildDownsampleStatements(DownsampleProperties downsampleProperties) {
@@ -87,24 +103,40 @@ public class DataTablesStatements {
         .forEach(granularity -> {
 
           downsampleInserts.put(granularity.getWidth(),
-            "INSERT INTO " + tableNameDownsampled(granularity.getWidth(), granularity.getPartitionWidth())
-                + " ("
-                + String.join(",",
-                    TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE)
-                + ")"
-                + " VALUES (?, ?, ?, ?, ?, ?)"
+              "INSERT INTO " + tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth())
+                  + " ("
+                  + String.join(",",
+                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE)
+                  + ")"
+                  + " VALUES (?, ?, ?, ?, ?, ?)"
           );
 
           downsampleQueries.put(granularity.getWidth(),
               "SELECT " + String.join(",", TIMESTAMP, VALUE)
-                  + " FROM " + tableNameDownsampled(granularity.getWidth(), granularity.getPartitionWidth())
-                  + " WHERE"
-                  + "  " + TENANT + " = ?"
+                  + " FROM " + tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth())
+                  + " WHERE " + TENANT + " = ?"
                   + "  AND " + TIME_PARTITION_SLOT + " = ?"
                   + "  AND " + SERIES_SET_HASH + " = ?"
                   + "  AND " + AGGREGATOR + " = ?"
                   + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?"
-              );
+          );
+
+          downsampleDeletes.put(granularity.getWidth(),
+              "DELETE FROM " + tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth())
+                  + " WHERE " + TENANT + " = ?"
+                  + "  AND " + TIME_PARTITION_SLOT + " = ?"
+          );
+
+          downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
+              "DELETE FROM " + tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth())
+                  + " WHERE " + TENANT + " = ?"
+                  + "  AND " + TIME_PARTITION_SLOT + " = ?"
+                  + " AND series_set_hash = ?"
+          );
         });
   }
 
@@ -117,34 +149,67 @@ public class DataTablesStatements {
   }
 
   /**
-   * @return INSERT CQL statement with placeholders
-   * tenant, timeSlot, seriesSetHash, timestamp, value
+   * @return INSERT CQL statement with placeholders tenant, timeSlot, seriesSetHash, timestamp,
+   * value
    */
   public String rawInsert() {
     return rawInsert;
   }
 
   /**
-   * @return A SELECT CQL statement with placeholders
-   * tenant, timeSlot, seriesSetHash, starting timestamp, ending timestamp
-   * and returns timestamp, value
+   * @return A SELECT CQL statement with placeholders tenant, timeSlot, seriesSetHash, starting
+   * timestamp, ending timestamp and returns timestamp, value
    */
   public String rawQuery() {
     return rawQuery;
   }
 
   /**
-   * @return an INSERT CQL statement with placeholders
-   * tenant, timeSlot, seriesSetHash, aggregator, timestamp, value
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot
+   */
+  public String getRawDelete() {
+    return rawDelete;
+  }
+
+  /**
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot, seriesSetHash
+   */
+  public String getRawDeleteWithSeriesSetHash() {
+    return rawDeleteWithSeriesSetHash;
+  }
+
+  /**
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot
+   */
+  public String getRawGetHashQuery() {
+    return rawGetHashQuery;
+  }
+
+  /**
+   * @return an INSERT CQL statement with placeholders tenant, timeSlot, seriesSetHash, aggregator,
+   * timestamp, value
    */
   public String downsampleInsert(Duration granularity) {
     return downsampleInserts.get(granularity);
   }
 
   /**
-   * @return a SELECT CQL statement with placeholders
-   * tenant, timeSlot, seriesSetHash, aggregator, starting timestamp, ending timestamp
-   * and returns timestamp, value
+   * @return an DELETE CQL statement with placeholders tenant, timeSlot
+   */
+  public String downsampleDelete(Duration granularity) {
+    return downsampleDeletes.get(granularity);
+  }
+
+  /**
+   * @return an DELETE CQL statement with placeholders tenant, timeSlot, seriesSetHash
+   */
+  public String downsampleDeleteWithSeriesSetHash(Duration granularity) {
+    return downsampleDeletesWithSeriesSetHash.get(granularity);
+  }
+
+  /**
+   * @return a SELECT CQL statement with placeholders tenant, timeSlot, seriesSetHash, aggregator,
+   * starting timestamp, ending timestamp and returns timestamp, value
    */
   public String downsampleQuery(Duration granularity) {
     return downsampleQueries.get(granularity);
