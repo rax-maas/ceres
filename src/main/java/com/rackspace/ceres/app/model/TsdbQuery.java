@@ -1,7 +1,6 @@
 package com.rackspace.ceres.app.model;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 
 import com.rackspace.ceres.app.downsample.Aggregator;

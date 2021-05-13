@@ -274,7 +274,8 @@ public class MetadataService {
                         String[] values = downsample.split("-");
 
                         Duration granularity =
-                                DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()), granularities);
+                                DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()),
+                                        granularities);
 
                         tsdbQuery.setMetricName(query.getMetric())
                                 .setTags(tags)

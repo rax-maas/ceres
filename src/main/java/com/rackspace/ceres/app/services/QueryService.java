@@ -215,12 +215,10 @@ public class QueryService {
     }
 
     private Mono<TsdbQueryResult> mapTsdbSeriesSetResult(String metricName, Map<String, String> tags, Flux<Row> rows) {
-        return rows
-                .map(row ->
-                        Map.entry(
-                                requireNonNull((Long.toString(row.getInstant(0).getEpochSecond()))),
-                                (int) Math.round(row.getDouble(1)))
-                )
+        return rows.map(row -> Map.entry(
+                requireNonNull((Long.toString(requireNonNull(row.getInstant(0)).getEpochSecond()))),
+                (int) Math.round(row.getDouble(1)))
+        )
                 .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new).filter(values -> !values.isEmpty())
                 .flatMap(values -> buildTsdbQueryResult(metricName, tags, values));
     }
