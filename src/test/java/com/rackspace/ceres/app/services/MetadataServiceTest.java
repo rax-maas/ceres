@@ -368,7 +368,7 @@ class MetadataServiceTest {
     String tenant = "t-1";
     Instant start = Instant.now();
     Instant end = Instant.now();
-    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
+    List<TsdbQuery> results = metadataService.getTsdbQueries(
             List.of(tsdbQueryRequest1, tsdbQueryRequest2), granularities).collectList().block();
 
     assertEquals(4, results.size());
@@ -423,7 +423,7 @@ class MetadataServiceTest {
     Instant start = Instant.now();
     Instant end = Instant.now();
 
-    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
+    List<TsdbQuery> results = metadataService.getTsdbQueries(
             List.of(tsdbQueryRequest), Collections.emptyList()).collectList().block();
     TsdbQuery result = results.get(0);
 

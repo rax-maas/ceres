@@ -173,7 +173,7 @@ public class QueryService {
     public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
                                            Instant start, Instant end, List<Granularity> granularities) {
 
-        return metadataService.getMetricsAndTagsAndMetadata(queries, granularities)
+        return metadataService.getTsdbQueries(queries, granularities)
                 .flatMap(queryWithMetaData -> metadataService.locateSeriesSetHashesFromQuery(tenant, queryWithMetaData))
                 .flatMap(queryWithSeriesSet -> {
 

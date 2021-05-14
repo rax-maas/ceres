@@ -400,7 +400,7 @@ class QueryServiceTest {
             .setFilters(List.of(filter));
 
     when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
-    when(metadataService.getMetricsAndTagsAndMetadata(
+    when(metadataService.getTsdbQueries(
             List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
 
     downsampleProcessor.downsampleData(
