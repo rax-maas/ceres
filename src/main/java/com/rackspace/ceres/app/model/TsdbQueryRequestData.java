@@ -11,9 +11,9 @@ import lombok.Data;
 @Data
 public class TsdbQueryRequestData {
   @NotNull
-  Instant start;
+  String start;
 
-  Instant end;
+  String end;
 
   @NotEmpty
   List<TsdbQueryRequest> queries;

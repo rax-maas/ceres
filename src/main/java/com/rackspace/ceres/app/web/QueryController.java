@@ -67,10 +67,12 @@ public class QueryController {
 
   @PostMapping
   public Flux<TsdbQueryResult> queryTsdb(@RequestBody TsdbQueryRequestData timeQueryData,
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+                                         @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+    Instant startTime = DateTimeUtils.parseInstant(timeQueryData.getStart());
+    Instant endTime = DateTimeUtils.parseInstant(timeQueryData.getEnd());
     return queryService
-        .queryTsdb(tenantHeader, timeQueryData.getQueries(), timeQueryData.getStart(),
-            timeQueryData.getEnd(), downsampleProperties.getGranularities());
+            .queryTsdb(tenantHeader, timeQueryData.getQueries(), startTime,
+                    endTime, downsampleProperties.getGranularities());
   }
 
   @GetMapping
