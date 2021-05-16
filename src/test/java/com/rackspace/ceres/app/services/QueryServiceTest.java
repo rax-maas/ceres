@@ -415,9 +415,9 @@ class QueryServiceTest {
             false
     ).block();
 
-    final Map<String, Integer> expectedDps = Map.of(
-            epochSecondsNow.toString(), 2,
-            epochSecondsNowPlus2Min.toString(), 8
+    final Map<String, Double> expectedDps = Map.of(
+            epochSecondsNow.toString(), 1.8,
+            epochSecondsNowPlus2Min.toString(), 8.4
     );
 
     StepVerifier.create(

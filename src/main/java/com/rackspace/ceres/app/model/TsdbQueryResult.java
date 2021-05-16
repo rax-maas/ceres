@@ -11,5 +11,5 @@ public class TsdbQueryResult {
   String metric;
   Map<String,String> tags;
   List<String> aggregatedTags;
-  Map<String, Integer> dps;
+  Map<String, Double> dps;
 }

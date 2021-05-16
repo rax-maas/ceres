@@ -217,14 +217,14 @@ public class QueryService {
     private Mono<TsdbQueryResult> mapTsdbSeriesSetResult(String metricName, Map<String, String> tags, Flux<Row> rows) {
         return rows.map(row -> Map.entry(
                 requireNonNull((Long.toString(requireNonNull(row.getInstant(0)).getEpochSecond()))),
-                (int) Math.round(row.getDouble(1)))
+                row.getDouble(1))
         )
                 .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new).filter(values -> !values.isEmpty())
                 .flatMap(values -> buildTsdbQueryResult(metricName, tags, values));
     }
 
     private Mono<TsdbQueryResult> buildTsdbQueryResult(
-            String metricName, Map<String, String> tags, Map<String, Integer> values) {
+            String metricName, Map<String, String> tags, Map<String, Double> values) {
         return Mono.just(new TsdbQueryResult()
                 .setMetric(metricName)
                 .setTags(tags)

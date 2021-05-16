@@ -282,17 +282,17 @@ public class MetadataService {
 
         requests.stream().forEach(request -> {
 
-            String metric = request.getMetric();
-            String downsample = request.getDownsample();
+            if (request.getFilters() != null) {
+                String metric = request.getMetric();
+                String downsample = request.getDownsample();
 
-            request.getFilters().stream().forEach(filter -> {
-
-                String tagKey = filter.getTagk();
-
-                Arrays.stream(filter.getFilter().split("\\|"))
-                        .forEach(tagValue ->
-                                result.add(parseTsdbQuery(metric, downsample, tagKey, tagValue, granularities)));
-            });
+                request.getFilters().stream().forEach(filter -> {
+                    String tagKey = filter.getTagk();
+                    Arrays.stream(filter.getFilter().split("\\|"))
+                            .forEach(tagValue ->
+                                    result.add(parseTsdbQuery(metric, downsample, tagKey, tagValue, granularities)));
+                });
+            }
         });
         return Flux.fromIterable(result);
     }
