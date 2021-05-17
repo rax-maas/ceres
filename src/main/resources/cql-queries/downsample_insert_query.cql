@@ -1,0 +1,3 @@
+INSERT INTO %s
+(%s)
+VALUES (?, ?, ?, ?, ?, ?)

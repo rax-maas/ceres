@@ -194,6 +194,7 @@ public class MetricDeletionService {
   }
 
   private Mono<Boolean> deleteMetricNamesByTenantAndMetricName(String tenant, String metricName) {
+    log.info("inside deleteMetricNamesByTenantAndMetricName");
     return cqlTemplate
         .execute("DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?",
             tenant, metricName)
@@ -202,6 +203,7 @@ public class MetricDeletionService {
 
   private Mono<Boolean> deleteSeriesSetsByTenantIdAndMetricName(String tenant,
       String metricName) {
+    log.info("inside deleteSeriesSetsByTenantIdAndMetricName");
     return cqlTemplate
         .execute("DELETE FROM series_sets WHERE tenant = ? AND metric_name = ?"
             , tenant, metricName)
@@ -209,6 +211,7 @@ public class MetricDeletionService {
   }
 
   private Mono<Boolean> deleteSeriesSetHashes(String tenant, String seriesSetHash) {
+    log.info("inside deleteSeriesSetHashes");
     return cqlTemplate
         .execute("DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?",
             tenant, seriesSetHash)
@@ -217,17 +220,17 @@ public class MetricDeletionService {
 
   private Mono<Boolean> deleteRawOrDownsampledEntries(String query, String tenant, Instant timeSlot,
       String seriesSetHash) {
+    log.info("inside deleteRawOrDownsampledEntries");
     return cqlTemplate
         .execute(query, tenant, timeSlot,
-            seriesSetHash)
-        .retryWhen(appProperties.getRetryDelete().build());
+            seriesSetHash);
   }
 
   private Mono<Boolean> deleteRawOrDownsampledEntries(String query, String tenant,
       Instant timeSlot) {
+    log.info("inside deleteRawOrDownsampledEntries");
     return cqlTemplate
-        .execute(query, tenant, timeSlot)
-        .retryWhen(appProperties.getRetryDelete().build());
+        .execute(query, tenant, timeSlot);
   }
 
   private Mono<Boolean> removeEntryFromCache(String tenant, String seriesSetHash) {
@@ -246,7 +249,7 @@ public class MetricDeletionService {
 
   private Flux<String> getSeriesSetHashFromRaw(String tenant, Instant timeSlot) {
     return cqlTemplate
-        .queryForFlux(dataTablesStatements.getRawGetHashQuery(), String.class, tenant, timeSlot);
+        .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(), String.class, tenant, timeSlot);
   }
 
   private Flux<String> getSeriesSetHashFromSeriesSets(String tenant,

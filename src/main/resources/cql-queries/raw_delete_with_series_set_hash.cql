@@ -1,0 +1,7 @@
+DELETE FROM %s
+WHERE
+    TENANT  = ?
+AND
+    TIME_SLOT = ?
+AND
+    SERIES_SET_HASH = ?
