@@ -86,6 +86,9 @@ public class MetricDeletionServiceTest {
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
+    when(metadataService.getMetricNames(anyString()))
+        .thenReturn(Mono.just(List.of(metricName)));
+
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
