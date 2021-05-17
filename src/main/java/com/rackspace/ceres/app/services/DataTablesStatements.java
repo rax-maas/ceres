@@ -133,7 +133,7 @@ public class DataTablesStatements {
           try {
               downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
                   String
-                      .format(SpringResourceUtils.readContent("cql-queries/raw_select_series_set_hash.cql"),
+                      .format(SpringResourceUtils.readContent("cql-queries/raw_delete_with_series_set_hash.cql"),
                           tableNameDownsampled(granularity.getWidth(),
                               granularity.getPartitionWidth())));
             } catch (IOException e) {
