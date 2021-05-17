@@ -50,26 +50,6 @@ public class WriteControllerTest {
   ArgumentCaptor<Flux<Tuple2<String, Metric>>> metrics;
 
   @Test
-  public void testPutMetrics() {
-
-    Metric metric = new Metric().setMetric("metricA").setTags(
-        Collections.singletonMap("os", "linux")).setTimestamp(Instant.now()).setValue(123);
-
-    when(dataWriteService.ingest(any())).thenReturn(Flux.just(metric));
-
-    webTestClient.post().uri("/api/put").body(Flux.just(metric), Metric.class).exchange()
-        .expectStatus().isNoContent();
-
-    verify(dataWriteService).ingest(metrics.capture());
-
-    //verify tenant is default when not present in header or tagsMap
-    StepVerifier.create(metrics.getValue()).expectNext(Tuples.of("default", metric))
-        .expectComplete().verify();
-
-    verifyNoMoreInteractions(dataWriteService);
-  }
-
-  @Test
   public void testPutMetrics_WithParams() {
 
     Metric metric = new Metric().setMetric("metricA").setTags(
