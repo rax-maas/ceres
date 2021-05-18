@@ -354,19 +354,22 @@ class MetadataServiceTest {
             .setFilter("h-1|h-2");
 
     TsdbQueryRequest tsdbQueryRequest1 = new TsdbQueryRequest()
-      .setMetric("cpu_idle")
-      .setDownsample("2m-avg")
-      .setFilters(List.of(filter));
+            .setMetric("cpu_idle")
+            .setDownsample("2m-avg")
+            .setFilters(List.of(filter));
 
     TsdbQueryRequest tsdbQueryRequest2 = new TsdbQueryRequest()
-      .setMetric("cpu_active")
-      .setDownsample("1m-sum")
-      .setFilters(List.of(filter));
+            .setMetric("cpu_active")
+            .setDownsample("1m-sum")
+            .setFilters(List.of(filter));
 
     List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
 
-    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
-      List.of(tsdbQueryRequest1, tsdbQueryRequest2), granularities).collectList().block();
+    String tenant = "t-1";
+    Instant start = Instant.now();
+    Instant end = Instant.now();
+    List<TsdbQuery> results = metadataService.getTsdbQueries(
+            List.of(tsdbQueryRequest1, tsdbQueryRequest2), granularities).collectList().block();
 
     assertEquals(4, results.size());
 
@@ -412,12 +415,16 @@ class MetadataServiceTest {
             .setFilter("h-1");
 
     TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
-      .setMetric("cpu_idle")
-      .setDownsample(null)
-      .setFilters(List.of(filter));
+            .setMetric("cpu_idle")
+            .setDownsample(null)
+            .setFilters(List.of(filter));
 
-    List<TsdbQuery> results = metadataService.getMetricsAndTagsAndMetadata(
-      List.of(tsdbQueryRequest), Collections.emptyList()).collectList().block();
+    String tenant = "t-1";
+    Instant start = Instant.now();
+    Instant end = Instant.now();
+
+    List<TsdbQuery> results = metadataService.getTsdbQueries(
+            List.of(tsdbQueryRequest), Collections.emptyList()).collectList().block();
     TsdbQuery result = results.get(0);
 
     assertEquals(1, results.size());

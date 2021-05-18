@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 @Component
 public class TimeSlotPartitioner {
@@ -112,5 +113,9 @@ public class TimeSlotPartitioner {
     }
 
     return partitions;
+  }
+
+  public Flux<Instant> partitionsOverRangeFromQuery(Instant start, Instant end, Duration granularity) {
+    return Flux.fromIterable(partitionsOverRange(start, end, granularity));
   }
 }

@@ -9,6 +9,7 @@ import lombok.Data;
 
 @Data
 public class TsdbQuery {
+  String seriesSet;
   String metricName;
   Map<String,String> tags;
   Aggregator aggregator;

@@ -16,11 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
-
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -30,14 +25,8 @@ import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
-
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -46,6 +35,19 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
 
 @Service
 public class MetadataService {
@@ -241,42 +243,59 @@ public class MetadataService {
         .flatMapMany(Flux::fromIterable);
   }
 
-  public Flux<TsdbQuery> getMetricsAndTagsAndMetadata(List<TsdbQueryRequest> queries, List<Granularity> granularities) {
-    List<TsdbQuery> result = new ArrayList<TsdbQuery>();
-
-    for (TsdbQueryRequest query : queries) {
-      List<TsdbFilter> filters = query.getFilters();
-
-      for (TsdbFilter filter : filters) {
-        String[] splitValues = filter.getFilter().split("\\|");
-        for (int i = 0; i < splitValues.length; i++) {
-
-          Map<String, String> tags = new HashMap<String, String>();
-          tags.put(filter.getTagk(), splitValues[i]);
-
-          TsdbQuery tsdbQuery = new TsdbQuery();
-          String downsample = query.getDownsample();
-          if (downsample != null && !downsample.isEmpty()) {
-            String[] values = downsample.split("-");
-            Duration granularity =
-              DateTimeUtils.getGranularity(Duration.parse("PT" + values[0].toUpperCase()), granularities);
-
-            tsdbQuery.setMetricName(query.getMetric())
-              .setTags(tags)
-              .setGranularity(granularity)
-              .setAggregator(Aggregator.valueOf(values[1]));
-          } else {
-            tsdbQuery.setMetricName(query.getMetric())
-              .setTags(tags)
-              .setGranularity(null)
-              .setAggregator(Aggregator.raw);
-          }
-          result.add(tsdbQuery);
-        }
-      }
+    public Flux<TsdbQuery> locateSeriesSetHashesFromQuery(String tenant, TsdbQuery query) {
+        return locateSeriesSetHashes(tenant, query.getMetricName(), query.getTags())
+                .flatMap(seriesSet -> {
+                    query.setSeriesSet(seriesSet);
+                    return Flux.just(query);
+                });
     }
-    return Flux.fromIterable(result);
-  }
+
+    private TsdbQuery parseTsdbQuery(String metric, String downsample, String tagKey, String tagValue,
+                                     List<Granularity> granularities) {
+        Map<String, String> tags = Map.of(tagKey, tagValue);
+        TsdbQuery tsdbQuery = new TsdbQuery();
+
+        if (downsample != null && !downsample.isEmpty()) {
+            String[] downsampleValues = downsample.split("-");
+
+            Duration granularity =
+                    DateTimeUtils.getGranularity(Duration.parse("PT" + downsampleValues[0].toUpperCase()),
+                            granularities);
+
+            tsdbQuery.setMetricName(metric)
+                    .setTags(tags)
+                    .setGranularity(granularity)
+                    .setAggregator(Aggregator.valueOf(downsampleValues[1]));
+        } else {
+            tsdbQuery.setMetricName(metric)
+                    .setTags(tags)
+                    .setGranularity(null)
+                    .setAggregator(Aggregator.raw);
+        }
+        return tsdbQuery;
+    }
+
+    public Flux<TsdbQuery> getTsdbQueries(
+            List<TsdbQueryRequest> requests, List<Granularity> granularities) {
+        List<TsdbQuery> result = new ArrayList<>();
+
+        requests.stream().forEach(request -> {
+
+            if (request.getFilters() != null) {
+                String metric = request.getMetric();
+                String downsample = request.getDownsample();
+
+                request.getFilters().stream().forEach(filter -> {
+                    String tagKey = filter.getTagk();
+                    Arrays.stream(filter.getFilter().split("\\|"))
+                            .forEach(tagValue ->
+                                    result.add(parseTsdbQuery(metric, downsample, tagKey, tagValue, granularities)));
+                });
+            }
+        });
+        return Flux.fromIterable(result);
+    }
 
   public MetricNameAndMultiTags getMetricNameAndTags(String m) {
     MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
