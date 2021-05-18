@@ -83,7 +83,7 @@ public class MetricDeletionService {
         .flatMap(timeSlot -> {
           Flux<String> seriesSetHashes = getSeriesSetHashFromSeriesSets(tenant,
               metricName);
-          return deleteMetric(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
+          return deleteMetricRefactored(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
         })
         //delete entries from metric_names table
@@ -103,47 +103,48 @@ public class MetricDeletionService {
         .flatMap(timeSlot -> {
           Flux<String> seriesSetHashes = metadataService.locateSeriesSetHashes(tenant,
               metricName, queryTags);
-          return deleteMetric(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
+          return deleteMetricRefactored(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
         }).then(Mono.empty());
   }
 
-  private Mono<Boolean> deleteMetric(List<Granularity> granularities, String tenant,
-      Instant timeSlot, String metricName, Flux<String> seriesSetHashes) {
-    return seriesSetHashes.flatMap(
-        seriesSetHash -> Flux.fromIterable(granularities)
-            //delete entries from downsampled tables
-            .flatMap(granularity ->
-                deleteRawOrDownsampledEntries(
-                    dataTablesStatements.downsampleDeleteWithSeriesSetHash(granularity.getWidth()),
-                    tenant, timeSlot, seriesSetHash))
-            .then(Mono.just(true))
-    )
-        .then(Mono.just(true))
-        //delete entries from raw table
-        .flatMap(item ->
-            seriesSetHashes.flatMap(seriesSetHash ->
-                deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(),
-                    tenant, timeSlot, seriesSetHash))
-                .then(Mono.just(true))
-        )
-        //delete entries from series_set_hashes table
-        .flatMap(result ->
-            seriesSetHashes.flatMap(seriesSetHash ->
-                deleteSeriesSetHashes(tenant, seriesSetHash)
-            )
-                .then(Mono.just(true)))
-        //delete entries from redis cache
-        .flatMap(result ->
-            seriesSetHashes.flatMap(seriesSetHash ->
-                removeEntryFromCache(tenant, seriesSetHash)
-            )
-                .then(Mono.just(true)))
-        //delete entries from series_sets table
-        .flatMap(result ->
-            deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName)
-        );
-  }
+//  private Mono<Boolean> deleteMetric(List<Granularity> granularities, String tenant,
+//      Instant timeSlot, String metricName, Flux<String> seriesSetHashes) {
+//    return
+//        seriesSetHashes
+//            .flatMap(seriesSetHash -> Flux.fromIterable(granularities)
+//            //delete entries from downsampled tables
+//                .flatMap(granularity ->
+//                    deleteRawOrDownsampledEntries(
+//                        dataTablesStatements.downsampleDeleteWithSeriesSetHash(granularity.getWidth()),
+//                        tenant, timeSlot, seriesSetHash))
+//                .then(Mono.just(true))
+//            )
+//            .then(Mono.just(true))
+//        //delete entries from raw table
+//        .flatMap(item ->
+//            seriesSetHashes.flatMap(seriesSetHash ->
+//                deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(),
+//                    tenant, timeSlot, seriesSetHash))
+//                .then(Mono.just(true))
+//        )
+//        //delete entries from series_set_hashes table
+//        .flatMap(result ->
+//            seriesSetHashes.flatMap(seriesSetHash ->
+//                deleteSeriesSetHashes(tenant, seriesSetHash)
+//            )
+//                .then(Mono.just(true)))
+//        //delete entries from redis cache
+//        .flatMap(result ->
+//            seriesSetHashes.flatMap(seriesSetHash ->
+//                removeEntryFromCache(tenant, seriesSetHash)
+//            )
+//                .then(Mono.just(true)))
+//        //delete entries from series_sets table
+//        .flatMap(result ->
+//            deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName)
+//        );
+//  }
 
   private Mono<Boolean> deleteMetricsByTenantId(List<Granularity> granularities, String tenant,
       Instant timeSlot) {
@@ -256,5 +257,31 @@ public class MetricDeletionService {
             + " WHERE tenant = ? AND metric_name = ? ",
         String.class,
         tenant, metricName).distinct();
+  }
+
+  private Mono<Boolean> deleteMetricRefactored(List<Granularity> granularities, String tenant,
+      Instant timeSlot, String metricName, Flux<String> seriesSetHashes) {
+    return
+        seriesSetHashes.flatMap(seriesSetHash -> delete(seriesSetHash, granularities, tenant, timeSlot, metricName))
+            .then(Mono.just(true));
+  }
+
+  private Mono<Boolean> delete(String seriesSetHash, List<Granularity> granularities, String tenant, Instant timeSlot, String metricName) {
+    return deleteMetricData(seriesSetHash, granularities, tenant, timeSlot)
+        .then(deleteMetadata(seriesSetHash, tenant, metricName));
+  }
+
+  private Mono<Boolean> deleteMetadata(String seriesSetHash, String tenant, String metricName) {
+    return deleteSeriesSetHashes(tenant, seriesSetHash)
+        .then(removeEntryFromCache(tenant, seriesSetHash))
+        .then(deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName));
+  }
+
+  private Mono<Boolean> deleteMetricData(String seriesSetHash, List<Granularity> granularities, String tenant, Instant timeSlot) {
+    return Flux.fromIterable(granularities)
+        .flatMap(granularity ->
+            deleteRawOrDownsampledEntries(dataTablesStatements.downsampleDeleteWithSeriesSetHash(granularity.getWidth()),
+                tenant, timeSlot, seriesSetHash))
+        .then(deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(), tenant, timeSlot, seriesSetHash));
   }
 }
