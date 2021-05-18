@@ -58,7 +58,7 @@ public class DataTablesStatements {
 
   @Autowired
   public DataTablesStatements(AppProperties appProperties,
-      DownsampleProperties downsampleProperties) throws IOException {
+      DownsampleProperties downsampleProperties) throws IOException, IllegalArgumentException {
     buildRawStatements(appProperties);
     buildDownsampleStatements(downsampleProperties);
   }
@@ -91,7 +91,7 @@ public class DataTablesStatements {
             tableNameRaw(appProperties.getRawPartitionWidth()));
   }
 
-  private void buildDownsampleStatements(DownsampleProperties downsampleProperties) throws IOException {
+  private void buildDownsampleStatements(DownsampleProperties downsampleProperties) {
     if (downsampleProperties.getGranularities() == null) {
       return;
     }
@@ -107,7 +107,7 @@ public class DataTablesStatements {
                         String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR,
                             TIMESTAMP, VALUE)));
           } catch (IOException e) {
-            e.printStackTrace();
+            throw new IllegalArgumentException(e.getMessage());
           }
 
           try {
@@ -117,7 +117,7 @@ public class DataTablesStatements {
                           String.join(",", TIMESTAMP, VALUE), tableNameDownsampled(granularity.getWidth(),
                               granularity.getPartitionWidth())));
           } catch (IOException e) {
-            e.printStackTrace();
+            throw new IllegalArgumentException(e.getMessage());
           }
 
           try {
@@ -127,18 +127,19 @@ public class DataTablesStatements {
                           tableNameDownsampled(granularity.getWidth(),
                               granularity.getPartitionWidth())));
           } catch (IOException e) {
-            e.printStackTrace();
+            throw new IllegalArgumentException(e.getMessage());
           }
 
           try {
-              downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
-                  String
-                      .format(SpringResourceUtils.readContent("cql-queries/raw_delete_with_series_set_hash.cql"),
-                          tableNameDownsampled(granularity.getWidth(),
-                              granularity.getPartitionWidth())));
-            } catch (IOException e) {
-              e.printStackTrace();
-            }
+            downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
+                String
+                    .format(SpringResourceUtils
+                            .readContent("cql-queries/raw_delete_with_series_set_hash.cql"),
+                        tableNameDownsampled(granularity.getWidth(),
+                            granularity.getPartitionWidth())));
+          } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage());
+          }
         });
   }
 
