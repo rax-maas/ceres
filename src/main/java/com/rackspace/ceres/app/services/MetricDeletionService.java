@@ -40,6 +40,11 @@ public class MetricDeletionService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
 
+  private final String deleteMetricNamesQuery;
+  private final String deleteSeriesSetQuery;
+  private final String deleteSeriesSetHashesQuery;
+  private final String selectSeriesSetHashesQuery;
+
   @Autowired
   public MetricDeletionService(ReactiveCqlTemplate cqlTemplate,
       DataTablesStatements dataTablesStatements, AppProperties appProperties,
@@ -54,6 +59,11 @@ public class MetricDeletionService {
     this.redisTemplate = redisTemplate;
     this.metadataService = metadataService;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
+
+    deleteMetricNamesQuery = "DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?";
+    deleteSeriesSetQuery = "DELETE FROM series_sets WHERE tenant = ? AND metric_name = ?";
+    deleteSeriesSetHashesQuery = "DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?";
+    selectSeriesSetHashesQuery = "SELECT series_set_hash FROM series_sets WHERE tenant = ? AND metric_name = ?";
   }
 
   public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
@@ -195,23 +205,20 @@ public class MetricDeletionService {
 
   private Mono<Boolean> deleteMetricNamesByTenantAndMetricName(String tenant, String metricName) {
     return cqlTemplate
-        .execute("DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?",
-            tenant, metricName)
+        .execute(deleteMetricNamesQuery, tenant, metricName)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
   private Mono<Boolean> deleteSeriesSetsByTenantIdAndMetricName(String tenant,
       String metricName) {
     return cqlTemplate
-        .execute("DELETE FROM series_sets WHERE tenant = ? AND metric_name = ?"
-            , tenant, metricName)
+        .execute(deleteSeriesSetQuery, tenant, metricName)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
   private Mono<Boolean> deleteSeriesSetHashes(String tenant, String seriesSetHash) {
     return cqlTemplate
-        .execute("DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?",
-            tenant, seriesSetHash)
+        .execute(deleteSeriesSetHashesQuery, tenant, seriesSetHash)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -251,10 +258,7 @@ public class MetricDeletionService {
 
   private Flux<String> getSeriesSetHashFromSeriesSets(String tenant,
       String metricName) {
-    return cqlTemplate.queryForFlux(
-        "SELECT series_set_hash FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ? ",
-        String.class,
+    return cqlTemplate.queryForFlux(selectSeriesSetHashesQuery, String.class,
         tenant, metricName).distinct();
   }
 }
