@@ -73,11 +73,6 @@ public class AppProperties {
    * column.
    */
   String tenantTag = "tenant";
-  /**
-   * When tenant header and tag is not present during ingest, then this value will be used as
-   * the default.
-   */
-  String defaultTenant = "default";
 
   /**
    * Maximum size of the cache that tracks series-sets that have been persisted into Cassandra.

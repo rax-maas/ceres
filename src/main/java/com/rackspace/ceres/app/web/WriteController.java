@@ -79,10 +79,6 @@ public class WriteController {
                 tenant = tenantHeader;
               } else {
                 tenant = metric.getTags().remove(appProperties.getTenantTag());
-
-                if (!StringUtils.hasText(tenant)) {
-                  tenant = appProperties.getDefaultTenant();
-                }
               }
 
               return Tuples.of(tenant, metric);
