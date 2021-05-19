@@ -51,6 +51,13 @@ public class MetricDeletionHelper {
     this.redisTemplate = redisTemplate;
   }
 
+  /**
+   * Delete metric_names by tenant and metric name.
+   *
+   * @param tenant     the tenant
+   * @param metricName the metric name
+   * @return the mono
+   */
   public Mono<Boolean> deleteMetricNamesByTenantAndMetricName(String tenant, String metricName) {
     return cqlTemplate
         .execute("DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?",
@@ -58,6 +65,13 @@ public class MetricDeletionHelper {
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
+  /**
+   * Delete series_sets by tenant id and metric name.
+   *
+   * @param tenant     the tenant
+   * @param metricName the metric name
+   * @return the mono
+   */
   public Mono<Boolean> deleteSeriesSetsByTenantIdAndMetricName(String tenant,
       String metricName) {
     return cqlTemplate
@@ -66,6 +80,13 @@ public class MetricDeletionHelper {
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
+  /**
+   * Delete series_set_hashes by tenant and seriesSetHash.
+   *
+   * @param tenant        the tenant
+   * @param seriesSetHash the series set hash
+   * @return the mono
+   */
   public Mono<Boolean> deleteSeriesSetHashes(String tenant, String seriesSetHash) {
     return cqlTemplate
         .execute("DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?",
@@ -73,6 +94,15 @@ public class MetricDeletionHelper {
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
+  /**
+   * Delete metrics from raw or downsampled tables by tenant, timeslot and seriesSetHash.
+   *
+   * @param query         the query
+   * @param tenant        the tenant
+   * @param timeSlot      the time slot
+   * @param seriesSetHash the series set hash
+   * @return the mono
+   */
   public Mono<Boolean> deleteRawOrDownsampledEntries(String query, String tenant, Instant timeSlot,
       String seriesSetHash) {
     return cqlTemplate
@@ -81,6 +111,14 @@ public class MetricDeletionHelper {
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
+  /**
+   * Delete metrics from raw or downsampled tables by tenant and timeslot.
+   *
+   * @param query    the query
+   * @param tenant   the tenant
+   * @param timeSlot the time slot
+   * @return the mono
+   */
   public Mono<Boolean> deleteRawOrDownsampledEntries(String query, String tenant,
       Instant timeSlot) {
     return cqlTemplate
@@ -88,6 +126,13 @@ public class MetricDeletionHelper {
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
+  /**
+   * Remove entry from local cache as well as redis
+   *
+   * @param tenant        the tenant
+   * @param seriesSetHash the series set hash
+   * @return the mono
+   */
   public Mono<Boolean> removeEntryFromCache(String tenant, String seriesSetHash) {
     seriesSetExistenceCache.synchronous()
         .invalidate(new SeriesSetCacheKey(tenant, seriesSetHash));
@@ -102,15 +147,27 @@ public class MetricDeletionHelper {
         });
   }
 
-  public Flux<String> getSeriesSetHashFromDownsampled(String tenant, Instant timeSlot) {
-    /**
-     * TODO - before checking into downsampled table, add a check in raw data as well.
-     *        if its there, get it from there, otherwise from downsampled table
-     */
+  /**
+   * Gets series_set_hash from raw or downsampled tables
+   *
+   * @param tenant   the tenant
+   * @param timeSlot the time slot
+   * @return the series set hash from downsampled
+   */
+  public Flux<String> getSeriesSetHashFromRawOrDownsampled(String tenant, Instant timeSlot) {
     return cqlTemplate
-        .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class, tenant, timeSlot);
+        .queryForFlux(dataTablesStatements.getRawGetHashQuery(), String.class, tenant, timeSlot)
+        .switchIfEmpty(cqlTemplate
+            .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class, tenant, timeSlot));
   }
 
+  /**
+   * Gets seriesSetHashes from series sets table by tenant and metricName
+   *
+   * @param tenant     the tenant
+   * @param metricName the metric name
+   * @return the series set hash from series sets
+   */
   public Flux<String> getSeriesSetHashFromSeriesSets(String tenant,
       String metricName) {
     return cqlTemplate.queryForFlux(

@@ -108,6 +108,14 @@ public class MetricDeletionService {
         }).then(Mono.empty());
   }
 
+  /**
+   * Delete metrics and its metadata by tenant.
+   *
+   * @param granularities the granularities
+   * @param tenant        the tenant
+   * @param timeSlot      the time slot
+   * @return the mono
+   */
   private Mono<Boolean> deleteMetrics(List<Granularity> granularities, String tenant,
       Instant timeSlot) {
     return deleteMetadataByTenantId(tenant, timeSlot)
@@ -119,6 +127,16 @@ public class MetricDeletionService {
                 tenant, timeSlot)));
   }
 
+  /**
+   * Delete metrics and its metadata by tenant, metricName and seriesSetHash
+   *
+   * @param granularities   the granularities
+   * @param tenant          the tenant
+   * @param timeSlot        the time slot
+   * @param metricName      the metric name
+   * @param seriesSetHashes the series set hashes
+   * @return the mono
+   */
   private Mono<Boolean> deleteMetrics(List<Granularity> granularities, String tenant,
       Instant timeSlot, String metricName, Flux<String> seriesSetHashes) {
     return seriesSetHashes.flatMap(seriesSetHash ->
@@ -127,17 +145,37 @@ public class MetricDeletionService {
         .then(Mono.just(true));
   }
 
-  private Mono<Boolean> deleteMetricsByTenantIdAndSeriesSetHash(String seriesSetHash, List<Granularity> granularities, String tenant, Instant timeSlot) {
+  /**
+   * Delete metrics by tenant and seriesSeHash.
+   *
+   * @param seriesSetHash the series set hash
+   * @param granularities the granularities
+   * @param tenant        the tenant
+   * @param timeSlot      the time slot
+   * @return the mono
+   */
+  private Mono<Boolean> deleteMetricsByTenantIdAndSeriesSetHash(String seriesSetHash,
+      List<Granularity> granularities, String tenant, Instant timeSlot) {
     return Flux.fromIterable(granularities)
         .flatMap(granularity ->
-            metricDeletionHelper.deleteRawOrDownsampledEntries(dataTablesStatements.downsampleDeleteWithSeriesSetHash(granularity.getWidth()),
+            metricDeletionHelper.deleteRawOrDownsampledEntries(
+                dataTablesStatements.downsampleDeleteWithSeriesSetHash(granularity.getWidth()),
                 tenant, timeSlot, seriesSetHash))
-        .then(metricDeletionHelper.deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(), tenant, timeSlot, seriesSetHash));
+        .then(metricDeletionHelper
+            .deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(),
+                tenant, timeSlot, seriesSetHash));
   }
 
+  /**
+   * Delete metadata by tenant id.
+   *
+   * @param tenant   the tenant
+   * @param timeSlot the time slot
+   * @return the mono
+   */
   private Mono<Boolean> deleteMetadataByTenantId(String tenant, Instant timeSlot) {
     //get series set hashes from downsample table with max ttl by tenant and timeSlot
-    Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromDownsampled(tenant, timeSlot);
+    Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromRawOrDownsampled(tenant, timeSlot);
     //get metricNames from metric_names table by tenant
     Flux<String> metricNames = metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable);
 
@@ -146,17 +184,39 @@ public class MetricDeletionService {
             .then(Mono.just(true)));
   }
 
+  /**
+   * Delete metadata by tenant, metricName and seriesSetHash.
+   *
+   * @param seriesSetHash the series set hash
+   * @param tenant        the tenant
+   * @param metricName    the metric name
+   * @return the mono
+   */
   private Mono<Boolean> deleteMetadataByTenantIdAndSeriesSet(String seriesSetHash, String tenant, String metricName) {
     return deleteSeriesSetHashesAndCache(tenant, seriesSetHash)
         .then(metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName));
   }
 
 
+  /**
+   * Delete seriesSetHashes and removed entry from cache.
+   *
+   * @param tenant        the tenant
+   * @param seriesSetHash the series set hash
+   * @return the mono
+   */
   private Mono<Boolean> deleteSeriesSetHashesAndCache(String tenant, String seriesSetHash) {
     return metricDeletionHelper.deleteSeriesSetHashes(tenant, seriesSetHash)
         .then(metricDeletionHelper.removeEntryFromCache(tenant, seriesSetHash));
   }
 
+  /**
+   * Delete seriesSets and metricName.
+   *
+   * @param tenant     the tenant
+   * @param metricName the metric name
+   * @return the mono
+   */
   private Mono<Boolean> deleteSeriesSetAndMetricName(String tenant, String metricName) {
     return metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName)
         .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName));

@@ -46,8 +46,9 @@ public class DataTablesStatements {
   private String rawInsert;
   private String rawQuery;
   private String rawDelete;
-  private String downsampledGetHashQuery;
+  private String rawGetHashQuery;
   private String rawDeleteWithSeriesSetHash;
+  private String downsampledGetHashQuery;
 
   private final Map<Duration, String> downsampleInserts = new HashMap<>();
   private final Map<Duration, String> downsampleQueries = new HashMap<>();
@@ -94,6 +95,9 @@ public class DataTablesStatements {
         "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
             + " WHERE " + TENANT + " = ?"
             + "  AND " + TIME_PARTITION_SLOT + " = ?";
+    rawGetHashQuery = "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+        + " WHERE " + TENANT + " = ?"
+        + "  AND " + TIME_PARTITION_SLOT + " = ?";
   }
 
   private void buildDownsampleStatements(DownsampleProperties downsampleProperties) {
@@ -189,7 +193,14 @@ public class DataTablesStatements {
   }
 
   /**
-   * @return A DELETE CQL statement with placeholders tenant, timeSlot
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot from raw table
+   */
+  public String getRawGetHashQuery() {
+    return rawGetHashQuery;
+  }
+
+  /**
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot from downsampled table
    */
   public String getDownsampledGetHashQuery() {
     return downsampledGetHashQuery;
