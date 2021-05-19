@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.utils.SpringResourceUtils;
 import java.io.IOException;
 import java.time.Duration;
@@ -95,52 +96,44 @@ public class DataTablesStatements {
     if (downsampleProperties.getGranularities() == null) {
       return;
     }
-
     downsampleProperties.getGranularities()
-        .forEach(granularity -> {
+        .forEach(granularity ->
+        {
           try {
-            downsampleInserts.put(granularity.getWidth(),
-                String
-                    .format(SpringResourceUtils.readContent("cql-queries/downsample_insert_query.cql"),
-                        tableNameDownsampled(granularity.getWidth(),
-                            granularity.getPartitionWidth()),
-                        String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR,
-                            TIMESTAMP, VALUE)));
+            addDownsampleQueries(granularity);
           } catch (IOException e) {
-            throw new IllegalArgumentException(e.getMessage());
-          }
-
-          try {
-            downsampleQueries.put(granularity.getWidth(),
-                  String
-                      .format(SpringResourceUtils.readContent("cql-queries/downsample_select_query.cql"),
-                          String.join(",", TIMESTAMP, VALUE), tableNameDownsampled(granularity.getWidth(),
-                              granularity.getPartitionWidth())));
-          } catch (IOException e) {
-            throw new IllegalArgumentException(e.getMessage());
-          }
-
-          try {
-            downsampleDeletes.put(granularity.getWidth(),
-                  String
-                      .format(SpringResourceUtils.readContent("cql-queries/raw_delete_query.cql"),
-                          tableNameDownsampled(granularity.getWidth(),
-                              granularity.getPartitionWidth())));
-          } catch (IOException e) {
-            throw new IllegalArgumentException(e.getMessage());
-          }
-
-          try {
-            downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
-                String
-                    .format(SpringResourceUtils
-                            .readContent("cql-queries/raw_delete_with_series_set_hash.cql"),
-                        tableNameDownsampled(granularity.getWidth(),
-                            granularity.getPartitionWidth())));
-          } catch (IOException e) {
-            throw new IllegalArgumentException(e.getMessage());
+            throw new IllegalArgumentException();
           }
         });
+  }
+
+  private void addDownsampleQueries(Granularity granularity) throws IOException {
+      downsampleInserts.put(granularity.getWidth(),
+          String
+              .format(SpringResourceUtils.readContent("cql-queries/downsample_insert_query.cql"),
+                  tableNameDownsampled(granularity.getWidth(),
+                      granularity.getPartitionWidth()),
+                  String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR,
+                      TIMESTAMP, VALUE)));
+
+        downsampleQueries.put(granularity.getWidth(),
+            String
+                .format(SpringResourceUtils.readContent("cql-queries/downsample_select_query.cql"),
+                    String.join(",", TIMESTAMP, VALUE), tableNameDownsampled(granularity.getWidth(),
+                        granularity.getPartitionWidth())));
+
+        downsampleDeletes.put(granularity.getWidth(),
+            String
+                .format(SpringResourceUtils.readContent("cql-queries/raw_delete_query.cql"),
+                    tableNameDownsampled(granularity.getWidth(),
+                        granularity.getPartitionWidth())));
+
+        downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
+            String
+                .format(SpringResourceUtils
+                        .readContent("cql-queries/raw_delete_with_series_set_hash.cql"),
+                    tableNameDownsampled(granularity.getWidth(),
+                        granularity.getPartitionWidth())));
   }
 
   public String tableNameDownsampled(Duration granularity, Duration partitionWidth) {
