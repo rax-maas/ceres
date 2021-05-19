@@ -78,11 +78,7 @@ public class QueryService {
       return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
     } else {
       return getMetricsFlux(metricGroup)
-          .flatMap(
-              metric -> {
-                return getQueryResultFlux(tenant, queryTags, start, end, metric);
-              }
-          )
+          .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
           .checkpoint();
     }
   }
@@ -134,11 +130,7 @@ public class QueryService {
       return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
     }  else {
       return getMetricsFlux(metricGroup)
-          .flatMap(
-              metric -> {
-                return getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end);
-              }
-          )
+          .flatMap(metric -> getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end))
           .checkpoint();
     }
   }
