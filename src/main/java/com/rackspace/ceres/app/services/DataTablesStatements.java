@@ -18,7 +18,9 @@ package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +46,7 @@ public class DataTablesStatements {
   private String rawInsert;
   private String rawQuery;
   private String rawDelete;
-  private String rawGetHashQuery;
+  private String downsampledGetHashQuery;
   private String rawDeleteWithSeriesSetHash;
 
   private final Map<Duration, String> downsampleInserts = new HashMap<>();
@@ -88,7 +90,7 @@ public class DataTablesStatements {
         + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?"
         + " AND series_set_hash = ?";
-    rawGetHashQuery =
+    downsampledGetHashQuery =
         "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
             + " WHERE " + TENANT + " = ?"
             + "  AND " + TIME_PARTITION_SLOT + " = ?";
@@ -138,6 +140,14 @@ public class DataTablesStatements {
                   + " AND series_set_hash = ?"
           );
         });
+
+    Granularity granularity = downsampleProperties.getGranularities()
+        .stream().max(Comparator.comparing(e -> e.getTtl())).get();
+
+    downsampledGetHashQuery = "SELECT series_set_hash FROM " + tableNameDownsampled(granularity.getWidth(),
+        granularity.getPartitionWidth())
+        + " WHERE " + TENANT + " = ?"
+        + "  AND " + TIME_PARTITION_SLOT + " = ?";
   }
 
   public String tableNameDownsampled(Duration granularity, Duration partitionWidth) {
@@ -181,8 +191,8 @@ public class DataTablesStatements {
   /**
    * @return A DELETE CQL statement with placeholders tenant, timeSlot
    */
-  public String getRawGetHashQuery() {
-    return rawGetHashQuery;
+  public String getDownsampledGetHashQuery() {
+    return downsampledGetHashQuery;
   }
 
   /**

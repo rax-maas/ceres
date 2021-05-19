@@ -102,9 +102,13 @@ public class MetricDeletionHelper {
         });
   }
 
-  public Flux<String> getSeriesSetHashFromRaw(String tenant, Instant timeSlot) {
+  public Flux<String> getSeriesSetHashFromDownsampled(String tenant, Instant timeSlot) {
+    /**
+     * TODO - before checking into downsampled table, add a check in raw data as well.
+     *        if its there, get it from there, otherwise from downsampled table
+     */
     return cqlTemplate
-        .queryForFlux(dataTablesStatements.getRawGetHashQuery(), String.class, tenant, timeSlot);
+        .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class, tenant, timeSlot);
   }
 
   public Flux<String> getSeriesSetHashFromSeriesSets(String tenant,

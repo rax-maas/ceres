@@ -89,11 +89,7 @@ public class MetricDeletionService {
               metricName);
           return deleteMetrics(downsampleProperties.getGranularities(), tenant, timeSlot, metricName,
               seriesSetHashes);
-        })
-        //delete entries from metric_names table
-        .flatMap(result ->
-            metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName)
-        )
+        }).then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
         .then(Mono.empty());
   }
 
@@ -140,8 +136,8 @@ public class MetricDeletionService {
   }
 
   private Mono<Boolean> deleteMetadataByTenantId(String tenant, Instant timeSlot) {
-    //get series set hashes from data raw table by tenant and timeSlot
-    Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromRaw(tenant, timeSlot);
+    //get series set hashes from downsample table with max ttl by tenant and timeSlot
+    Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromDownsampled(tenant, timeSlot);
     //get metricNames from metric_names table by tenant
     Flux<String> metricNames = metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable);
 
