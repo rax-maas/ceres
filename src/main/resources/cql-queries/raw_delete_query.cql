@@ -1,5 +1,0 @@
-DELETE FROM %s
-WHERE
-    TENANT  = ?
-AND
-    TIME_SLOT = ?
