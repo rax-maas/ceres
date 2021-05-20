@@ -19,7 +19,7 @@ package com.rackspace.ceres.app.web;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.TypeMismatchException;
-import org.springframework.boot.autoconfigure.web.ResourceProperties;
+import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.boot.autoconfigure.web.reactive.error.AbstractErrorWebExceptionHandler;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
 import org.springframework.boot.web.error.ErrorAttributeOptions.Include;
@@ -46,7 +46,7 @@ public class RestWebExceptionHandler extends
 
   public RestWebExceptionHandler(
       ErrorAttributes errorAttributes,
-      ResourceProperties resourceProperties,
+      WebProperties.Resources resourceProperties,
       ApplicationContext applicationContext,
       ServerCodecConfigurer serverCodecConfigurer) {
     super(errorAttributes, resourceProperties, applicationContext);

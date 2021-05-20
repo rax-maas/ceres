@@ -175,7 +175,7 @@ public class WriteControllerTest {
     Map<String, String> tags = new HashMap<>();
     tags.put("os", "linux");
     tags.put("tenant", "t-1");
-    tags.put("tag_to_exlucde", "this is dummy tag to be excluded");
+    tags.put("tag_to_exclude", "this is dummy tag to be excluded");
 
     Map<String,String> tagsAfterExclusion = new HashMap<>();
     tagsAfterExclusion.put("os", "linux");
