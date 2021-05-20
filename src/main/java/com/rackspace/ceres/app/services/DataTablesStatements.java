@@ -41,11 +41,11 @@ public class DataTablesStatements {
   private static final String TABLE_PREFIX = "data";
   private static final String RAW = "raw";
 
-  private String rawInsert;
-  private String rawQuery;
-  private String rawDelete;
-  private String rawGetSeriesSetHashQuery;
-  private String rawDeleteWithSeriesSetHash;
+  private String RAW_INSERT;
+  private String RAW_QUERY;
+  private String RAW_DELETE;
+  private String RAW_GET_SERIES_SET_HASH_QUERY;
+  private String RAW_DELETE_WITH_SERIES_SET_HASH;
 
   private final Map<Duration, String> downsampleInserts = new HashMap<>();
   private final Map<Duration, String> downsampleQueries = new HashMap<>();
@@ -70,25 +70,25 @@ public class DataTablesStatements {
   }
 
   private void buildRawStatements(AppProperties appProperties) {
-    rawInsert = "INSERT INTO " + tableNameRaw(appProperties.getRawPartitionWidth())
+    RAW_INSERT = "INSERT INTO " + tableNameRaw(appProperties.getRawPartitionWidth())
         + " (" +
         String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, VALUE)
         + ")"
         + " VALUES (?, ?, ?, ?, ?)";
-    rawQuery = "SELECT " + String.join(",", TIMESTAMP, VALUE)
+    RAW_QUERY = "SELECT " + String.join(",", TIMESTAMP, VALUE)
         + " FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
         + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?"
         + "  AND " + SERIES_SET_HASH + " = ?"
         + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
-    rawDelete = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+    RAW_DELETE = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
         + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?";
-    rawDeleteWithSeriesSetHash = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
+    RAW_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
         + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?"
         + " AND series_set_hash = ?";
-    rawGetSeriesSetHashQuery =
+    RAW_GET_SERIES_SET_HASH_QUERY =
         "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
             + " WHERE " + TENANT + " = ?"
             + "  AND " + TIME_PARTITION_SLOT + " = ?";
@@ -153,7 +153,7 @@ public class DataTablesStatements {
    * value
    */
   public String rawInsert() {
-    return rawInsert;
+    return RAW_INSERT;
   }
 
   /**
@@ -161,28 +161,28 @@ public class DataTablesStatements {
    * timestamp, ending timestamp and returns timestamp, value
    */
   public String rawQuery() {
-    return rawQuery;
+    return RAW_QUERY;
   }
 
   /**
    * @return A DELETE CQL statement with placeholders tenant, timeSlot
    */
   public String getRawDelete() {
-    return rawDelete;
+    return RAW_DELETE;
   }
 
   /**
    * @return A DELETE CQL statement with placeholders tenant, timeSlot, seriesSetHash
    */
   public String getRawDeleteWithSeriesSetHash() {
-    return rawDeleteWithSeriesSetHash;
+    return RAW_DELETE_WITH_SERIES_SET_HASH;
   }
 
   /**
    * @return A DELETE CQL statement with placeholders tenant, timeSlot
    */
   public String getRawGetHashSeriesSetHashQuery() {
-    return rawGetSeriesSetHashQuery;
+    return RAW_GET_SERIES_SET_HASH_QUERY;
   }
 
   /**

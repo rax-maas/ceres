@@ -60,11 +60,11 @@ public class MetadataService {
   private final Counter redisHit;
   private final Counter redisMiss;
   private final AppProperties appProperties;
-  private final String getTenantQuery;
-  private final String getMetricNamesQuery;
-  private final String getTagKeyQuery;
-  private final String getTagValueQuery;
-  private final String getSeriesSetHashesQuery;
+  private final String GET_TENANT_QUERY;
+  private final String GET_METRIC_NAMES_QUERY;
+  private final String GET_TAG_KEY_QUERY;
+  private final String GET_TAG_VALUE_QUERY;
+  private final String GET_SERIES_SET_HASHES_QUERY;
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -83,13 +83,13 @@ public class MetadataService {
     this.appProperties = appProperties;
 
     // use GROUP BY since unable to SELECT DISTINCT on primary key column
-    getTenantQuery = "SELECT tenant FROM metric_names GROUP BY tenant";
-    getMetricNamesQuery = "SELECT metric_name FROM metric_names WHERE tenant = ?";
-    getTagKeyQuery = "SELECT tag_key FROM series_sets"
+    GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
+    GET_METRIC_NAMES_QUERY = "SELECT metric_name FROM metric_names WHERE tenant = ?";
+    GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
         + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
-    getTagValueQuery = "SELECT tag_value FROM series_sets"
+    GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
         + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
-    getSeriesSetHashesQuery = "SELECT series_set_hash FROM series_sets"
+    GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets"
         + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
   }
 
@@ -166,13 +166,13 @@ public class MetadataService {
   }
 
   public Mono<List<String>> getTenants() {
-    return cqlTemplate.queryForFlux(getTenantQuery,
+    return cqlTemplate.queryForFlux(GET_TENANT_QUERY,
         String.class
     ).collectList();
   }
 
   public Mono<List<String>> getMetricNames(String tenant) {
-    return cqlTemplate.queryForFlux(getMetricNamesQuery,
+    return cqlTemplate.queryForFlux(GET_METRIC_NAMES_QUERY,
         String.class,
         tenant
     ).collectList();
@@ -196,7 +196,7 @@ public class MetadataService {
   }
 
   private Flux<String> getTagKeysRaw(String tenant, String metricName) {
-    return cqlTemplate.queryForFlux(getTagKeyQuery,
+    return cqlTemplate.queryForFlux(GET_TAG_KEY_QUERY,
             String.class,
             tenant, metricName
     );
@@ -208,7 +208,7 @@ public class MetadataService {
   }
 
   private Flux<String> getTagValuesRaw(String tenant, String metricName, String tagKey) {
-    return cqlTemplate.queryForFlux(getTagValueQuery,
+    return cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY,
             String.class,
             tenant, metricName, tagKey
     );
@@ -227,7 +227,7 @@ public class MetadataService {
     return Flux.fromIterable(queryTags.entrySet())
         // find the series-sets for each query tag
         .flatMap(tagEntry ->
-            cqlTemplate.queryForFlux(getSeriesSetHashesQuery,
+            cqlTemplate.queryForFlux(GET_SERIES_SET_HASHES_QUERY,
                 String.class,
                 tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
             )
