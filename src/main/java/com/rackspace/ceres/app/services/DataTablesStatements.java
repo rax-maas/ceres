@@ -21,7 +21,6 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +29,6 @@ import org.springframework.stereotype.Component;
  * configuration-driven data tables schema.
  */
 @Component
-@Slf4j
 public class DataTablesStatements {
 
   public static final String TENANT = "tenant";
