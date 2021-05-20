@@ -60,11 +60,17 @@ public class MetadataService {
   private final Counter redisHit;
   private final Counter redisMiss;
   private final AppProperties appProperties;
-  private final String GET_TENANT_QUERY;
-  private final String GET_METRIC_NAMES_QUERY;
-  private final String GET_TAG_KEY_QUERY;
-  private final String GET_TAG_VALUE_QUERY;
-  private final String GET_SERIES_SET_HASHES_QUERY;
+
+  // use GROUP BY since unable to SELECT DISTINCT on primary key column
+  private static final String GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
+  private static final String GET_METRIC_NAMES_QUERY =
+      "SELECT metric_name FROM metric_names WHERE tenant = ?";
+  private static final String GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
+      + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
+  private static final String GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
+      + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
+  private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
+      + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -81,16 +87,6 @@ public class MetadataService {
     redisHit = meterRegistry.counter("seriesSetHash.redisCache", "result", "hit");
     redisMiss = meterRegistry.counter("seriesSetHash.redisCache", "result", "miss");
     this.appProperties = appProperties;
-
-    // use GROUP BY since unable to SELECT DISTINCT on primary key column
-    GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
-    GET_METRIC_NAMES_QUERY = "SELECT metric_name FROM metric_names WHERE tenant = ?";
-    GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
-        + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
-    GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
-        + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
-    GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets"
-        + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
   }
 
   public Publisher<?> storeMetadata(String tenant, String seriesSetHash,

@@ -41,16 +41,40 @@ public class DataTablesStatements {
   private static final String TABLE_PREFIX = "data";
   private static final String RAW = "raw";
 
-  private String RAW_INSERT;
-  private String RAW_QUERY;
-  private String RAW_DELETE;
-  private String RAW_GET_SERIES_SET_HASH_QUERY;
-  private String RAW_DELETE_WITH_SERIES_SET_HASH;
-
   private final Map<Duration, String> downsampleInserts = new HashMap<>();
   private final Map<Duration, String> downsampleQueries = new HashMap<>();
   private final Map<Duration, String> downsampleDeletes = new HashMap<>();
   private final Map<Duration, String> downsampleDeletesWithSeriesSetHash = new HashMap<>();
+
+  //CQL Queries
+  private String RAW_INSERT = "INSERT INTO %s ( %s ) VALUES (?, ?, ?, ?, ?)";
+
+  private String RAW_QUERY = "SELECT %s FROM %s WHERE " + TENANT + " = ?"
+      + "  AND " + TIME_PARTITION_SLOT + " = ? AND " + SERIES_SET_HASH + " = ?"
+      + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+
+  private String RAW_DELETE = "DELETE FROM %s WHERE " + TENANT + " = ?"
+      + "  AND " + TIME_PARTITION_SLOT + " = ?";
+
+  private String RAW_GET_SERIES_SET_HASH_QUERY = "SELECT series_set_hash FROM %s "
+      + " WHERE " + TENANT + " = ? AND " + TIME_PARTITION_SLOT + " = ?";
+
+  private String RAW_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM %s WHERE " + TENANT + " = ?"
+      + "  AND " + TIME_PARTITION_SLOT + " = ? AND series_set_hash = ?";
+
+  private String DOWNSAMPLE_INSERT = "INSERT INTO %s ( %s ) VALUES (?, ?, ?, ?, ?, ?)";
+
+  private String DOWNSAMPLE_QUERY = "SELECT %s FROM %s WHERE " + TENANT + " = ?"
+      + "  AND " + TIME_PARTITION_SLOT + " = ? AND " + SERIES_SET_HASH + " = ?"
+      + "  AND " + AGGREGATOR + " = ? AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+
+  private String DOWNSAMPLE_DELETE = "DELETE FROM %s WHERE " + TENANT + " = ?"
+      + " AND " + TIME_PARTITION_SLOT + " = ?";
+
+  private String DOWNSAMPLE_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM %s WHERE " + TENANT + " = ?"
+      + "  AND " + TIME_PARTITION_SLOT + " = ? AND series_set_hash = ?";
+
+
 
   @Autowired
   public DataTablesStatements(AppProperties appProperties,
@@ -70,28 +94,22 @@ public class DataTablesStatements {
   }
 
   private void buildRawStatements(AppProperties appProperties) {
-    RAW_INSERT = "INSERT INTO " + tableNameRaw(appProperties.getRawPartitionWidth())
-        + " (" +
-        String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, VALUE)
-        + ")"
-        + " VALUES (?, ?, ?, ?, ?)";
-    RAW_QUERY = "SELECT " + String.join(",", TIMESTAMP, VALUE)
-        + " FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-        + " WHERE " + TENANT + " = ?"
-        + "  AND " + TIME_PARTITION_SLOT + " = ?"
-        + "  AND " + SERIES_SET_HASH + " = ?"
-        + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
-    RAW_DELETE = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-        + " WHERE " + TENANT + " = ?"
-        + "  AND " + TIME_PARTITION_SLOT + " = ?";
-    RAW_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-        + " WHERE " + TENANT + " = ?"
-        + "  AND " + TIME_PARTITION_SLOT + " = ?"
-        + " AND series_set_hash = ?";
-    RAW_GET_SERIES_SET_HASH_QUERY =
-        "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-            + " WHERE " + TENANT + " = ?"
-            + "  AND " + TIME_PARTITION_SLOT + " = ?";
+    RAW_INSERT = String.format(RAW_INSERT,
+        tableNameRaw(appProperties.getRawPartitionWidth()),
+        String.join(",", TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, VALUE));
+
+    RAW_QUERY = String.format(RAW_QUERY,
+        String.join(",", TIMESTAMP, VALUE),
+        tableNameRaw(appProperties.getRawPartitionWidth()));
+
+    RAW_DELETE = String.format(RAW_DELETE,
+        tableNameRaw(appProperties.getRawPartitionWidth()));
+
+    RAW_DELETE_WITH_SERIES_SET_HASH = String.format(RAW_DELETE_WITH_SERIES_SET_HASH,
+        tableNameRaw(appProperties.getRawPartitionWidth()));
+
+    RAW_GET_SERIES_SET_HASH_QUERY = String.format(RAW_GET_SERIES_SET_HASH_QUERY,
+        tableNameRaw(appProperties.getRawPartitionWidth()));
   }
 
   private void buildDownsampleStatements(DownsampleProperties downsampleProperties) {
@@ -103,40 +121,21 @@ public class DataTablesStatements {
         .forEach(granularity -> {
 
           downsampleInserts.put(granularity.getWidth(),
-              "INSERT INTO " + tableNameDownsampled(granularity.getWidth(),
-                  granularity.getPartitionWidth())
-                  + " ("
-                  + String.join(",",
-                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE)
-                  + ")"
-                  + " VALUES (?, ?, ?, ?, ?, ?)"
-          );
+              String.format(DOWNSAMPLE_INSERT, tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth()), String.join(",",
+                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE)));
 
           downsampleQueries.put(granularity.getWidth(),
-              "SELECT " + String.join(",", TIMESTAMP, VALUE)
-                  + " FROM " + tableNameDownsampled(granularity.getWidth(),
-                  granularity.getPartitionWidth())
-                  + " WHERE " + TENANT + " = ?"
-                  + "  AND " + TIME_PARTITION_SLOT + " = ?"
-                  + "  AND " + SERIES_SET_HASH + " = ?"
-                  + "  AND " + AGGREGATOR + " = ?"
-                  + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?"
-          );
+              String.format(DOWNSAMPLE_QUERY, String.join(",", TIMESTAMP, VALUE),
+                  tableNameDownsampled(granularity.getWidth(), granularity.getPartitionWidth())));
 
           downsampleDeletes.put(granularity.getWidth(),
-              "DELETE FROM " + tableNameDownsampled(granularity.getWidth(),
-                  granularity.getPartitionWidth())
-                  + " WHERE " + TENANT + " = ?"
-                  + "  AND " + TIME_PARTITION_SLOT + " = ?"
-          );
+              String.format(DOWNSAMPLE_DELETE, tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth())));
 
           downsampleDeletesWithSeriesSetHash.put(granularity.getWidth(),
-              "DELETE FROM " + tableNameDownsampled(granularity.getWidth(),
-                  granularity.getPartitionWidth())
-                  + " WHERE " + TENANT + " = ?"
-                  + "  AND " + TIME_PARTITION_SLOT + " = ?"
-                  + " AND series_set_hash = ?"
-          );
+              String.format(DOWNSAMPLE_DELETE_WITH_SERIES_SET_HASH, tableNameDownsampled(granularity.getWidth(),
+                  granularity.getPartitionWidth())));
         });
   }
 

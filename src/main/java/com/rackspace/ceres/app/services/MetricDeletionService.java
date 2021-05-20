@@ -40,10 +40,14 @@ public class MetricDeletionService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
 
-  private final String DELETE_METRIC_NAMES_QUERY;
-  private final String DELETE_SERIES_SET_QUERY;
-  private final String DELETE_SERIES_SET_HASHES_QUERY;
-  private final String SELECT_SERIES_SET_HASHES_QUERY;
+  private final String DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? "
+      + "AND metric_name = ?";
+  private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
+    + "AND metric_name = ?";
+  private final String DELETE_SERIES_SET_HASHES_QUERY = "DELETE FROM series_set_hashes "
+      + "WHERE tenant = ? AND series_set_hash = ?";
+  private final String SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets "
+      + "WHERE tenant = ? AND metric_name = ?";
 
   @Autowired
   public MetricDeletionService(ReactiveCqlTemplate cqlTemplate,
@@ -59,11 +63,6 @@ public class MetricDeletionService {
     this.redisTemplate = redisTemplate;
     this.metadataService = metadataService;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
-
-    DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?";
-    DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? AND metric_name = ?";
-    DELETE_SERIES_SET_HASHES_QUERY = "DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?";
-    SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets WHERE tenant = ? AND metric_name = ?";
   }
 
   public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
