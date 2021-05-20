@@ -91,10 +91,6 @@ public class DataTablesStatements {
         + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?"
         + " AND series_set_hash = ?";
-    downsampledGetHashQuery =
-        "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
-            + " WHERE " + TENANT + " = ?"
-            + "  AND " + TIME_PARTITION_SLOT + " = ?";
     rawGetHashQuery = "SELECT series_set_hash FROM " + tableNameRaw(appProperties.getRawPartitionWidth())
         + " WHERE " + TENANT + " = ?"
         + "  AND " + TIME_PARTITION_SLOT + " = ?";
