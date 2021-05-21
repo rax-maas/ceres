@@ -280,13 +280,13 @@ public class MetadataService {
             List<TsdbQueryRequest> requests, List<Granularity> granularities) {
         List<TsdbQuery> result = new ArrayList<>();
 
-        requests.stream().forEach(request -> {
+        requests.forEach(request -> {
 
             if (request.getFilters() != null) {
                 String metric = request.getMetric();
                 String downsample = request.getDownsample();
 
-                request.getFilters().stream().forEach(filter -> {
+                request.getFilters().forEach(filter -> {
                     String tagKey = filter.getTagk();
                     Arrays.stream(filter.getFilter().split("\\|"))
                             .forEach(tagValue ->

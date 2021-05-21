@@ -1,11 +1,9 @@
 package com.rackspace.ceres.app.config.configValidator;
 
-import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import java.util.List;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
-import org.springframework.beans.BeanWrapperImpl;
 
 public class ConcreteGranularityValidator implements ConstraintValidator<GranularityValidator, List<Granularity>> {
 
