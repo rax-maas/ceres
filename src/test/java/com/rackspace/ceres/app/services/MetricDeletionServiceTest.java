@@ -26,6 +26,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
@@ -49,6 +50,15 @@ public class MetricDeletionServiceTest {
     }
   }
 
+  static {
+    GenericContainer redis = new GenericContainer("redis:3-alpine")
+        .withExposedPorts(6379);
+    redis.start();
+
+    System.setProperty("spring.redis.host", redis.getContainerIpAddress());
+    System.setProperty("spring.redis.port", redis.getFirstMappedPort() + "");
+  }
+
   @Autowired
   MetricDeletionService metricDeletionService;
   @Autowired
@@ -57,12 +67,26 @@ public class MetricDeletionServiceTest {
   DownsampleProperties downsampleProperties;
   @Autowired
   DataWriteService dataWriteService;
-  @MockBean
-  MetadataService metadataService;
   @Autowired
   SeriesSetService seriesSetService;
+  @Autowired
+  TimeSlotPartitioner timeSlotPartitioner;
+
+  @Autowired
+  MetadataService metadataService;
+  @Autowired
+  DataTablesStatements dataTablesStatements;
   @MockBean
   DownsampleTrackingService downsampleTrackingService;
+
+  private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
+      + " AND time_slot = ?";
+  private static final String QUERY_SERIES_SET_HASHES = "SELECT * FROM series_set_hashes"
+      + " WHERE tenant = ? AND series_set_hash = ?";
+  private static final String QUERY_SERIES_SET = "SELECT * FROM series_sets"
+      + " WHERE tenant = ? AND metric_name = ?";
+  private static final String QUERY_METRIC_NAMES = "SELECT * FROM metric_names"
+      + " WHERE tenant = ? AND metric_name = ?";
 
   @Test
   public void testDeleteMetricsByTenantId() {
@@ -80,19 +104,6 @@ public class MetricDeletionServiceTest {
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    when(metadataService.getMetricNames(anyString()))
-        .thenReturn(Mono.just(List.of(metricName)));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
         tenantId,
@@ -106,7 +117,70 @@ public class MetricDeletionServiceTest {
     metricDeletionService.deleteMetrics(tenantId, "", null,
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
-    assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
+    assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash,
+        metricName);
+
+    //validate metric_names
+    final List<Row> metricNamesResult = cqlTemplate.queryForRows(QUERY_METRIC_NAMES,
+        tenantId, metricName
+    ).collectList().block();
+    assertThat(metricNamesResult).hasSize(0);
+  }
+
+  @Test
+  public void testDeleteMetricsByTenantId_No_Data() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    Instant currentTime = Instant.now();
+
+    metricDeletionService.deleteMetrics(tenantId, "", null,
+        Instant.now().minusSeconds(60), Instant.now()).then().block();
+
+    assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash, metricName);
+  }
+
+  @Test
+  public void testDeleteMetricsByTenantId_Invalid_Time_Range() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    Instant currentTime = Instant.now();
+    Metric metric = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    metricDeletionService.deleteMetrics(tenantId, "", null,
+        Instant.now(), Instant.now()).then().block();
+
+    assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash, metricName);
   }
 
   @Test
@@ -125,16 +199,6 @@ public class MetricDeletionServiceTest {
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
         tenantId,
@@ -148,7 +212,16 @@ public class MetricDeletionServiceTest {
     metricDeletionService.deleteMetrics(tenantId, metricName, null,
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
-    assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
+    assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash, metricName);
+
+    //validate metric_names
+    final List<Row> metricNamesResult = cqlTemplate.queryForRows(
+        "SELECT * FROM metric_names"
+            + " WHERE tenant = ?"
+            + " AND metric_name = ?",
+        tenantId, metricName
+    ).collectList().block();
+    assertThat(metricNamesResult).hasSize(0);
   }
 
   @Test
@@ -167,16 +240,6 @@ public class MetricDeletionServiceTest {
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
         tenantId,
@@ -187,51 +250,31 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, metricName, List.of("os","tag"),
+    metricDeletionService.deleteMetrics(tenantId, metricName, List.of("host=h-1"),
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
-    assertViaQuery(tenantId, currentTime.minus(10, ChronoUnit.MINUTES), seriesSetHash, metric);
+    assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash, metricName);
   }
 
-  private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash, Metric metric) {
+  private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
+      String metricName) {
     //validate data raw
-    final List<Row> queryRawResult = cqlTemplate.queryForRows(
-        "SELECT * FROM data_raw_p_pt1h"
-            + " WHERE tenant = ?"
-            + " AND time_slot = ?",
-        tenant, timeSlot
-    ).collectList().block();
+    final List<Row> queryRawResult = cqlTemplate.queryForRows(QUERY_RAW, tenant, timeSlot)
+        .collectList().block();
 
     assertThat(queryRawResult).hasSize(0);
 
     //validate series_set_hashes
-    final List<Row> seriesSetHashesResult = cqlTemplate.queryForRows(
-        "SELECT * FROM series_set_hashes"
-            + " WHERE tenant = ?"
-            + " AND series_set_hash = ?",
+    final List<Row> seriesSetHashesResult = cqlTemplate.queryForRows(QUERY_SERIES_SET_HASHES,
         tenant, seriesSetHash
     ).collectList().block();
 
     assertThat(seriesSetHashesResult).hasSize(0);
 
     //validate series_sets
-    final List<Row> seriesSetsResult = cqlTemplate.queryForRows(
-        "SELECT * FROM series_sets"
-            + " WHERE tenant = ?"
-            + " AND metric_name = ?",
-        tenant, metric.getMetric()
-    ).collectList().block();
+    final List<Row> seriesSetsResult = cqlTemplate.queryForRows(QUERY_SERIES_SET, tenant,
+        metricName).collectList().block();
 
     assertThat(seriesSetsResult).hasSize(0);
-
-    //validate metric_names
-    final List<Row> metricNamesResult = cqlTemplate.queryForRows(
-        "SELECT * FROM metric_names"
-            + " WHERE tenant = ?"
-            + " AND metric_name = ?",
-        tenant, metric.getMetric()
-    ).collectList().block();
-
-    assertThat(metricNamesResult).hasSize(0);
   }
 }

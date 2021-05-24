@@ -59,6 +59,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
@@ -81,6 +82,15 @@ class QueryServiceTest {
     CassandraContainer<?> cassandraContainer() {
       return cassandraContainer;
     }
+  }
+
+  static {
+    GenericContainer redis = new GenericContainer("redis:3-alpine")
+        .withExposedPorts(6379);
+    redis.start();
+
+    System.setProperty("spring.redis.host", redis.getContainerIpAddress());
+    System.setProperty("spring.redis.port", redis.getFirstMappedPort() + "");
   }
 
   @MockBean
