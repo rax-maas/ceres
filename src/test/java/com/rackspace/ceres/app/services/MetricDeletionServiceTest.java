@@ -93,6 +93,9 @@ public class MetricDeletionServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
 
+    when(metadataService.getMetricNames(anyString()))
+        .thenReturn(Mono.just(List.of(metricName)));
+
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
         tenantId,

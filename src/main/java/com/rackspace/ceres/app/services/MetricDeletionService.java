@@ -40,6 +40,15 @@ public class MetricDeletionService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
 
+  private final String DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? "
+      + "AND metric_name = ?";
+  private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
+    + "AND metric_name = ?";
+  private final String DELETE_SERIES_SET_HASHES_QUERY = "DELETE FROM series_set_hashes "
+      + "WHERE tenant = ? AND series_set_hash = ?";
+  private final String SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets "
+      + "WHERE tenant = ? AND metric_name = ?";
+
   @Autowired
   public MetricDeletionService(ReactiveCqlTemplate cqlTemplate,
       DataTablesStatements dataTablesStatements, AppProperties appProperties,
@@ -114,7 +123,7 @@ public class MetricDeletionService {
         seriesSetHash -> Flux.fromIterable(granularities)
             //delete entries from downsampled tables
             .flatMap(granularity ->
-                deleteRawOrDownsampledEntries(
+                deleteRawOrDownsampledEntriesWithSeriesSetHash(
                     dataTablesStatements.downsampleDeleteWithSeriesSetHash(granularity.getWidth()),
                     tenant, timeSlot, seriesSetHash))
             .then(Mono.just(true))
@@ -123,7 +132,7 @@ public class MetricDeletionService {
         //delete entries from raw table
         .flatMap(item ->
             seriesSetHashes.flatMap(seriesSetHash ->
-                deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash(),
+                deleteRawOrDownsampledEntriesWithSeriesSetHash(dataTablesStatements.getRawDeleteWithSeriesSetHash(),
                     tenant, timeSlot, seriesSetHash))
                 .then(Mono.just(true))
         )
@@ -195,27 +204,24 @@ public class MetricDeletionService {
 
   private Mono<Boolean> deleteMetricNamesByTenantAndMetricName(String tenant, String metricName) {
     return cqlTemplate
-        .execute("DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?",
-            tenant, metricName)
+        .execute(DELETE_METRIC_NAMES_QUERY, tenant, metricName)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
   private Mono<Boolean> deleteSeriesSetsByTenantIdAndMetricName(String tenant,
       String metricName) {
     return cqlTemplate
-        .execute("DELETE FROM series_sets WHERE tenant = ? AND metric_name = ?"
-            , tenant, metricName)
+        .execute(DELETE_SERIES_SET_QUERY, tenant, metricName)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
   private Mono<Boolean> deleteSeriesSetHashes(String tenant, String seriesSetHash) {
     return cqlTemplate
-        .execute("DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?",
-            tenant, seriesSetHash)
+        .execute(DELETE_SERIES_SET_HASHES_QUERY, tenant, seriesSetHash)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
-  private Mono<Boolean> deleteRawOrDownsampledEntries(String query, String tenant, Instant timeSlot,
+  private Mono<Boolean> deleteRawOrDownsampledEntriesWithSeriesSetHash(String query, String tenant, Instant timeSlot,
       String seriesSetHash) {
     return cqlTemplate
         .execute(query, tenant, timeSlot,
@@ -246,15 +252,12 @@ public class MetricDeletionService {
 
   private Flux<String> getSeriesSetHashFromRaw(String tenant, Instant timeSlot) {
     return cqlTemplate
-        .queryForFlux(dataTablesStatements.getRawGetHashQuery(), String.class, tenant, timeSlot);
+        .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(), String.class, tenant, timeSlot);
   }
 
   private Flux<String> getSeriesSetHashFromSeriesSets(String tenant,
       String metricName) {
-    return cqlTemplate.queryForFlux(
-        "SELECT series_set_hash FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ? ",
-        String.class,
+    return cqlTemplate.queryForFlux(SELECT_SERIES_SET_HASHES_QUERY, String.class,
         tenant, metricName).distinct();
   }
 }
