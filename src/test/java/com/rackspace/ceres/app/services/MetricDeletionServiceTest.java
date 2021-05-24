@@ -167,6 +167,9 @@ public class MetricDeletionServiceTest {
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
+    when(metadataService.getMetricNames(anyString()))
+        .thenReturn(Mono.just(List.of(metricName)));
+
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
         tenantId,

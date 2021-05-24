@@ -19,5 +19,5 @@ package com.rackspace.ceres.app.model;
 public enum SuggestType {
   METRICS,
   TAGK,
-  TAGV;
+  TAGV
 }

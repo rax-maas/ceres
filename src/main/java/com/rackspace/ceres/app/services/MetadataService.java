@@ -63,6 +63,17 @@ public class MetadataService {
   private final Counter redisMiss;
   private final AppProperties appProperties;
 
+  // use GROUP BY since unable to SELECT DISTINCT on primary key column
+  private static final String GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
+  private static final String GET_METRIC_NAMES_QUERY =
+      "SELECT metric_name FROM metric_names WHERE tenant = ?";
+  private static final String GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
+      + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
+  private static final String GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
+      + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
+  private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
+      + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
+
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
                          ReactiveCassandraTemplate cassandraTemplate,
@@ -153,17 +164,13 @@ public class MetadataService {
   }
 
   public Mono<List<String>> getTenants() {
-    return cqlTemplate.queryForFlux(
-        "SELECT tenant FROM metric_names"
-            // use GROUP BY since unable to SELECT DISTINCT on primary key column
-            + " GROUP BY tenant",
+    return cqlTemplate.queryForFlux(GET_TENANT_QUERY,
         String.class
     ).collectList();
   }
 
   public Mono<List<String>> getMetricNames(String tenant) {
-    return cqlTemplate.queryForFlux(
-        "SELECT metric_name FROM metric_names WHERE tenant = ?",
+    return cqlTemplate.queryForFlux(GET_METRIC_NAMES_QUERY,
         String.class,
         tenant
     ).collectList();
@@ -187,11 +194,7 @@ public class MetadataService {
   }
 
   private Flux<String> getTagKeysRaw(String tenant, String metricName) {
-    return cqlTemplate.queryForFlux(
-            "SELECT tag_key FROM series_sets"
-                    + " WHERE tenant = ? AND metric_name = ?"
-                    // use GROUP BY since unable to SELECT DISTINCT on primary key column
-                    + " GROUP BY tag_key",
+    return cqlTemplate.queryForFlux(GET_TAG_KEY_QUERY,
             String.class,
             tenant, metricName
     );
@@ -203,11 +206,7 @@ public class MetadataService {
   }
 
   private Flux<String> getTagValuesRaw(String tenant, String metricName, String tagKey) {
-    return cqlTemplate.queryForFlux(
-            "SELECT tag_value FROM series_sets"
-                    + " WHERE tenant = ? AND metric_name = ? AND tag_key = ?"
-                    // use GROUP BY since unable to SELECT DISTINCT on primary key column
-                    + " GROUP BY tag_value",
+    return cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY,
             String.class,
             tenant, metricName, tagKey
     );
@@ -226,9 +225,7 @@ public class MetadataService {
     return Flux.fromIterable(queryTags.entrySet())
         // find the series-sets for each query tag
         .flatMap(tagEntry ->
-            cqlTemplate.queryForFlux(
-                "SELECT series_set_hash FROM series_sets"
-                    + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?",
+            cqlTemplate.queryForFlux(GET_SERIES_SET_HASHES_QUERY,
                 String.class,
                 tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
             )
@@ -280,13 +277,13 @@ public class MetadataService {
             List<TsdbQueryRequest> requests, List<Granularity> granularities) {
         List<TsdbQuery> result = new ArrayList<>();
 
-        requests.stream().forEach(request -> {
+        requests.forEach(request -> {
 
             if (request.getFilters() != null) {
                 String metric = request.getMetric();
                 String downsample = request.getDownsample();
 
-                request.getFilters().stream().forEach(filter -> {
+                request.getFilters().forEach(filter -> {
                     String tagKey = filter.getTagk();
                     Arrays.stream(filter.getFilter().split("\\|"))
                             .forEach(tagValue ->
