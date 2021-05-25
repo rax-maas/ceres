@@ -18,7 +18,9 @@ package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,7 +76,8 @@ public class DataTablesStatements {
   private String DOWNSAMPLE_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM %s WHERE " + TENANT + " = ?"
       + "  AND " + TIME_PARTITION_SLOT + " = ? AND series_set_hash = ?";
 
-
+  private String DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY = "SELECT series_set_hash FROM %s WHERE "
+      + TENANT + " = ? AND " + TIME_PARTITION_SLOT + " = ?";
 
   @Autowired
   public DataTablesStatements(AppProperties appProperties,
@@ -137,6 +140,13 @@ public class DataTablesStatements {
               String.format(DOWNSAMPLE_DELETE_WITH_SERIES_SET_HASH, tableNameDownsampled(granularity.getWidth(),
                   granularity.getPartitionWidth())));
         });
+
+    Granularity granularity = downsampleProperties.getGranularities()
+        .stream().max(Comparator.comparing(e -> e.getTtl())).get();
+
+    DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY = String.format(DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY,
+        tableNameDownsampled(granularity.getWidth(),
+            granularity.getPartitionWidth()));
   }
 
   public String tableNameDownsampled(Duration granularity, Duration partitionWidth) {
@@ -178,10 +188,17 @@ public class DataTablesStatements {
   }
 
   /**
-   * @return A DELETE CQL statement with placeholders tenant, timeSlot
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot from raw table
    */
   public String getRawGetHashSeriesSetHashQuery() {
     return RAW_GET_SERIES_SET_HASH_QUERY;
+  }
+
+  /**
+   * @return A DELETE CQL statement with placeholders tenant, timeSlot from downsampled table
+   */
+  public String getDownsampledGetHashQuery() {
+    return DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY;
   }
 
   /**
