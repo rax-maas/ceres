@@ -156,7 +156,7 @@ public class MetricDeletionHelper {
    */
   public Flux<String> getSeriesSetHashFromRawOrDownsampled(String tenant, Instant timeSlot) {
     return cqlTemplate
-        .queryForFlux(dataTablesStatements.getRawGetHashQuery(), String.class, tenant, timeSlot)
+        .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(), String.class, tenant, timeSlot)
         .switchIfEmpty(cqlTemplate
             .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class, tenant, timeSlot));
   }

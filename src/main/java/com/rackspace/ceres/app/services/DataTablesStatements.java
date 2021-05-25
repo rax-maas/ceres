@@ -76,7 +76,8 @@ public class DataTablesStatements {
   private String DOWNSAMPLE_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM %s WHERE " + TENANT + " = ?"
       + "  AND " + TIME_PARTITION_SLOT + " = ? AND series_set_hash = ?";
 
-
+  private String DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY = "SELECT series_set_hash FROM %s WHERE "
+      + TENANT + " = ? AND " + TIME_PARTITION_SLOT + " = ?";
 
   @Autowired
   public DataTablesStatements(AppProperties appProperties,
@@ -143,10 +144,9 @@ public class DataTablesStatements {
     Granularity granularity = downsampleProperties.getGranularities()
         .stream().max(Comparator.comparing(e -> e.getTtl())).get();
 
-    downsampledGetHashQuery = "SELECT series_set_hash FROM " + tableNameDownsampled(granularity.getWidth(),
-        granularity.getPartitionWidth())
-        + " WHERE " + TENANT + " = ?"
-        + "  AND " + TIME_PARTITION_SLOT + " = ?";
+    DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY = String.format(DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY,
+        tableNameDownsampled(granularity.getWidth(),
+            granularity.getPartitionWidth()));
   }
 
   public String tableNameDownsampled(Duration granularity, Duration partitionWidth) {
@@ -198,7 +198,7 @@ public class DataTablesStatements {
    * @return A DELETE CQL statement with placeholders tenant, timeSlot from downsampled table
    */
   public String getDownsampledGetHashQuery() {
-    return downsampledGetHashQuery;
+    return DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY;
   }
 
   /**

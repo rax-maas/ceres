@@ -134,7 +134,6 @@ public class MetricDeletionService {
                     .downsampleDelete(granularity.getWidth()), tenant, timeSlot))
             .then(metricDeletionHelper.deleteRawOrDownsampledEntries(dataTablesStatements.getRawDelete(),
                 tenant, timeSlot)));
-    )
   }
 
   /**
@@ -186,6 +185,7 @@ public class MetricDeletionService {
   private Mono<Boolean> deleteMetadataByTenantId(String tenant, Instant timeSlot) {
     //get series set hashes from downsample table with max ttl by tenant and timeSlot
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromRawOrDownsampled(tenant, timeSlot);
+
     //get metricNames from metric_names table by tenant
     Flux<String> metricNames = metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable);
 
