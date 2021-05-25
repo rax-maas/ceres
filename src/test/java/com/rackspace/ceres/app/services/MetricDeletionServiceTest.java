@@ -8,7 +8,11 @@ import static org.mockito.Mockito.when;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
+import com.rackspace.ceres.app.downsample.SingleValueSet;
+import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +31,7 @@ import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @ActiveProfiles(profiles = {"downsample", "test"})
@@ -68,6 +73,8 @@ public class MetricDeletionServiceTest {
   SeriesSetService seriesSetService;
   @Autowired
   TimeSlotPartitioner timeSlotPartitioner;
+  @Autowired
+  DownsampleProcessor downsampleProcessor;
 
   @Autowired
   MetadataService metadataService;
@@ -118,10 +125,7 @@ public class MetricDeletionServiceTest {
         metricName);
 
     //validate metric_names
-    final List<Row> metricNamesResult = cqlTemplate.queryForRows(QUERY_METRIC_NAMES,
-        tenantId, metricName
-    ).collectList().block();
-    assertThat(metricNamesResult).hasSize(0);
+    assertMetricNamesViaQuery(tenantId, metricName);
   }
 
   @Test
@@ -163,9 +167,6 @@ public class MetricDeletionServiceTest {
 
     when(downsampleTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
-
-    when(metadataService.getMetricNames(anyString()))
-        .thenReturn(Mono.just(List.of(metricName)));
 
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
@@ -215,13 +216,7 @@ public class MetricDeletionServiceTest {
     assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash, metricName);
 
     //validate metric_names
-    final List<Row> metricNamesResult = cqlTemplate.queryForRows(
-        "SELECT * FROM metric_names"
-            + " WHERE tenant = ?"
-            + " AND metric_name = ?",
-        tenantId, metricName
-    ).collectList().block();
-    assertThat(metricNamesResult).hasSize(0);
+    assertMetricNamesViaQuery(tenantId, metricName);
   }
 
   @Test
@@ -256,6 +251,78 @@ public class MetricDeletionServiceTest {
     assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash, metricName);
   }
 
+  /**
+   * to test a scenario where in order to get series_set_hashes
+   * we are querying data raw table first, if entries from data raw
+   * has been expired, then it will its rolled up data table with
+   * highest ttl
+   */
+  @Test
+  public void testDeleteMetricsByTenantId_SeriesSetHash_From_Downsample_table() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Number value = Math.random();
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    Instant currentTime = Instant.now();
+    //ingest data
+    Metric metric = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime)
+            .setValue(value)
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    //wait for it to be downsampled
+    downsampleProcessor.downsampleData(
+        Flux.just(
+            singleValue(currentTime.toString(), value.doubleValue())
+        ), tenantId, seriesSetHash,
+        List.of(granularity(1, 12), granularity(2, 24)).iterator(),
+        false
+    ).block();
+
+    //delete its entry from data raw table
+    deleteDataFromRawTable(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime));
+
+    metricDeletionService.deleteMetrics(tenantId, "", null,
+        Instant.now().minusSeconds(60), Instant.now()).then().block();
+
+    assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash,
+        metricName);
+
+    //validate metric_names
+    assertMetricNamesViaQuery(tenantId, metricName);
+  }
+
+  private void deleteDataFromRawTable(String tenant, Instant timeSlot) {
+    cqlTemplate.queryForRows(dataTablesStatements.getRawDelete(), tenant, timeSlot)
+        .collectList().block();
+  }
+
+  private Granularity granularity(int minutes, int ttlHours) {
+    return new Granularity()
+        .setWidth(Duration.ofMinutes(minutes))
+        .setTtl(Duration.ofHours(ttlHours));
+  }
+
+  private ValueSet singleValue(String timestamp, double value) {
+    return new SingleValueSet()
+        .setValue(value).setTimestamp(Instant.parse(timestamp));
+  }
+
   private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
       String metricName) {
     //validate data raw
@@ -276,5 +343,12 @@ public class MetricDeletionServiceTest {
         metricName).collectList().block();
 
     assertThat(seriesSetsResult).hasSize(0);
+  }
+
+  private void assertMetricNamesViaQuery(String tenant, String metricName)  {
+    final List<Row> metricNamesResult = cqlTemplate.queryForRows(QUERY_METRIC_NAMES,
+        tenant, metricName
+    ).collectList().block();
+    assertThat(metricNamesResult).hasSize(0);
   }
 }
