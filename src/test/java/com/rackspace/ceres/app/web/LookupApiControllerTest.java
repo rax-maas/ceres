@@ -12,11 +12,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,24 +58,23 @@ public class LookupApiControllerTest {
                 .exchange().expectStatus().isOk()
                 .expectBody(LookupResult.class).consumeWith(response -> {
 
-            assertThat(response.getResponseBody().getType()).isEqualTo("LOOKUP");
+            assertThat(Objects.requireNonNull(response.getResponseBody()).getType()).isEqualTo("LOOKUP");
             assertThat(response.getResponseBody().getMetric()).isEqualTo("cpu_active");
             assertThat(response.getResponseBody().getLimit()).isEqualTo(2);
             assertThat(response.getResponseBody().getResults().size()).isEqualTo(2);
 
-            response.getResponseBody().getResults().forEach(seriesData -> {
-                seriesData.getTags().entrySet().stream().forEach(s -> {
+            response.getResponseBody().getResults().forEach(seriesData ->
+                    seriesData.getTags().forEach((key, value) ->
                             assertTrue(
                                     // The order of the results are not deterministic
-                                    (s.getKey().equals("os") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("os") && s.getValue().equals("windows")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-2"))
-                            );
-                        }
-                );
-            });
+                                    (key.equals("os") && value.equals("linux")) ||
+                                            (key.equals("os") && value.equals("windows")) ||
+                                            (key.equals("host") && value.equals("linux")) ||
+                                            (key.equals("host") && value.equals("h-1")) ||
+                                            (key.equals("host") && value.equals("h-2"))
+                            )
+                    )
+            );
         });
 
         verify(metadataService).getTags("t-1", "cpu_active");
@@ -102,23 +100,22 @@ public class LookupApiControllerTest {
                 .exchange().expectStatus().isOk()
                 .expectBody(LookupResult.class).consumeWith(response -> {
 
-            assertThat(response.getResponseBody().getType()).isEqualTo("LOOKUP");
+            assertThat(Objects.requireNonNull(response.getResponseBody()).getType()).isEqualTo("LOOKUP");
             assertThat(response.getResponseBody().getMetric()).isEqualTo("cpu_active");
             assertThat(response.getResponseBody().getResults().size()).isEqualTo(5);
 
-            response.getResponseBody().getResults().forEach(seriesData -> {
-                seriesData.getTags().entrySet().stream().forEach(s -> {
+            response.getResponseBody().getResults().forEach(seriesData ->
+                    seriesData.getTags().forEach((key, value) ->
                             assertTrue(
                                     // The order of the results are not deterministic
-                                    (s.getKey().equals("os") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("os") && s.getValue().equals("windows")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-2"))
-                            );
-                        }
-                );
-            });
+                                    (key.equals("os") && value.equals("linux")) ||
+                                            (key.equals("os") && value.equals("windows")) ||
+                                            (key.equals("host") && value.equals("linux")) ||
+                                            (key.equals("host") && value.equals("h-1")) ||
+                                            (key.equals("host") && value.equals("h-2"))
+                            )
+                    )
+            );
         });
 
         verify(metadataService).getTags("t-1", "cpu_active");
@@ -147,21 +144,20 @@ public class LookupApiControllerTest {
                 .exchange().expectStatus().isOk()
                 .expectBody(LookupResult.class).consumeWith(response -> {
 
-            assertThat(response.getResponseBody().getType()).isEqualTo("LOOKUP");
+            assertThat(Objects.requireNonNull(response.getResponseBody()).getType()).isEqualTo("LOOKUP");
             assertThat(response.getResponseBody().getMetric()).isEqualTo("cpu_active");
             assertThat(response.getResponseBody().getLimit()).isEqualTo(2);
             assertThat(response.getResponseBody().getResults().size()).isEqualTo(2);
 
-            response.getResponseBody().getResults().forEach(seriesData -> {
-                seriesData.getTags().entrySet().stream().forEach(s -> {
+            response.getResponseBody().getResults().forEach(seriesData ->
+                    seriesData.getTags().forEach((key, value) ->
                             assertTrue(
-                                    (s.getKey().equals("host") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-2"))
-                            );
-                        }
-                );
-            });
+                                    (key.equals("host") && value.equals("linux")) ||
+                                            (key.equals("host") && value.equals("h-1")) ||
+                                            (key.equals("host") && value.equals("h-2"))
+                            )
+                    )
+            );
         });
 
         verify(metadataService).getTags("t-1", "cpu_active");
@@ -192,22 +188,21 @@ public class LookupApiControllerTest {
                 .exchange().expectStatus().isOk()
                 .expectBody(LookupResult.class).consumeWith(response -> {
 
-            assertThat(response.getResponseBody().getType()).isEqualTo("LOOKUP");
+            assertThat(Objects.requireNonNull(response.getResponseBody()).getType()).isEqualTo("LOOKUP");
             assertThat(response.getResponseBody().getMetric()).isEqualTo("cpu_active");
             assertThat(response.getResponseBody().getLimit()).isEqualTo(4);
             assertThat(response.getResponseBody().getResults().size()).isEqualTo(4);
 
-            response.getResponseBody().getResults().forEach(seriesData -> {
-                seriesData.getTags().entrySet().stream().forEach(s -> {
+            response.getResponseBody().getResults().forEach(seriesData ->
+                    seriesData.getTags().forEach((key, value) ->
                             assertTrue(
-                                    (s.getKey().equals("host") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-1")) ||
-                                            (s.getKey().equals("host") && s.getValue().equals("h-2")) ||
-                                            (s.getKey().equals("os") && s.getValue().equals("windows"))
-                            );
-                        }
-                );
-            });
+                                    (key.equals("host") && value.equals("linux")) ||
+                                            (key.equals("host") && value.equals("h-1")) ||
+                                            (key.equals("host") && value.equals("h-2")) ||
+                                            (key.equals("os") && value.equals("windows"))
+                            )
+                    )
+            );
         });
 
         verify(metadataService).getTags("t-1", "cpu_active");
@@ -236,20 +231,19 @@ public class LookupApiControllerTest {
                 .exchange().expectStatus().isOk()
                 .expectBody(LookupResult.class).consumeWith(response -> {
 
-            assertThat(response.getResponseBody().getType()).isEqualTo("LOOKUP");
+            assertThat(Objects.requireNonNull(response.getResponseBody()).getType()).isEqualTo("LOOKUP");
             assertThat(response.getResponseBody().getMetric()).isEqualTo("cpu_active");
             assertThat(response.getResponseBody().getLimit()).isEqualTo(4);
             assertThat(response.getResponseBody().getResults().size()).isEqualTo(2);
 
-            response.getResponseBody().getResults().forEach(seriesData -> {
-                seriesData.getTags().entrySet().stream().forEach(s -> {
+            response.getResponseBody().getResults().forEach(seriesData ->
+                    seriesData.getTags().forEach((key, value) ->
                             assertTrue(
-                                    (s.getKey().equals("host") && s.getValue().equals("linux")) ||
-                                            (s.getKey().equals("os") && s.getValue().equals("linux"))
-                            );
-                        }
-                );
-            });
+                                    (key.equals("host") && value.equals("linux")) ||
+                                            (key.equals("os") && value.equals("linux"))
+                            )
+                    )
+            );
         });
 
         verify(metadataService).getTags("t-1", "cpu_active");
