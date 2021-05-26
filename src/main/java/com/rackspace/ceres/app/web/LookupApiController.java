@@ -4,12 +4,16 @@ import com.rackspace.ceres.app.model.LookupResult;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.model.SeriesData;
 import com.rackspace.ceres.app.services.MetadataService;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
+import springfox.documentation.annotations.ApiIgnore;
 
 /**
  * Native Ceres lookup API endpoints.
@@ -17,6 +21,14 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/search")
 @Profile("query")
+@ApiImplicitParams(value = {
+    @ApiImplicitParam(name = "X-Auth-Token", value = "Either of X-Auth Token or X-Username "
+        + "and X-Password/X-Api-Key should be present"),
+    @ApiImplicitParam(name = "X-Username", value = "This header is required when X-Auth-Token "
+        + "is not provide and it goes with X-Password or X-Api-Key headers"),
+    @ApiImplicitParam(name = "X-Password", value = "Required header if X-Username is given and X-Api-Key is not specified"),
+    @ApiImplicitParam(name = "X-Api-Key", value = "Required header if X-Username is given and X-Password is not specified"),
+})
 public class LookupApiController {
     private final MetadataService metadataService;
     private List<SeriesData> results;
@@ -28,9 +40,11 @@ public class LookupApiController {
     }
 
     @GetMapping("/lookup")
+    @ApiOperation(value = "This api is used  to determine what time series are associated"
+        + " with a given metric, tag name, tag value, tag pair or combination thereof")
     public Mono<LookupResult> query(@RequestParam(name = "m") String m,
                                     @RequestParam(name = "limit", required = false) Integer limit,
-                                    @RequestHeader(value = "X-Tenant") String tenantHeader) {
+                                    @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
         this.results = new ArrayList<>();
         this.lookupMetricAndTags = metadataService.getMetricNameAndTags(m);
 
