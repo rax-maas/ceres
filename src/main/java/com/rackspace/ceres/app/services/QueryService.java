@@ -40,7 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -54,21 +53,18 @@ public class QueryService {
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
-  private final ReactiveRedisTemplate<String, List<String>> reactiveRedisTemplate;
 
   @Autowired
   public QueryService(ReactiveCqlTemplate cqlTemplate,
       MetadataService metadataService,
       DataTablesStatements dataTablesStatements,
       TimeSlotPartitioner timeSlotPartitioner,
-      AppProperties appProperties,
-      ReactiveRedisTemplate reactiveRedisTemplate) {
+      AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.appProperties = appProperties;
-    this.reactiveRedisTemplate = reactiveRedisTemplate;
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
@@ -77,9 +73,8 @@ public class QueryService {
     if(!StringUtils.isBlank(metricName))  {
       return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
     } else {
-      return getMetricsFlux(metricGroup)
-          .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
-          .checkpoint();
+        // TODO else { ... getMetricsFlux(metricGroup) }
+        return Flux.just(null);
     }
   }
 
@@ -128,10 +123,9 @@ public class QueryService {
       Instant end)  {
     if(!StringUtils.isBlank(metricName))  {
       return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
-    }  else {
-      return getMetricsFlux(metricGroup)
-          .flatMap(metric -> getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end))
-          .checkpoint();
+    } else {
+          // TODO else { ... getMetricsFlux(metricGroup) }
+          return Flux.just(null);
     }
   }
 
@@ -155,11 +149,6 @@ public class QueryService {
                         .metrics()
                 ), buildMetaData(aggregator, start, end, granularity)
         ));
-  }
-
-  private Flux<String> getMetricsFlux(String metricGroup) {
-    return reactiveRedisTemplate.opsForSet().members(metricGroup)
-        .flatMap(Flux::fromIterable);
   }
 
     public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
@@ -223,7 +212,7 @@ public class QueryService {
                 .setAggregatedTags(Collections.emptyList()) // TODO: in case of multiple queries set this!
                 .setDps(values));
     }
-  
+
   private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows, Metadata metadata) {
     return rows
         .map(row -> Map.entry(
