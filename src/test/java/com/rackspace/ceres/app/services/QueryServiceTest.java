@@ -170,51 +170,51 @@ class QueryServiceTest {
         }).verifyComplete();
   }
 
-  @Test
-  void testQueryRawWithMetricGroup() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-    final String metricName = RandomStringUtils.randomAlphabetic(5);
-    final Map<String, String> tags = Map.of(
-        "os", "linux",
-        "host", "h-1",
-        "deployment", "prod",
-        "metricGroup", metricGroup
-    );
-    final String seriesSetHash = seriesSetService
-        .hash(metricName, tags);
-
-    when(downsampleTrackingService.track(any(), anyString(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-
-    dataWriteService.ingest(
-        tenantId,
-        new Metric()
-            .setTimestamp(Instant.now())
-            .setValue(Math.random())
-            .setMetric(metricName)
-            .setTags(tags)
-    ).block();
-
-    StepVerifier.create(queryService
-        .queryRaw(tenantId, "", metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
-        .assertNext(result -> {
-          assertThat(result).isNotEmpty();
-          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
-          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenantId);
-          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
-        }).verifyComplete();
-  }
+//  @Test
+//  void testQueryRawWithMetricGroup() {
+//    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+//    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+//    final String metricName = RandomStringUtils.randomAlphabetic(5);
+//    final Map<String, String> tags = Map.of(
+//        "os", "linux",
+//        "host", "h-1",
+//        "deployment", "prod",
+//        "metricGroup", metricGroup
+//    );
+//    final String seriesSetHash = seriesSetService
+//        .hash(metricName, tags);
+//
+//    when(downsampleTrackingService.track(any(), anyString(), any()))
+//        .thenReturn(Mono.empty());
+//
+//    when(metadataService.storeMetadata(any(), any(), any(), any()))
+//        .thenReturn(Mono.empty());
+//
+//    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+//        .thenReturn(Flux.just(seriesSetHash));
+//
+//    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+//    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+//        .thenReturn(Mono.just(metricNameAndTags));
+//
+//    dataWriteService.ingest(
+//        tenantId,
+//        new Metric()
+//            .setTimestamp(Instant.now())
+//            .setValue(Math.random())
+//            .setMetric(metricName)
+//            .setTags(tags)
+//    ).block();
+//
+//    StepVerifier.create(queryService
+//        .queryRaw(tenantId, "", metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+//        .assertNext(result -> {
+//          assertThat(result).isNotEmpty();
+//          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+//          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenantId);
+//          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+//        }).verifyComplete();
+//  }
 
   @Test
   void testQueryRawWithSeriesSet() {
@@ -316,63 +316,63 @@ class QueryServiceTest {
         }).verifyComplete();
   }
 
-  @Test
-  void testQueryDownsampledWithMetricGroup() {
-    final String tenant = randomAlphanumeric(10);
-    final String metricName = RandomStringUtils.randomAlphabetic(5);
-    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-    final Map<String, String> tags = Map.of(
-        "os", "linux",
-        "host", "h-1",
-        "deployment", "prod",
-        "metricGroup", metricGroup
-    );
-
-    final String seriesSetHash = seriesSetService
-        .hash(metricName, tags);
-
-    when(downsampleTrackingService.track(any(), anyString(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-
-    dataWriteService.ingest(
-        tenant,
-        new Metric()
-            .setTimestamp(Instant.now())
-            .setValue(Math.random())
-            .setMetric(metricName)
-            .setTags(tags)
-    ).block();
-
-    downsampleProcessor.downsampleData(
-        Flux.just(
-            singleValue(Instant.now().toString(), 1.2),
-            singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
-            singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
-            singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
-        ), tenant, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator(),
-        false
-    ).block();
-
-    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
-        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
-        .assertNext(result -> {
-          assertThat(result).isNotEmpty();
-          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
-          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
-          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
-        }).verifyComplete();
-  }
+//  @Test
+//  void testQueryDownsampledWithMetricGroup() {
+//    final String tenant = randomAlphanumeric(10);
+//    final String metricName = RandomStringUtils.randomAlphabetic(5);
+//    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+//    final Map<String, String> tags = Map.of(
+//        "os", "linux",
+//        "host", "h-1",
+//        "deployment", "prod",
+//        "metricGroup", metricGroup
+//    );
+//
+//    final String seriesSetHash = seriesSetService
+//        .hash(metricName, tags);
+//
+//    when(downsampleTrackingService.track(any(), anyString(), any()))
+//        .thenReturn(Mono.empty());
+//
+//    when(metadataService.storeMetadata(any(), any(), any(), any()))
+//        .thenReturn(Mono.empty());
+//
+//    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+//        .thenReturn(Flux.just(seriesSetHash));
+//
+//    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+//    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+//        .thenReturn(Mono.just(metricNameAndTags));
+//
+//    dataWriteService.ingest(
+//        tenant,
+//        new Metric()
+//            .setTimestamp(Instant.now())
+//            .setValue(Math.random())
+//            .setMetric(metricName)
+//            .setTags(tags)
+//    ).block();
+//
+//    downsampleProcessor.downsampleData(
+//        Flux.just(
+//            singleValue(Instant.now().toString(), 1.2),
+//            singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
+//            singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
+//            singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
+//        ), tenant, seriesSetHash,
+//        List.of(granularity(1, 12), granularity(2, 24)).iterator(),
+//        false
+//    ).block();
+//
+//    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
+//        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
+//        .assertNext(result -> {
+//          assertThat(result).isNotEmpty();
+//          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
+//          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+//          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+//        }).verifyComplete();
+//  }
 
   @Test
   void testTsdbQueryDownsampled() {
