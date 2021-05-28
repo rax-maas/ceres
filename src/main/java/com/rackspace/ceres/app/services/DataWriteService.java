@@ -22,6 +22,9 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +46,7 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
+  private static final String LABEL_METRIC_GROUP = "metricGroup";
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -80,6 +84,7 @@ public class DataWriteService {
             .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
                 metric.getTags()))
             .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+            .and(storeMetricGroup(tenant, metric))
             .then(Mono.just(metric));
   }
 
@@ -137,5 +142,17 @@ public class DataWriteService {
         .flatMap(cqlTemplate::execute)
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
         .checkpoint();
+  }
+
+  private Mono<?> storeMetricGroup(String tenant, Metric metric) {
+
+//    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
+//    metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup).subscribe(
+//            metricNames -> {
+//              System.out.println(metricNames);
+//            }
+//    );
+
+    return metadataService.storeMetricGroup(tenant, metric.getTags().get(LABEL_METRIC_GROUP), metric.getMetric());
   }
 }

@@ -20,6 +20,7 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
+import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
@@ -73,6 +74,8 @@ public class MetadataService {
       + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
   private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
       + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
+  private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
+      "SELECT metric_name FROM metric_groups WHERE tenant = ? AND metric_group = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -121,6 +124,13 @@ public class MetadataService {
 
     return Mono.fromFuture(result);
   }
+
+    public Mono<?> storeMetricGroup(String tenant, String metricGroup, String metricName) {
+        return cassandraTemplate.insert(new MetricGroup()
+                .setTenant(tenant)
+                .setMetricGroup(metricGroup)
+                .setMetricName(metricName));
+    }
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,
                                            String metricName, Map<String, String> tags) {
@@ -174,6 +184,14 @@ public class MetadataService {
         String.class,
         tenant
     ).collectList();
+  }
+
+  public Mono<List<String>> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+      return cqlTemplate.queryForFlux(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
+              String.class,
+              tenant,
+              metricGroup
+      ).collectList();
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {
