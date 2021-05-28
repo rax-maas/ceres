@@ -14,6 +14,7 @@ import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -298,7 +299,8 @@ public class MetricDeletionServiceTest {
     deleteDataFromRawTable(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime));
 
     metricDeletionService.deleteMetrics(tenantId, "", null,
-        Instant.now().minusSeconds(60), Instant.now()).then().block();
+        Instant.now().minus(5, ChronoUnit.MINUTES),
+        Instant.now().plus(5, ChronoUnit.MINUTES)).then().block();
 
     assertViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), seriesSetHash,
         metricName);

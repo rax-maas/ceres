@@ -19,8 +19,10 @@ package com.rackspace.ceres.app.helper;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.services.DataTablesStatements;
+import com.rackspace.ceres.app.services.TimeSlotPartitioner;
 import java.time.Instant;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -33,22 +35,35 @@ public class MetricDeletionHelper {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
   private static final String DELIM = "|";
+  private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
+      + "AND metric_name = ?";
+  private final String DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? "
+      + "AND metric_name = ?";
+  private final String DELETE_SERIES_SET_HASHES_QUERY = "DELETE FROM series_set_hashes "
+      + "WHERE tenant = ? AND series_set_hash = ?";
+  private final String SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets "
+      + "WHERE tenant = ? AND metric_name = ?";
 
   private AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
+  private final TimeSlotPartitioner timeSlotPartitioner;
   private final ReactiveCqlTemplate cqlTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
   private final ReactiveStringRedisTemplate redisTemplate;
+  private final DownsampleProperties downsampleProperties;
 
   public MetricDeletionHelper(AppProperties appProperties,
       DataTablesStatements dataTablesStatements,
       ReactiveCqlTemplate cqlTemplate, ReactiveStringRedisTemplate redisTemplate,
-      AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache) {
+      AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
+      TimeSlotPartitioner timeSlotPartitioner, DownsampleProperties downsampleProperties) {
     this.appProperties = appProperties;
     this.dataTablesStatements = dataTablesStatements;
     this.cqlTemplate = cqlTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
     this.redisTemplate = redisTemplate;
+    this.timeSlotPartitioner = timeSlotPartitioner;
+    this.downsampleProperties = downsampleProperties;
   }
 
   /**
@@ -60,8 +75,7 @@ public class MetricDeletionHelper {
    */
   public Mono<Boolean> deleteMetricNamesByTenantAndMetricName(String tenant, String metricName) {
     return cqlTemplate
-        .execute("DELETE FROM metric_names WHERE tenant = ? AND metric_name = ?",
-            tenant, metricName)
+        .execute(DELETE_METRIC_NAMES_QUERY, tenant, metricName)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -75,8 +89,7 @@ public class MetricDeletionHelper {
   public Mono<Boolean> deleteSeriesSetsByTenantIdAndMetricName(String tenant,
       String metricName) {
     return cqlTemplate
-        .execute("DELETE FROM series_sets WHERE tenant = ? AND metric_name = ?"
-            , tenant, metricName)
+        .execute(DELETE_SERIES_SET_QUERY, tenant, metricName)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -89,8 +102,7 @@ public class MetricDeletionHelper {
    */
   public Mono<Boolean> deleteSeriesSetHashes(String tenant, String seriesSetHash) {
     return cqlTemplate
-        .execute("DELETE FROM series_set_hashes WHERE tenant = ? AND series_set_hash = ?",
-            tenant, seriesSetHash)
+        .execute(DELETE_SERIES_SET_HASHES_QUERY, tenant, seriesSetHash)
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -150,15 +162,46 @@ public class MetricDeletionHelper {
   /**
    * Gets series_set_hash from raw or downsampled tables
    *
-   * @param tenant   the tenant
-   * @param timeSlot the time slot
+   * @param tenant the tenant
+   * @param start  the start
+   * @param end    the end
    * @return the series set hash from downsampled
    */
-  public Flux<String> getSeriesSetHashFromRawOrDownsampled(String tenant, Instant timeSlot) {
-    return cqlTemplate
-        .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(), String.class, tenant, timeSlot)
-        .switchIfEmpty(cqlTemplate
-            .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class, tenant, timeSlot));
+  public Flux<String> getSeriesSetHashFromRawOrDownsampled(String tenant, Instant start, Instant end) {
+    return getSeriesSetHashFromRaw(tenant, start, end)
+        .switchIfEmpty(getSeriesSetHashFromDownsampled(tenant, start, end));
+  }
+
+  /**
+   * Gets series set hash from raw table.
+   *
+   * @param tenant the tenant
+   * @param start  the start
+   * @param end    the end
+   * @return the series set hash from raw
+   */
+  private Flux<String> getSeriesSetHashFromRaw(String tenant, Instant start, Instant end) {
+    return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
+        .flatMap(timeSlot -> cqlTemplate
+            .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(), String.class, tenant, timeSlot));
+  }
+
+  /**
+   * Gets series set hash from downsampled table.
+   *
+   * @param tenant the tenant
+   * @param start  the start
+   * @param end    the end
+   * @return the series set hash from downsampled
+   */
+  private Flux<String> getSeriesSetHashFromDownsampled(String tenant, Instant start, Instant end) {
+    return Flux.fromIterable(downsampleProperties.getGranularities()).flatMap(granularity -> {
+      return Flux.fromIterable(
+          timeSlotPartitioner.partitionsOverRange(start, end, granularity.getWidth()))
+          .flatMap(timeSlot -> cqlTemplate
+              .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class,
+                  tenant, timeSlot));
+    });
   }
 
   /**
@@ -170,10 +213,7 @@ public class MetricDeletionHelper {
    */
   public Flux<String> getSeriesSetHashFromSeriesSets(String tenant,
       String metricName) {
-    return cqlTemplate.queryForFlux(
-        "SELECT series_set_hash FROM series_sets"
-            + " WHERE tenant = ? AND metric_name = ? ",
-        String.class,
+    return cqlTemplate.queryForFlux(SELECT_SERIES_SET_HASHES_QUERY, String.class,
         tenant, metricName).distinct();
   }
 }
