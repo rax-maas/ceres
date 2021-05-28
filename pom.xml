@@ -140,11 +140,56 @@
 						<image>openjdk:14</image>
 					</from>
 					<to>
-						<image>${image.prefix}${project.artifactId}</image>
+            <image>${docker.image.prefix}/${project.artifactId}</image>
 					</to>
 				</configuration>
 			</plugin>
 		</plugins>
 	</build>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>salus-dev-snapshots</id>
+      <url>https://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-snapshot-local</url>
+    </snapshotRepository>
+    <repository>
+      <id>salus-dev-release</id>
+      <url>https://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-release-local</url>
+    </repository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+    </repository>
+    <repository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>libs-release</id>
+      <url>http://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-release</url>
+    </repository>
+    <repository>
+      <snapshots />
+      <id>libs-snapshots</id>
+      <url>http://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-snapshot</url>
+    </repository>
+  </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>libs-release</id>
+      <url>http://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-release</url>
+    </pluginRepository>
+    <pluginRepository>
+      <snapshots />
+      <id>libs-snapshots</id>
+      <url>http://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-snapshot</url>
+    </pluginRepository>
+  </pluginRepositories>
 
 </project>

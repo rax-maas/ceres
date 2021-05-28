@@ -1,9 +1,12 @@
 substitutions:
   _GCS_CACHE_BUCKET: ceres-cache
   _CERES_PROJECT: ceres
+  _CERES_APP: ceres
+  _IMAGE_TAG: dev
+  _APP_NAMESPACE: default
+  _CLOUDSDK_COMPUTE_ZONE: us-east1-b
 
 steps:
-
   # Pull down settings file for Artifactory settings
   - id: GET_SETTINGS
     name: 'gcr.io/cloud-builders/gsutil'
@@ -27,9 +30,26 @@ steps:
     - name: user.home
       path: /root
 
-  - id: VERIFY
+  - id: DEPLOY
     name: 'maven:3.6-jdk-14'
-    args: ['mvn', '-B', 'verify', '-s', '.mvn/settings.xml']
+    args: ['mvn', '-B', 'deploy', '-s', '.mvn/settings.xml', '-Dmaven.test.skip=true']
+    volumes:
+    - name: user.home
+      path: /root
+
+  - id: COMPILE_AND_PUSH_CONTAINER
+    name: 'gcr.io/cloud-builders/mvn'
+    env:
+    - 'SHORT_SHA=$SHORT_SHA'
+    args:
+    - compile
+    # Runs the Jib build by using the latest version of the plugin.
+    # To use a specific version, configure the plugin in the pom.xml.
+    - jib:build
+    - "-U"
+    - "-B"
+    - "-Dmaven.test.skip=true"
+    - "-Ddocker.image.prefix=gcr.io/$PROJECT_ID"
     volumes:
     - name: user.home
       path: /root
@@ -37,7 +57,7 @@ steps:
   # Saves the files to the GCS cache.
   - id: PUSH_UP_CACHE
     waitFor:
-    - VERIFY
+    - COMPILE_AND_PUSH_CONTAINER
     name: gcr.io/cloud-builders/gsutil
     dir: /root
     entrypoint: bash
@@ -51,3 +71,6 @@ steps:
     volumes:
     - name: user.home
       path: /root
+
+options:
+  substitution_option: 'ALLOW_LOOSE'
