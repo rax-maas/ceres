@@ -9,7 +9,7 @@ import static org.mockito.Mockito.any;
 import com.rackspace.ceres.app.config.AppProperties;
 import java.time.Duration;
 import java.time.Instant;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
 public class IngestBoundsValidatorTest {
 
