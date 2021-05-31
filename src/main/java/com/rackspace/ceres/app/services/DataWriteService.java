@@ -18,14 +18,11 @@ package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -35,124 +32,140 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.util.List;
+import java.util.Map;
+
 @Service
 @Slf4j
 public class DataWriteService {
 
-  private final ReactiveCqlTemplate cqlTemplate;
-  private final SeriesSetService seriesSetService;
-  private final MetadataService metadataService;
-  private final DataTablesStatements dataTablesStatements;
-  private final TimeSlotPartitioner timeSlotPartitioner;
-  private final DownsampleTrackingService downsampleTrackingService;
-  private final AppProperties appProperties;
-  private static final String LABEL_METRIC_GROUP = "metricGroup";
+    private static final String LABEL_METRIC_GROUP = "metricGroup";
+    private final ReactiveCqlTemplate cqlTemplate;
+    private final SeriesSetService seriesSetService;
+    private final MetadataService metadataService;
+    private final DataTablesStatements dataTablesStatements;
+    private final TimeSlotPartitioner timeSlotPartitioner;
+    private final DownsampleTrackingService downsampleTrackingService;
+    private final AppProperties appProperties;
 
-  @Autowired
-  public DataWriteService(ReactiveCqlTemplate cqlTemplate,
-                          SeriesSetService seriesSetService,
-                          MetadataService metadataService,
-                          DataTablesStatements dataTablesStatements,
-                          TimeSlotPartitioner timeSlotPartitioner,
-                          DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties) {
-    this.cqlTemplate = cqlTemplate;
-    this.seriesSetService = seriesSetService;
-    this.metadataService = metadataService;
-    this.dataTablesStatements = dataTablesStatements;
-    this.timeSlotPartitioner = timeSlotPartitioner;
-    this.downsampleTrackingService = downsampleTrackingService;
-    this.appProperties = appProperties;
-  }
+    @Autowired
+    public DataWriteService(ReactiveCqlTemplate cqlTemplate,
+                            SeriesSetService seriesSetService,
+                            MetadataService metadataService,
+                            DataTablesStatements dataTablesStatements,
+                            TimeSlotPartitioner timeSlotPartitioner,
+                            DownsampleTrackingService downsampleTrackingService,
+                            AppProperties appProperties) {
+        this.cqlTemplate = cqlTemplate;
+        this.seriesSetService = seriesSetService;
+        this.metadataService = metadataService;
+        this.dataTablesStatements = dataTablesStatements;
+        this.timeSlotPartitioner = timeSlotPartitioner;
+        this.downsampleTrackingService = downsampleTrackingService;
+        this.appProperties = appProperties;
+    }
 
-  public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
-    return metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()));
-  }
+    public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
+        return metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()));
+    }
 
-  public Mono<Metric> ingest(String tenant, Metric metric) {
-    cleanTags(metric.getTags());
+    public Mono<Metric> ingest(String tenant, Metric metric) {
+        cleanTags(metric.getTags());
 
-    final String seriesSetHash = seriesSetService
-        .hash(metric.getMetric(), metric.getTags());
+        final String seriesSetHash = seriesSetService
+                .hash(metric.getMetric(), metric.getTags());
 
-    log.trace("Ingesting metric={} for tenant={}", metric, tenant);
+        log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
-    return
-        storeRawData(tenant, metric, seriesSetHash)
-            .name("ingest")
-            .metrics()
-            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
-                metric.getTags()))
-            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-            .and(storeMetricGroup(tenant, metric))
-            .then(Mono.just(metric));
-  }
+        return
+                storeRawData(tenant, metric, seriesSetHash)
+                        .name("ingest")
+                        .metrics()
+                        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
+                                metric.getTags()))
+                        .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+                        .and(storeMetricGroup(tenant, metric))
+                        .then(Mono.just(metric));
+    }
 
-  private void cleanTags(Map<String, String> tags) {
-    tags.entrySet()
-        .removeIf(entry ->
-            !StringUtils.hasText(entry.getKey()) ||
-                !StringUtils.hasText(entry.getValue()));
-  }
+    private void cleanTags(Map<String, String> tags) {
+        tags.entrySet()
+                .removeIf(entry ->
+                        !StringUtils.hasText(entry.getKey()) ||
+                                !StringUtils.hasText(entry.getValue()));
+    }
 
-  private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
-    return cqlTemplate.execute(
-        dataTablesStatements.rawInsert(),
-        tenant,
-        timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
-        seriesSetHash,
-        metric.getTimestamp(),
-        metric.getValue().doubleValue()
-    )
-        .retryWhen(appProperties.getRetryInsertRaw().build())
-        .checkpoint();
-  }
-
-  /**
-   * Stores a batch of downsampled data where it is assumed the flux contains data
-   * of the same tenant, series-set, and granularity.
-   * @param data flux of data to be stored in a downsampled data table
-   * @return a mono that completes when the batch is stored
-   */
-  public Mono<?> storeDownsampledData(Flux<DataDownsampled> data) {
-    return data
-        // convert each data point to an insert-statement
-        .map(entry ->
-            new SimpleStatementBuilder(
-                dataTablesStatements.downsampleInsert(entry.getGranularity())
-            )
-                .addPositionalValues(
-                    entry.getTenant(),
-                    timeSlotPartitioner.downsampledTimeSlot(entry.getTs(), entry.getGranularity()),
-                    entry.getSeriesSetHash(), entry.getAggregator().name(),
-                    entry.getTs(), entry.getValue()
-                )
-                .build()
+    private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
+        return cqlTemplate.execute(
+                dataTablesStatements.rawInsert(),
+                tenant,
+                timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
+                seriesSetHash,
+                metric.getTimestamp(),
+                metric.getValue().doubleValue()
         )
-        .collectList()
-        // ...and create a batch statement containing those
-        .map(statements -> {
-          final BatchStatementBuilder batchStatementBuilder = new BatchStatementBuilder(
-              BatchType.LOGGED);
-          // NOTE: tried addStatements, but unable to cast iterables
-          statements.forEach(batchStatementBuilder::addStatement);
-          return batchStatementBuilder.build();
-        })
-        // ...and execute the batch
-        .flatMap(cqlTemplate::execute)
-        .retryWhen(appProperties.getRetryInsertDownsampled().build())
-        .checkpoint();
-  }
+                .retryWhen(appProperties.getRetryInsertRaw().build())
+                .checkpoint();
+    }
 
-  private Mono<?> storeMetricGroup(String tenant, Metric metric) {
+    /**
+     * Stores a batch of downsampled data where it is assumed the flux contains data
+     * of the same tenant, series-set, and granularity.
+     *
+     * @param data flux of data to be stored in a downsampled data table
+     * @return a mono that completes when the batch is stored
+     */
+    public Mono<?> storeDownsampledData(Flux<DataDownsampled> data) {
+        return data
+                // convert each data point to an insert-statement
+                .map(entry ->
+                        new SimpleStatementBuilder(
+                                dataTablesStatements.downsampleInsert(entry.getGranularity())
+                        )
+                                .addPositionalValues(
+                                        entry.getTenant(),
+                                        timeSlotPartitioner.downsampledTimeSlot(entry.getTs(), entry.getGranularity()),
+                                        entry.getSeriesSetHash(), entry.getAggregator().name(),
+                                        entry.getTs(), entry.getValue()
+                                )
+                                .build()
+                )
+                .collectList()
+                // ...and create a batch statement containing those
+                .map(statements -> {
+                    final BatchStatementBuilder batchStatementBuilder = new BatchStatementBuilder(
+                            BatchType.LOGGED);
+                    // NOTE: tried addStatements, but unable to cast iterables
+                    statements.forEach(batchStatementBuilder::addStatement);
+                    return batchStatementBuilder.build();
+                })
+                // ...and execute the batch
+                .flatMap(cqlTemplate::execute)
+                .retryWhen(appProperties.getRetryInsertDownsampled().build())
+                .checkpoint();
+    }
 
-//    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
-//    metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup).subscribe(
-//            metricNames -> {
-//              System.out.println(metricNames);
-//            }
-//    );
-
-    return metadataService.storeMetricGroup(tenant, metric.getTags().get(LABEL_METRIC_GROUP), metric.getMetric());
-  }
+    private Mono<?> storeMetricGroup(String tenant, Metric metric) {
+        String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
+        String metricName = metric.getMetric();
+        Flux<Row> rows = metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup);
+        return rows.hasElements().flatMap(
+                isTrue -> {
+                    if (isTrue) {
+                        return rows.flatMap(
+                                row -> {
+                                    List<String> metricNames = row.getList("metric_names", String.class);
+                                    if (!metricNames.contains(metricName)) {
+                                        metricNames.add(metricName);
+                                        return metadataService.storeMetricGroup(
+                                                tenant, metricGroup, metricNames);
+                                    }
+                                    return Mono.just("Stored");
+                                })
+                                .next();
+                    } else {
+                        return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName));
+                    }
+                });
+    }
 }

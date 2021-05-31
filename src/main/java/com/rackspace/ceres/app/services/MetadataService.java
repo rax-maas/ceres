@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -41,6 +42,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -75,7 +77,7 @@ public class MetadataService {
   private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
       + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
   private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
-      "SELECT metric_name FROM metric_groups WHERE tenant = ? AND metric_group = ?";
+      "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -125,12 +127,12 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
-    public Mono<?> storeMetricGroup(String tenant, String metricGroup, String metricName) {
-        return cassandraTemplate.insert(new MetricGroup()
-                .setTenant(tenant)
-                .setMetricGroup(metricGroup)
-                .setMetricName(metricName));
-    }
+  public Mono<?> storeMetricGroup(String tenant, String metricGroup, List<String> metricNames) {
+      return cassandraTemplate.insert(new MetricGroup()
+              .setTenant(tenant)
+              .setMetricGroup(metricGroup)
+              .setMetricNames(metricNames));
+  }
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,
                                            String metricName, Map<String, String> tags) {
@@ -186,12 +188,11 @@ public class MetadataService {
     ).collectList();
   }
 
-  public Mono<List<String>> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
-      return cqlTemplate.queryForFlux(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
-              String.class,
+  public Flux<Row> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+      return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
               tenant,
               metricGroup
-      ).collectList();
+      );
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {

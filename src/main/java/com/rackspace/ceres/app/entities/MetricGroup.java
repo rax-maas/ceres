@@ -39,12 +39,6 @@ public class MetricGroup {
             ordinal = 1)
     String metricGroup;
 
-    @PrimaryKeyColumn(value = "metric_name",
-            /*
-            Differs from other tables in order to allow efficient query of
-            SELECT metric_name FROM metric_groups WHERE tenant = ?
-             */
-            type = PrimaryKeyType.CLUSTERED,
-            ordinal = 2)
-    String metricName;
+    @Column(value = "metric_names")
+    List<String> metricNames;
 }
