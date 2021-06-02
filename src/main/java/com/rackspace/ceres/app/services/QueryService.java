@@ -70,8 +70,9 @@ public class QueryService {
         if (!StringUtils.isBlank(metricName)) {
             return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
         } else {
-            // TODO else { ... getMetricsFlux(metricGroup) }
-            return Flux.just(null);
+            return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
+                    .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
+                    .checkpoint();
         }
     }
 
@@ -123,8 +124,10 @@ public class QueryService {
         if (!StringUtils.isBlank(metricName)) {
             return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
         } else {
-            // TODO else { ... getMetricsFlux(metricGroup) }
-            return Flux.just(null);
+            return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
+                    .flatMap(metric ->
+                            getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end))
+                    .checkpoint();
         }
     }
 

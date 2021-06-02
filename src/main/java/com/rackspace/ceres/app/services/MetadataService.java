@@ -42,7 +42,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -188,11 +187,26 @@ public class MetadataService {
     ).collectList();
   }
 
-  public Flux<Row> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+  public Flux<Row> getRowsMetricNamesFromMetricGroup(String tenant, String metricGroup) {
       return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
               tenant,
               metricGroup
       );
+  }
+
+  public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+    Flux<Row> rows = getRowsMetricNamesFromMetricGroup(tenant, metricGroup);
+    return rows.hasElements().flatMap(
+            isTrue -> {
+              if (isTrue) {
+                return rows.flatMap(
+                        row -> Mono.just(row.getList("metric_names", String.class)))
+                        .next();
+              } else {
+                List<String> emptyList = List.of();
+                return Mono.just(emptyList);
+              }
+            }).flatMapMany(Flux::fromIterable);
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {

@@ -148,7 +148,7 @@ public class DataWriteService {
     private Mono<?> storeMetricGroup(String tenant, Metric metric) {
         String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
         String metricName = metric.getMetric();
-        Flux<Row> rows = metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup);
+        Flux<Row> rows = metadataService.getRowsMetricNamesFromMetricGroup(tenant, metricGroup);
         return rows.hasElements().flatMap(
                 isTrue -> {
                     if (isTrue) {
@@ -157,8 +157,7 @@ public class DataWriteService {
                                     List<String> metricNames = row.getList("metric_names", String.class);
                                     if (!metricNames.contains(metricName)) {
                                         metricNames.add(metricName);
-                                        return metadataService.storeMetricGroup(
-                                                tenant, metricGroup, metricNames);
+                                        return metadataService.storeMetricGroup(tenant, metricGroup, metricNames);
                                     }
                                     return Mono.just("Stored");
                                 })
