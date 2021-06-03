@@ -131,6 +131,9 @@ class DataWriteServiceTest {
       verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
           metric.getTags());
 
+      verify(metadataService).getRowsMetricNamesFromMetricGroup(tenantId, metricGroup);
+      verify(metadataService).storeMetricGroup(tenantId, metricGroup, List.of(metric.getMetric()));
+
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
@@ -158,6 +161,9 @@ class DataWriteServiceTest {
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
+      when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+      when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
+
       final Metric metric1 = new Metric()
           .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
           .setValue(Math.random())
@@ -181,6 +187,11 @@ class DataWriteServiceTest {
           metric1.getTags());
       verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2.getMetric(),
           metric2.getTags());
+
+      verify(metadataService).getRowsMetricNamesFromMetricGroup(tenant1, metricGroup);
+      verify(metadataService).getRowsMetricNamesFromMetricGroup(tenant2, metricGroup);
+      verify(metadataService).storeMetricGroup(tenant1, metricGroup, List.of(metric1.getMetric()));
+      verify(metadataService).storeMetricGroup(tenant2, metricGroup, List.of(metric2.getMetric()));
 
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
