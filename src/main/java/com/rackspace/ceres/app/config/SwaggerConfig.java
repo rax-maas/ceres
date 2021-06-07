@@ -44,6 +44,10 @@ public class SwaggerConfig {
         .globalRequestParameters(addParameters());
   }
 
+  /**
+   * Add common parameter of X-Tenant to all the requests headers.
+   * @return
+   */
   private List<RequestParameter> addParameters() {
     List<RequestParameter> requestParameters = new ArrayList<>();
     requestParameters.add(

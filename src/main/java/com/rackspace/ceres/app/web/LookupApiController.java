@@ -23,11 +23,11 @@ import springfox.documentation.annotations.ApiIgnore;
 @Profile("query")
 @ApiImplicitParams(value = {
     @ApiImplicitParam(name = "X-Auth-Token", value = "Either of X-Auth Token or X-Username "
-        + "and X-Password/X-Api-Key should be present"),
+        + "and X-Password/X-Api-Key should be present", paramType = "header"),
     @ApiImplicitParam(name = "X-Username", value = "This header is required when X-Auth-Token "
-        + "is not provide and it goes with X-Password or X-Api-Key headers"),
-    @ApiImplicitParam(name = "X-Password", value = "Required header if X-Username is given and X-Api-Key is not specified"),
-    @ApiImplicitParam(name = "X-Api-Key", value = "Required header if X-Username is given and X-Password is not specified"),
+        + "is not provide and it goes with X-Password or X-Api-Key headers", paramType = "header"),
+    @ApiImplicitParam(name = "X-Password", value = "Required header if X-Username is given and X-Api-Key is not specified", paramType = "header"),
+    @ApiImplicitParam(name = "X-Api-Key", value = "Required header if X-Username is given and X-Password is not specified", paramType = "header"),
 })
 public class LookupApiController {
     private final MetadataService metadataService;
