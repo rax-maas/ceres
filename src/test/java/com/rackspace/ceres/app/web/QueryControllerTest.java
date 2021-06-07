@@ -381,7 +381,6 @@ public class QueryControllerTest {
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
-    StepVerifier.create(result).assertNext(c -> assertThat(c.getData()).isNull());
-
+    StepVerifier.create(result).assertNext(c -> assertThat(c.getData()).isNull()).verifyComplete();
   }
 }
