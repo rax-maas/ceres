@@ -358,29 +358,17 @@ public class QueryControllerTest {
 
   @Test
   public void testQueryApiWithInvalidTagName() {
-    Map<String, String> queryTags = Map
-        .of("os", "linux", "deployment", "dev", "host", "h-1");
-
-    Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
-
-    List<QueryResult> queryResults = List
-        .of(new QueryResult()
-            .setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-                .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
-
-    when(queryService.queryRaw(anyString(), anyString(), eq(null), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
-
-    Flux<QueryResult> result = webTestClient.get()
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("metricName", "cpu-idle")
-            .queryParam("tag", "xyz")
-            .queryParam("start", "1d-ago")
+            .queryParam("metricGroup", metricGroup)
+            .queryParam("tag", "test")
+            .queryParam("aggregator", "min")
             .build())
-        .header("X-Tenant", "t-1")
-        .exchange().expectStatus().isOk()
-        .returnResult(QueryResult.class).getResponseBody();
-
-    StepVerifier.create(result).assertNext(c -> assertThat(c.getData()).isNull()).verifyComplete();
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400);
+    verifyNoInteractions(queryService);
   }
 }
