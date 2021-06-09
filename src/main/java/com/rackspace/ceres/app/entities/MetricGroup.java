@@ -33,7 +33,7 @@ public class MetricGroup {
     @PrimaryKeyColumn(value = "metric_group",
             /*
             Differs from other tables in order to allow efficient query of
-            SELECT metric_name FROM metric_groups WHERE tenant = ?
+            SELECT metric_group FROM metric_groups WHERE tenant = ?
              */
             type = PrimaryKeyType.CLUSTERED,
             ordinal = 1)
