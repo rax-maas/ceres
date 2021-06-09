@@ -155,8 +155,8 @@ public class DataWriteService {
                                 row -> {
                                     List<String> metricNames = row.getList("metric_names", String.class);
                                     if (!metricNames.contains(metricName)) {
-                                        metricNames.add(metricName);
-                                        return metadataService.storeMetricGroup(tenant, metricGroup, metricNames);
+                                        return metadataService.updateMetricGroupAddMetricName(
+                                            tenant, metricGroup, metricName);
                                     }
                                     return Mono.just("Stored");
                                 })
