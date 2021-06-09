@@ -25,13 +25,13 @@ import com.rackspace.ceres.app.model.TsdbQueryRequestData;
 import com.rackspace.ceres.app.model.TsdbQueryResult;
 import com.rackspace.ceres.app.services.QueryService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,14 +52,16 @@ import reactor.core.publisher.Flux;
 public class QueryController {
 
   private final QueryService queryService;
+  private final MetricNameAndGroupValidator validator;
   private final DownsampleProperties downsampleProperties;
   private final Counter rawQueryCounter;
   private final Counter downSampleQueryCounter;
 
   @Autowired
-  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties,
-      MeterRegistry meterRegistry) {
+  public QueryController(QueryService queryService, MetricNameAndGroupValidator validator,
+      DownsampleProperties downsampleProperties, MeterRegistry meterRegistry) {
     this.queryService = queryService;
+    this.validator = validator;
     this.downsampleProperties = downsampleProperties;
     rawQueryCounter = meterRegistry.counter("ceres.query", "type", "raw");
     downSampleQueryCounter = meterRegistry.counter("ceres.query", "type", "downsample");
@@ -85,7 +87,7 @@ public class QueryController {
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
-    validateMetricNameAndMetricGroup(metricName, metricGroup);
+    validator.validateMetricNameAndMetricGroup(metricName, metricGroup);
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
@@ -108,16 +110,6 @@ public class QueryController {
           convertPairsListToMap(tag),
           startTime, endTime
       );
-    }
-  }
-
-  private static void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
-    if(StringUtils.isBlank(metricGroup) && StringUtils.isBlank(metricName)) {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
-    }
-
-    if(!StringUtils.isBlank(metricGroup) && !StringUtils.isBlank(metricName)) {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
     }
   }
 }

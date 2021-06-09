@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -27,6 +28,8 @@ import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.HashMap;
+import org.apache.commons.lang3.StringUtils;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -73,6 +76,9 @@ public class MetadataService {
       + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
   private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
       + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
+
+  private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
+      "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -329,5 +335,47 @@ public class MetadataService {
                 .setTags(result.getTags())
         );
 
+  }
+
+  public Flux<Row> getRowsMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
+        tenant,
+        metricGroup
+    );
+  }
+
+  public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+    Flux<Row> rows = getRowsMetricNamesFromMetricGroup(tenant, metricGroup);
+    return rows.hasElements().flatMap(
+        isTrue -> {
+          if (isTrue) {
+            return rows.flatMap(
+                row -> Mono.just(row.getList("metric_names", String.class)))
+                .next();
+          } else {
+            List<String> emptyList = List.of();
+            return Mono.just(emptyList);
+          }
+        }).flatMapMany(Flux::fromIterable);
+  }
+
+  public Mono<TagKeyPairResponse> getTags(String tenantHeader, String metricName,
+      String metricGroup) {
+    HashMap<String, String> resultantMap = new HashMap<>();
+    if (!StringUtils.isBlank(metricName)) {
+      return getTags(tenantHeader, metricName).map(e -> {
+        resultantMap.putAll(e);
+        return resultantMap;
+      }).then(Mono.just(new TagKeyPairResponse().setTags(resultantMap).setMetric(metricName)
+          .setTenantId(tenantHeader)));
+    } else {
+      return getMetricNamesFromMetricGroup(tenantHeader, metricGroup)
+          .flatMap(metricName1 -> getTags(tenantHeader, metricName1)).map(e -> {
+            resultantMap.putAll(e);
+            return resultantMap;
+          }).then(Mono.just(
+              new TagKeyPairResponse().setTags(resultantMap).setMetricGroup(metricGroup)
+                  .setTenantId(tenantHeader)));
+    }
   }
 }

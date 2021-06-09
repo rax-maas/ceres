@@ -307,8 +307,6 @@ public class QueryControllerTest {
         .exchange().expectStatus().isBadRequest()
         .expectBody()
         .jsonPath("$.status").isEqualTo(400);
-
-    verifyNoInteractions(queryService);
   }
 
   @Test

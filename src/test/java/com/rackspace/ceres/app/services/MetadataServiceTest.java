@@ -465,4 +465,61 @@ class MetadataServiceTest {
         .setWidth(Duration.ofMinutes(minutes))
         .setTtl(Duration.ofHours(ttlHours));
   }
+
+  @Test
+  void getTagsWithMetricName() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = randomAlphabetic(5);
+    final String tagK1 = randomAlphabetic(5);
+    final String tagK2 = randomAlphabetic(5);
+    final String tagV1 = randomAlphabetic(5);
+    final String tagV2 = randomAlphabetic(5);
+
+    cassandraTemplate.insert(
+        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
+    ).block();
+    cassandraTemplate.insert(
+        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
+    ).block();
+    // and one with different metric name
+    cassandraTemplate.insert(
+        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
+    ).block();
+
+    final TagKeyPairResponse tagKeyPairResponse = metadataService.getTags(tenantId, metricName, "")
+        .block();
+
+    assertThat(tagKeyPairResponse.getTenantId()).isEqualTo(tenantId);
+    assertThat(tagKeyPairResponse.getMetric()).isEqualTo(metricName);
+    assertThat(tagKeyPairResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
+  }
+
+//  @Test
+//  void getTagsWithMetricGroup() {
+//    //TODO
+//    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+//    final String metricName = randomAlphabetic(5);
+//    final String tagK1 = randomAlphabetic(5);
+//    final String tagK2 = randomAlphabetic(5);
+//    final String tagV1 = randomAlphabetic(5);
+//    final String tagV2 = randomAlphabetic(5);
+//
+//    cassandraTemplate.insert(
+//        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
+//    ).block();
+//    cassandraTemplate.insert(
+//        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
+//    ).block();
+//    // and one with different metric name
+//    cassandraTemplate.insert(
+//        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
+//    ).block();
+//
+//    final TagKeyPairResponse tagKeyPairResponse = metadataService.getTags(tenantId, metricName, "")
+//        .block();
+//
+//    assertThat(tagKeyPairResponse.getTenantId()).isEqualTo(tenantId);
+//    assertThat(tagKeyPairResponse.getMetricGroup()).isEqualTo(metricG);
+//    assertThat(tagKeyPairResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
+//  }
 }
