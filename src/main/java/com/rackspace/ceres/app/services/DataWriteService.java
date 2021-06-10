@@ -18,7 +18,6 @@ package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;

@@ -22,7 +22,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -35,16 +34,13 @@ import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbQueryResult;
 import com.rackspace.ceres.app.model.TsdbFilter;
 import com.rackspace.ceres.app.model.FilterType;
-import com.rackspace.ceres.app.utils.DateTimeUtils;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -152,7 +148,7 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
 
-    when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+    when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
     when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
 
     Metric metric = dataWriteService.ingest(
@@ -200,7 +196,7 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+    when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
     when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
@@ -243,7 +239,7 @@ class QueryServiceTest {
     when(metadataService.storeMetadata(any(), any(), any(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+    when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
     when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
 
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
@@ -295,7 +291,7 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+    when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
     when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
 
     dataWriteService.ingest(
@@ -355,7 +351,7 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+    when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
     when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 

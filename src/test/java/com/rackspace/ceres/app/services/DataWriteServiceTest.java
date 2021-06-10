@@ -113,6 +113,7 @@ class DataWriteServiceTest {
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
+      when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
 
       final Metric metric = dataWriteService.ingest(
           tenantId,
@@ -131,7 +132,7 @@ class DataWriteServiceTest {
       verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
           metric.getTags());
 
-      verify(metadataService).getRowsMetricNamesFromMetricGroup(tenantId, metricGroup);
+      verify(metadataService).metricGroupExists(tenantId, metricGroup);
       verify(metadataService).storeMetricGroup(tenantId, metricGroup, List.of(metric.getMetric()));
 
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
@@ -161,7 +162,7 @@ class DataWriteServiceTest {
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
-      when(metadataService.getRowsMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.empty());
+      when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
       when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
 
       final Metric metric1 = new Metric()
@@ -188,8 +189,8 @@ class DataWriteServiceTest {
       verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2.getMetric(),
           metric2.getTags());
 
-      verify(metadataService).getRowsMetricNamesFromMetricGroup(tenant1, metricGroup);
-      verify(metadataService).getRowsMetricNamesFromMetricGroup(tenant2, metricGroup);
+      verify(metadataService).metricGroupExists(tenant1, metricGroup);
+      verify(metadataService).metricGroupExists(tenant2, metricGroup);
       verify(metadataService).storeMetricGroup(tenant1, metricGroup, List.of(metric1.getMetric()));
       verify(metadataService).storeMetricGroup(tenant2, metricGroup, List.of(metric2.getMetric()));
 
