@@ -79,6 +79,10 @@ public class MetadataService {
       "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
   private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
       "UPDATE metric_groups SET metric_names = metric_names + ['%s'] WHERE tenant = '%s' AND metric_group = '%s'";
+  private static final String UPDATE_METRIC_GROUP_REMOVE_METRIC_NAME =
+      "UPDATE metric_groups SET metric_names = metric_names - ['%s'] WHERE tenant = '%s' AND metric_group = '%s'";
+  private static final String GET_METRIC_GROUP =
+      "SELECT metric_group FROM metric_groups WHERE tenant = '%s' AND metric_group = '%s'";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -133,6 +137,10 @@ public class MetadataService {
               .setTenant(tenant)
               .setMetricGroup(metricGroup)
               .setMetricNames(metricNames));
+  }
+
+  public Mono<?> updateMetricGroupRemoveMetricName(String tenant, String metricGroup, String metricName) {
+    return cqlTemplate.execute(String.format(UPDATE_METRIC_GROUP_REMOVE_METRIC_NAME, metricName, tenant, metricGroup));
   }
 
   public Mono<?> updateMetricGroupAddMetricName(String tenant, String metricGroup, String metricName) {
@@ -198,6 +206,11 @@ public class MetadataService {
               tenant,
               metricGroup
       );
+  }
+
+  public Mono<Boolean> metricGroupExists(String tenant, String metricGroup) {
+    return cqlTemplate.queryForRows(String.format(GET_METRIC_GROUP, tenant, metricGroup))
+        .hasElements().flatMap(Mono::just);
   }
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {

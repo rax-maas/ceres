@@ -144,26 +144,19 @@ public class DataWriteService {
         .checkpoint();
   }
 
-    private Mono<?> storeMetricGroup(String tenant, Metric metric) {
-        String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
-        String metricName = metric.getMetric();
-        Flux<Row> rows = metadataService.getRowsMetricNamesFromMetricGroup(tenant, metricGroup);
-        return rows.hasElements().flatMap(
-                isTrue -> {
-                    if (isTrue) {
-                        return rows.flatMap(
-                                row -> {
-                                    List<String> metricNames = row.getList("metric_names", String.class);
-                                    if (!metricNames.contains(metricName)) {
-                                        return metadataService.updateMetricGroupAddMetricName(
-                                            tenant, metricGroup, metricName);
-                                    }
-                                    return Mono.just("Stored");
-                                })
-                                .next();
-                    } else {
-                        return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName));
-                    }
-                });
-    }
+  private Mono<?> storeMetricGroup(String tenant, Metric metric) {
+    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
+    String metricName = metric.getMetric();
+    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(
+        exists -> {
+          if (exists) {
+            return metadataService.updateMetricGroupRemoveMetricName(
+                tenant, metricGroup, metricName)
+                .and(metadataService.updateMetricGroupAddMetricName(
+                    tenant, metricGroup, metricName));
+          } else {
+            return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName));
+          }
+        });
+  }
 }
