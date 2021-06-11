@@ -130,6 +130,8 @@ class DataWriteServiceTest {
       verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(), metric.getTags());
       verify(metadataService).metricGroupExists(tenantId, metricGroup);
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
+      verify(metadataService).storeMetricGroup(
+          tenantId, metricGroup, List.of(metric.getMetric()), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -185,7 +187,10 @@ class DataWriteServiceTest {
 
       verify(metadataService).metricGroupExists(tenant1, metricGroup);
       verify(metadataService).metricGroupExists(tenant2, metricGroup);
-
+      verify(metadataService).storeMetricGroup(
+          tenant1, metricGroup, List.of(metric1.getMetric()), metric1.getTimestamp().toString());
+      verify(metadataService).storeMetricGroup(
+          tenant2, metricGroup, List.of(metric2.getMetric()), metric2.getTimestamp().toString());
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 

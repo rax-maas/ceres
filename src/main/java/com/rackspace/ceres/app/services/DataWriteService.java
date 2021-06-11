@@ -145,7 +145,7 @@ public class DataWriteService {
   }
 
   private Mono<?> storeMetricGroup(String tenant, Metric metric) {
-    String updatedAt = Instant.now().toString();
+    String updatedAt = metric.getTimestamp().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
     return metadataService.metricGroupExists(tenant, metricGroup).flatMap(
