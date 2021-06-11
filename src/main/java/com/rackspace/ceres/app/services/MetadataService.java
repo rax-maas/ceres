@@ -222,17 +222,7 @@ public class MetadataService {
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
     Flux<Row> rows = getRowsMetricNamesFromMetricGroup(tenant, metricGroup);
-    return rows.hasElements().flatMap(
-            isTrue -> {
-              if (isTrue) {
-                return rows.flatMap(
-                        row -> Mono.just(row.getList("metric_names", String.class)))
-                        .next();
-              } else {
-                List<String> emptyList = List.of();
-                return Mono.just(emptyList);
-              }
-            }).flatMapMany(Flux::fromIterable);
+    return rows.flatMap(row -> Flux.fromIterable(row.getList("metric_names", String.class)));
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {

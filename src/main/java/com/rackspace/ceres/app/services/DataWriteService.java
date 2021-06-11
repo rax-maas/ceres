@@ -70,22 +70,19 @@ public class DataWriteService {
   }
 
   public Mono<Metric> ingest(String tenant, Metric metric) {
-    cleanTags(metric.getTags());
-
-    final String seriesSetHash = seriesSetService
-        .hash(metric.getMetric(), metric.getTags());
-
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
-    return
-        storeRawData(tenant, metric, seriesSetHash)
-            .name("ingest")
-            .metrics()
-            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
-                metric.getTags()))
-            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-            .and(storeMetricGroup(tenant, metric))
-            .then(Mono.just(metric));
+    cleanTags(metric.getTags());
+
+    final String seriesSetHash = seriesSetService.hash(metric.getMetric(), metric.getTags());
+
+    return storeRawData(tenant, metric, seriesSetHash)
+        .name("ingest")
+        .metrics()
+        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
+        .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+        .and(storeMetricGroup(tenant, metric))
+        .then(Mono.just(metric));
   }
 
   private void cleanTags(Map<String, String> tags) {
@@ -148,19 +145,16 @@ public class DataWriteService {
     String updatedAt = metric.getTimestamp().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
-    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(
-        exists -> {
-          if (exists) {
-            // Cassandra does not support NOT CONTAINS so we delete the metric name
-            // from the metric_names in case it already exists to avoid duplicates.
-            // If the metric name does not exist the delete will be ignored.
-            return metadataService.updateMetricGroupRemoveMetricName(
-                tenant, metricGroup, metricName, updatedAt)
-                .and(metadataService.updateMetricGroupAddMetricName(
-                    tenant, metricGroup, metricName, updatedAt));
-          } else {
-            return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName), updatedAt);
-          }
-        });
+    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(exists -> {
+      if (exists) {
+        // Cassandra does not support NOT CONTAINS so we delete the metric name
+        // from the metric_names in case it already exists to avoid duplicates.
+        // If the metric name does not exist the delete will be ignored.
+        return metadataService.updateMetricGroupRemoveMetricName(tenant, metricGroup, metricName, updatedAt)
+            .and(metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt));
+      } else {
+        return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName), updatedAt);
+      }
+    });
   }
 }
