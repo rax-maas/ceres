@@ -41,4 +41,7 @@ public class MetricGroup {
 
     @Column(value = "metric_names")
     List<String> metricNames;
+
+    @Column(value = "updated_at")
+    String updatedAt;
 }

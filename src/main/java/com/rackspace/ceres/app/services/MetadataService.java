@@ -78,9 +78,11 @@ public class MetadataService {
   private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
       "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
   private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
-      "UPDATE metric_groups SET metric_names = metric_names + ['%s'] WHERE tenant = '%s' AND metric_group = '%s'";
+      "UPDATE metric_groups SET metric_names = metric_names + ['%s'], updated_at = '%s' WHERE "
+          + "tenant = '%s' AND metric_group = '%s'";
   private static final String UPDATE_METRIC_GROUP_REMOVE_METRIC_NAME =
-      "UPDATE metric_groups SET metric_names = metric_names - ['%s'] WHERE tenant = '%s' AND metric_group = '%s'";
+      "UPDATE metric_groups SET metric_names = metric_names - ['%s'], updated_at = '%s' WHERE "
+          + "tenant = '%s' AND metric_group = '%s'";
   private static final String GET_METRIC_GROUP =
       "SELECT metric_group FROM metric_groups WHERE tenant = '%s' AND metric_group = '%s'";
 
@@ -132,19 +134,24 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
-  public Mono<?> storeMetricGroup(String tenant, String metricGroup, List<String> metricNames) {
-      return cassandraTemplate.insert(new MetricGroup()
-              .setTenant(tenant)
-              .setMetricGroup(metricGroup)
-              .setMetricNames(metricNames));
+  public Mono<?> storeMetricGroup(String tenant, String metricGroup, List<String> metricNames, String updatedAt) {
+    return cassandraTemplate.insert(new MetricGroup()
+        .setTenant(tenant)
+        .setMetricGroup(metricGroup)
+        .setMetricNames(metricNames)
+        .setUpdatedAt(updatedAt));
   }
 
-  public Mono<?> updateMetricGroupRemoveMetricName(String tenant, String metricGroup, String metricName) {
-    return cqlTemplate.execute(String.format(UPDATE_METRIC_GROUP_REMOVE_METRIC_NAME, metricName, tenant, metricGroup));
+  public Mono<?> updateMetricGroupRemoveMetricName(
+      String tenant, String metricGroup, String metricName, String updatedAt) {
+    return cqlTemplate.execute(String.format(
+        UPDATE_METRIC_GROUP_REMOVE_METRIC_NAME, metricName, updatedAt, tenant, metricGroup));
   }
 
-  public Mono<?> updateMetricGroupAddMetricName(String tenant, String metricGroup, String metricName) {
-    return cqlTemplate.execute(String.format(UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, tenant, metricGroup));
+  public Mono<?> updateMetricGroupAddMetricName(
+      String tenant, String metricGroup, String metricName, String updatedAt) {
+    return cqlTemplate.execute(String.format(
+        UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, updatedAt, tenant, metricGroup));
   }
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,

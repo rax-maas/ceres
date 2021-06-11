@@ -149,7 +149,7 @@ class QueryServiceTest {
         .thenReturn(Mono.just(metricNameAndTags));
 
     when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-    when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
 
     Metric metric = dataWriteService.ingest(
         tenantId,
@@ -197,7 +197,7 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-    when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(
@@ -240,8 +240,7 @@ class QueryServiceTest {
         .thenReturn(Mono.empty());
 
     when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-    when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
-
+    when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
@@ -292,7 +291,7 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-    when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
 
     dataWriteService.ingest(
         tenant,
@@ -352,7 +351,7 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-    when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(

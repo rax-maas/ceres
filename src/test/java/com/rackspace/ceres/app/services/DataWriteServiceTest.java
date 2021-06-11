@@ -30,7 +30,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,8 +107,7 @@ class DataWriteServiceTest {
       );
       final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-      when(metadataService.storeMetadata(any(), any(), any(), any()))
-          .thenReturn(Mono.empty());
+      when(metadataService.storeMetadata(any(), any(), any(), any())).thenReturn(Mono.empty());
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
@@ -129,12 +127,8 @@ class DataWriteServiceTest {
 
       assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
 
-      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
-          metric.getTags());
-
+      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(), metric.getTags());
       verify(metadataService).metricGroupExists(tenantId, metricGroup);
-      verify(metadataService).storeMetricGroup(tenantId, metricGroup, List.of(metric.getMetric()));
-
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
@@ -163,7 +157,7 @@ class DataWriteServiceTest {
           .thenReturn(Mono.empty());
 
       when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-      when(metadataService.storeMetricGroup(anyString(), anyString(), any())).thenReturn(Mono.empty());
+      when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
 
       final Metric metric1 = new Metric()
           .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
@@ -191,8 +185,6 @@ class DataWriteServiceTest {
 
       verify(metadataService).metricGroupExists(tenant1, metricGroup);
       verify(metadataService).metricGroupExists(tenant2, metricGroup);
-      verify(metadataService).storeMetricGroup(tenant1, metricGroup, List.of(metric1.getMetric()));
-      verify(metadataService).storeMetricGroup(tenant2, metricGroup, List.of(metric2.getMetric()));
 
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());

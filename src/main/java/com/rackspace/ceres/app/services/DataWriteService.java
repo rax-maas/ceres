@@ -31,6 +31,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -144,6 +145,7 @@ public class DataWriteService {
   }
 
   private Mono<?> storeMetricGroup(String tenant, Metric metric) {
+    String updatedAt = Instant.now().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
     return metadataService.metricGroupExists(tenant, metricGroup).flatMap(
@@ -153,11 +155,11 @@ public class DataWriteService {
             // from the metric_names in case it already exists to avoid duplicates.
             // If the metric name does not exist the delete will be ignored.
             return metadataService.updateMetricGroupRemoveMetricName(
-                tenant, metricGroup, metricName)
+                tenant, metricGroup, metricName, updatedAt)
                 .and(metadataService.updateMetricGroupAddMetricName(
-                    tenant, metricGroup, metricName));
+                    tenant, metricGroup, metricName, updatedAt));
           } else {
-            return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName));
+            return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName), updatedAt);
           }
         });
   }
