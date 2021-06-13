@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
@@ -65,12 +66,17 @@ public class DataWriteService {
     this.appProperties = appProperties;
   }
 
-  public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
+  public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
     return metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()));
   }
 
   public Mono<Metric> ingest(String tenant, Metric metric) {
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
+
+    String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
+    if (metricGroupTag == null || metricGroupTag.isEmpty()) {
+      throw new ServerWebInputException("metricGroup tag must be present");
+    }
 
     cleanTags(metric.getTags());
 
@@ -108,6 +114,7 @@ public class DataWriteService {
   /**
    * Stores a batch of downsampled data where it is assumed the flux contains data
    * of the same tenant, series-set, and granularity.
+   *
    * @param data flux of data to be stored in a downsampled data table
    * @return a mono that completes when the batch is stored
    */
