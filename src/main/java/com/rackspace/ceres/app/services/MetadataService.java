@@ -208,20 +208,13 @@ public class MetadataService {
     ).collectList();
   }
 
-  public Flux<Row> getRowsMetricNamesFromMetricGroup(String tenant, String metricGroup) {
-      return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
-              tenant,
-              metricGroup
-      );
-  }
-
   public Mono<Boolean> metricGroupExists(String tenant, String metricGroup) {
     return cqlTemplate.queryForRows(String.format(GET_METRIC_GROUP, tenant, metricGroup))
         .hasElements().flatMap(Mono::just);
   }
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
-    return getRowsMetricNamesFromMetricGroup(tenant, metricGroup)
+    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY, tenant, metricGroup)
         .flatMap(row -> Flux.fromIterable(row.getList("metric_names", String.class)));
   }
 
