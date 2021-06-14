@@ -39,11 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
+import springfox.documentation.annotations.ApiIgnore;
 
 @RestController
 @RequestMapping("/api")
 @Slf4j
 @Profile("ingest")
+@ApiIgnore
 public class WriteController {
 
   private final DataWriteService dataWriteService;

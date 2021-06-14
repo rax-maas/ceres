@@ -17,6 +17,10 @@
 package com.rackspace.ceres.app.web;
 
 import com.rackspace.ceres.app.services.MetadataService;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -30,10 +34,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
+import springfox.documentation.annotations.ApiIgnore;
+import springfox.documentation.service.ParameterType;
 
 @RestController
 @RequestMapping("/api/metadata")
 @Profile("query")
+@ApiImplicitParams(value = {
+    @ApiImplicitParam(name = "X-Auth-Token", value = "Either of X-Auth Token or X-Username "
+        + "and X-Password/X-Api-Key should be present", paramType = "header"),
+    @ApiImplicitParam(name = "X-Username", value = "This header is required when X-Auth-Token "
+        + "is not provide and it goes with X-Password or X-Api-Key headers", paramType = "header"),
+    @ApiImplicitParam(name = "X-Password", value = "Required header if X-Username is given and X-Api-Key is not specified", paramType = "header"),
+    @ApiImplicitParam(name = "X-Api-Key", value = "Required header if X-Username is given and X-Password is not specified", paramType = "header"),
+})
 public class MetadataController {
 
   private final MetadataService metadataService;
@@ -47,6 +61,7 @@ public class MetadataController {
   }
 
   @GetMapping("/tenants")
+  @ApiIgnore
   public Mono<List<String>> getTenants() {
     if(isDevProfileActive()) {
       return metadataService.getTenants();
@@ -55,24 +70,27 @@ public class MetadataController {
   }
 
   @GetMapping("/metricNames")
+  @ApiOperation(value = "This api is used to get metric names for the given tenant")
   public Mono<List<String>> getMetricNames(
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
     return metadataService.getMetricNames(tenantHeader);
   }
 
   @GetMapping("/tagKeys")
+  @ApiOperation(value = "This api is used to get metric tag keys for the given tenant and metric name")
   public Mono<List<String>> getTagKeys(
       @RequestParam String metricName,
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
     return metadataService
         .getTagKeys(tenantHeader, metricName);
   }
 
   @GetMapping("/tagValues")
+  @ApiOperation(value = "This api is used to get tag values for the given tenant, metric name and tag key")
   public Mono<List<String>> getTagValues(
       @RequestParam String metricName,
       @RequestParam String tagKey,
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
     return metadataService
         .getTagValues(tenantHeader, metricName, tagKey);
   }
