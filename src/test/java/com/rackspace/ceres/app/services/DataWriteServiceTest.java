@@ -25,7 +25,10 @@ import static org.mockito.Mockito.when;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
+import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.Metric;
+
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -42,12 +45,14 @@ import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.NestedTestConfiguration;
 import org.springframework.test.context.NestedTestConfiguration.EnclosingConfiguration;
+import org.springframework.web.server.ServerWebInputException;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
 @SpringBootTest
@@ -195,6 +200,28 @@ class DataWriteServiceTest {
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+    }
+
+    @Test
+    void metricGroupMissing() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+          "os", "linux",
+          "host", "h-1",
+          "deployment", "prod"
+      );
+
+      Mono<?> result = dataWriteService.ingest(
+          tenantId,
+          new Metric()
+              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setValue(Math.random())
+              .setMetric(metricName)
+              .setTags(tags));
+
+      StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
+              throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag must be present\"")).verify();
     }
 
     private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,

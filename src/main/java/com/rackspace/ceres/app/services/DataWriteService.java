@@ -75,7 +75,7 @@ public class DataWriteService {
 
     String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
     if (metricGroupTag == null || metricGroupTag.isEmpty()) {
-      throw new ServerWebInputException("metricGroup tag must be present");
+      return Mono.error(new ServerWebInputException("metricGroup tag must be present"));
     }
 
     cleanTags(metric.getTags());
