@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -39,10 +38,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -78,10 +74,10 @@ public class MetadataService {
   private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
       "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
   private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
-      "UPDATE metric_groups SET metric_names = metric_names + ['%s'], updated_at = '%s' WHERE "
+      "UPDATE metric_groups SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
           + "tenant = '%s' AND metric_group = '%s'";
   private static final String UPDATE_METRIC_GROUP_REMOVE_METRIC_NAME =
-      "UPDATE metric_groups SET metric_names = metric_names - ['%s'], updated_at = '%s' WHERE "
+      "UPDATE metric_groups SET metric_names = metric_names - {'%s'}, updated_at = '%s' WHERE "
           + "tenant = '%s' AND metric_group = '%s'";
   private static final String GET_METRIC_GROUP =
       "SELECT metric_group FROM metric_groups WHERE tenant = '%s' AND metric_group = '%s'";
@@ -134,7 +130,7 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
-  public Mono<?> storeMetricGroup(String tenant, String metricGroup, List<String> metricNames, String updatedAt) {
+  public Mono<?> storeMetricGroup(String tenant, String metricGroup, Set<String> metricNames, String updatedAt) {
     return cassandraTemplate.insert(new MetricGroup()
         .setTenant(tenant)
         .setMetricGroup(metricGroup)
@@ -215,7 +211,7 @@ public class MetadataService {
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY, tenant, metricGroup)
-        .flatMap(row -> Flux.fromIterable(row.getList("metric_names", String.class)));
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)));
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {

@@ -22,7 +22,7 @@ import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
 import org.springframework.data.cassandra.core.mapping.Table;
 
-import java.util.List;
+import java.util.Set;
 
 @Table("metric_groups")
 @Data
@@ -40,7 +40,7 @@ public class MetricGroup {
     String metricGroup;
 
     @Column(value = "metric_names")
-    List<String> metricNames;
+    Set<String> metricNames;
 
     @Column(value = "updated_at")
     String updatedAt;

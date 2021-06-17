@@ -32,9 +32,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -152,16 +151,8 @@ public class DataWriteService {
     String updatedAt = metric.getTimestamp().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
-    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(exists -> {
-      if (exists) {
-        // Cassandra does not support NOT CONTAINS so we delete the metric name
-        // from the metric_names in case it already exists to avoid duplicates.
-        // If the metric name does not exist the delete will be ignored.
-        return metadataService.updateMetricGroupRemoveMetricName(tenant, metricGroup, metricName, updatedAt)
-            .and(metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt));
-      } else {
-        return metadataService.storeMetricGroup(tenant, metricGroup, List.of(metricName), updatedAt);
-      }
-    });
+    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(exists -> exists ?
+        metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
+        : metadataService.storeMetricGroup(tenant, metricGroup, Set.of(metricName), updatedAt));
   }
 }

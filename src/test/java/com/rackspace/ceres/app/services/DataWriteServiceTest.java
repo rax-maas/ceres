@@ -25,13 +25,13 @@ import static org.mockito.Mockito.when;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
-import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.model.Metric;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -136,7 +136,7 @@ class DataWriteServiceTest {
       verify(metadataService).metricGroupExists(tenantId, metricGroup);
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
       verify(metadataService).storeMetricGroup(
-          tenantId, metricGroup, List.of(metric.getMetric()), metric.getTimestamp().toString());
+          tenantId, metricGroup, Set.of(metric.getMetric()), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -193,9 +193,9 @@ class DataWriteServiceTest {
       verify(metadataService).metricGroupExists(tenant1, metricGroup);
       verify(metadataService).metricGroupExists(tenant2, metricGroup);
       verify(metadataService).storeMetricGroup(
-          tenant1, metricGroup, List.of(metric1.getMetric()), metric1.getTimestamp().toString());
+          tenant1, metricGroup, Set.of(metric1.getMetric()), metric1.getTimestamp().toString());
       verify(metadataService).storeMetricGroup(
-          tenant2, metricGroup, List.of(metric2.getMetric()), metric2.getTimestamp().toString());
+          tenant2, metricGroup, Set.of(metric2.getMetric()), metric2.getTimestamp().toString());
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
