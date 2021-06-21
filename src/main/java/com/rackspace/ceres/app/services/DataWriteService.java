@@ -22,20 +22,24 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
+
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
 public class DataWriteService {
 
+  private static final String LABEL_METRIC_GROUP = "metricGroup";
   private final ReactiveCqlTemplate cqlTemplate;
   private final SeriesSetService seriesSetService;
   private final MetadataService metadataService;
@@ -61,26 +65,29 @@ public class DataWriteService {
     this.appProperties = appProperties;
   }
 
-  public Flux<Metric> ingest(Flux<Tuple2<String,Metric>> metrics) {
+  public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
     return metrics.flatMap(tuple -> ingest(tuple.getT1(), tuple.getT2()));
   }
 
   public Mono<Metric> ingest(String tenant, Metric metric) {
-    cleanTags(metric.getTags());
-
-    final String seriesSetHash = seriesSetService
-        .hash(metric.getMetric(), metric.getTags());
-
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
-    return
-        storeRawData(tenant, metric, seriesSetHash)
-            .name("ingest")
-            .metrics()
-            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(),
-                metric.getTags()))
-            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-            .then(Mono.just(metric));
+    String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
+    if (metricGroupTag == null || metricGroupTag.isEmpty()) {
+      return Mono.error(new ServerWebInputException("metricGroup tag must be present"));
+    }
+
+    cleanTags(metric.getTags());
+
+    final String seriesSetHash = seriesSetService.hash(metric.getMetric(), metric.getTags());
+
+    return storeRawData(tenant, metric, seriesSetHash)
+        .name("ingest")
+        .metrics()
+        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
+        .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+        .and(storeMetricGroup(tenant, metric))
+        .then(Mono.just(metric));
   }
 
   private void cleanTags(Map<String, String> tags) {
@@ -106,6 +113,7 @@ public class DataWriteService {
   /**
    * Stores a batch of downsampled data where it is assumed the flux contains data
    * of the same tenant, series-set, and granularity.
+   *
    * @param data flux of data to be stored in a downsampled data table
    * @return a mono that completes when the batch is stored
    */
@@ -137,5 +145,14 @@ public class DataWriteService {
         .flatMap(cqlTemplate::execute)
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
         .checkpoint();
+  }
+
+  private Mono<?> storeMetricGroup(String tenant, Metric metric) {
+    String updatedAt = metric.getTimestamp().toString();
+    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
+    String metricName = metric.getMetric();
+    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(exists -> exists ?
+        metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
+        : metadataService.storeMetricGroup(tenant, metricGroup, Set.of(metricName), updatedAt));
   }
 }

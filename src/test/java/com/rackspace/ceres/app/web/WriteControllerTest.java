@@ -1,10 +1,8 @@
 package com.rackspace.ceres.app.web;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Metric;
@@ -16,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +25,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -200,6 +200,26 @@ public class WriteControllerTest {
           assertThat(t.getT2().getTags().get("tag-to-exclude")).isNull();
         })
         .verifyComplete();
+
+    verifyNoMoreInteractions(dataWriteService);
+  }
+
+  @Test
+  public void ingestWithoutMetricGroup() {
+    Metric metric = new Metric().setMetric("metricA").setTags(
+        Collections.singletonMap("os", "linux")).setTimestamp(Instant.now()).setValue(123);
+
+    when(dataWriteService.ingest(any()))
+        .thenReturn(Flux.error(new ServerWebInputException("metricGroup tag must be present")));
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/put").build()).bodyValue(List.of(metric))
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isBadRequest();
+
+    verify(dataWriteService).ingest(metrics.capture());
+
+    StepVerifier.create(metrics.getValue()).expectNext(Tuples.of("t-1", metric))
+        .expectComplete().verify();
 
     verifyNoMoreInteractions(dataWriteService);
   }

@@ -26,11 +26,13 @@ import static org.mockito.Mockito.when;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.model.Metric;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,12 +45,14 @@ import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.NestedTestConfiguration;
 import org.springframework.test.context.NestedTestConfiguration.EnclosingConfiguration;
+import org.springframework.web.server.ServerWebInputException;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
 @SpringBootTest
@@ -108,11 +112,11 @@ class DataWriteServiceTest {
       );
       final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-      when(metadataService.storeMetadata(any(), any(), any(), any()))
-          .thenReturn(Mono.empty());
+      when(metadataService.storeMetadata(any(), any(), any(), any())).thenReturn(Mono.empty());
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
+      when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
 
       final Metric metric = dataWriteService.ingest(
           tenantId,
@@ -128,10 +132,11 @@ class DataWriteServiceTest {
 
       assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
 
-      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(),
-          metric.getTags());
-
+      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(), metric.getTags());
+      verify(metadataService).metricGroupExists(tenantId, metricGroup);
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
+      verify(metadataService).storeMetricGroup(
+          tenantId, metricGroup, Set.of(metric.getMetric()), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -158,6 +163,9 @@ class DataWriteServiceTest {
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
+      when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
+      when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+
       final Metric metric1 = new Metric()
           .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
           .setValue(Math.random())
@@ -182,10 +190,38 @@ class DataWriteServiceTest {
       verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2.getMetric(),
           metric2.getTags());
 
+      verify(metadataService).metricGroupExists(tenant1, metricGroup);
+      verify(metadataService).metricGroupExists(tenant2, metricGroup);
+      verify(metadataService).storeMetricGroup(
+          tenant1, metricGroup, Set.of(metric1.getMetric()), metric1.getTimestamp().toString());
+      verify(metadataService).storeMetricGroup(
+          tenant2, metricGroup, Set.of(metric2.getMetric()), metric2.getTimestamp().toString());
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+    }
+
+    @Test
+    void metricGroupMissing() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+          "os", "linux",
+          "host", "h-1",
+          "deployment", "prod"
+      );
+
+      Mono<?> result = dataWriteService.ingest(
+          tenantId,
+          new Metric()
+              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setValue(Math.random())
+              .setMetric(metricName)
+              .setTags(tags));
+
+      StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
+              throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag must be present\"")).verify();
     }
 
     private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
