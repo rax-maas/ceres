@@ -13,10 +13,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks.Empty;
+import springfox.documentation.annotations.ApiIgnore;
 
 @RestController
 @RequestMapping("/api/metric")
 @Profile("admin")
+@ApiIgnore
 public class DeleteMetricController {
 
   private final MetricDeletionService metricDeletionService;
