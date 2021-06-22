@@ -28,7 +28,7 @@ data:
         processing-threads: 2
       raw-ttl: 2d
       series-set-cache-size: 2000000
-      tenant-tag: tenant_id
+      tenant-tag: tenant
     logging:
       level:
         com.rackspace.ceres.app: debug

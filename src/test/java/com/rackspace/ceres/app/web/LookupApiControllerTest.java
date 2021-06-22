@@ -1,5 +1,6 @@
 package com.rackspace.ceres.app.web;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.LookupResult;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.services.MetadataService;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 @ActiveProfiles(profiles = {"test", "query", "dev"})
-@SpringBootTest(classes = {LookupApiController.class})
+@SpringBootTest(classes = {LookupApiController.class, AppProperties.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
 public class LookupApiControllerTest {

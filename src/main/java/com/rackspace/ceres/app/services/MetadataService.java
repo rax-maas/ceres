@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
+import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
@@ -40,10 +41,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -76,6 +74,13 @@ public class MetadataService {
       + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
   private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
       + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
+  private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
+      "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
+  private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
+      "UPDATE metric_groups SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
+          + "tenant = '%s' AND metric_group = '%s'";
+  private static final String GET_METRIC_GROUP =
+      "SELECT metric_group FROM metric_groups WHERE tenant = '%s' AND metric_group = '%s'";
 
   private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
       "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
@@ -126,6 +131,20 @@ public class MetadataService {
     );
 
     return Mono.fromFuture(result);
+  }
+
+  public Mono<?> storeMetricGroup(String tenant, String metricGroup, Set<String> metricNames, String updatedAt) {
+    return cassandraTemplate.insert(new MetricGroup()
+        .setTenant(tenant)
+        .setMetricGroup(metricGroup)
+        .setMetricNames(metricNames)
+        .setUpdatedAt(updatedAt));
+  }
+
+  public Mono<?> updateMetricGroupAddMetricName(
+      String tenant, String metricGroup, String metricName, String updatedAt) {
+    return cqlTemplate.execute(String.format(
+        UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, updatedAt, tenant, metricGroup));
   }
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,
@@ -180,6 +199,16 @@ public class MetadataService {
         String.class,
         tenant
     ).collectList();
+  }
+
+  public Mono<Boolean> metricGroupExists(String tenant, String metricGroup) {
+    return cqlTemplate.queryForRows(String.format(GET_METRIC_GROUP, tenant, metricGroup))
+        .hasElements().flatMap(Mono::just);
+  }
+
+  public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
+    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY, tenant, metricGroup)
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)));
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {

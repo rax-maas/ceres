@@ -28,6 +28,9 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -42,6 +45,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import springfox.documentation.annotations.ApiIgnore;
 
 /**
  * Native Ceres query API endpoints.
@@ -49,6 +53,14 @@ import reactor.core.publisher.Flux;
 @RestController
 @RequestMapping("/api/query")
 @Profile("query")
+@ApiImplicitParams(value = {
+    @ApiImplicitParam(name = "X-Auth-Token", value = "Either of X-Auth Token or X-Username "
+        + "and X-Password/X-Api-Key should be present", paramType = "header"),
+    @ApiImplicitParam(name = "X-Username", value = "This header is required when X-Auth-Token "
+        + "is not provide and it goes with X-Password or X-Api-Key headers", paramType = "header"),
+    @ApiImplicitParam(name = "X-Password", value = "Required header if X-Username is given and X-Api-Key is not specified", paramType = "header"),
+    @ApiImplicitParam(name = "X-Api-Key", value = "Required header if X-Username is given and X-Password is not specified", paramType = "header"),
+})
 public class QueryController {
 
   private final QueryService queryService;
@@ -68,8 +80,9 @@ public class QueryController {
   }
 
   @PostMapping
+  @ApiOperation(value = "This api is used to query metrics data and is modelled as opentsdb query api")
   public Flux<TsdbQueryResult> queryTsdb(@RequestBody TsdbQueryRequestData timeQueryData,
-                                         @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+                                         @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
     Instant startTime = DateTimeUtils.parseInstant(timeQueryData.getStart());
     Instant endTime = DateTimeUtils.parseInstant(timeQueryData.getEnd());
     return queryService
@@ -78,8 +91,9 @@ public class QueryController {
   }
 
   @GetMapping
+  @ApiOperation(value = "This api is used to get metric data based on request parameters")
   public Flux<QueryResult> query(
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @RequestParam(defaultValue = "raw") Aggregator aggregator,

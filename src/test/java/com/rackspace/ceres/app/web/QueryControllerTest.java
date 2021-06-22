@@ -322,4 +322,51 @@ public class QueryControllerTest {
 
     verifyNoInteractions(queryService);
   }
+
+  @Test
+  public void testQueryApiWithOutStart() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricName", "cpu-idle")
+            .queryParam("metricGroup", metricGroup)
+            .queryParam("tag", "os=linux")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400);
+    verifyNoInteractions(queryService);
+  }
+
+  @Test
+  public void testQueryApiWithInvalidAggregator() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricName", "cpu-idle")
+            .queryParam("metricGroup", metricGroup)
+            .queryParam("tag", "os=linux")
+            .queryParam("aggregator", "test")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400);
+    verifyNoInteractions(queryService);
+  }
+
+  @Test
+  public void testQueryApiWithInvalidTagName() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    webTestClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/api/query")
+            .queryParam("metricName", "cpu-idle")
+            .queryParam("metricGroup", metricGroup)
+            .queryParam("tag", "test")
+            .queryParam("aggregator", "min")
+            .build())
+        .exchange().expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(400);
+    verifyNoInteractions(queryService);
+  }
 }

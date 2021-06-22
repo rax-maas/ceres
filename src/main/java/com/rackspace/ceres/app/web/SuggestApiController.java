@@ -18,6 +18,9 @@ package com.rackspace.ceres.app.web;
 
 import com.rackspace.ceres.app.model.SuggestType;
 import com.rackspace.ceres.app.services.SuggestApiService;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,9 +29,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+import springfox.documentation.annotations.ApiIgnore;
 
 @RestController
 @RequestMapping("/api/suggest")
+@ApiImplicitParams(value = {
+    @ApiImplicitParam(name = "X-Auth-Token", value = "Either of X-Auth Token or X-Username "
+        + "and X-Password/X-Api-Key should be present", paramType = "header"),
+    @ApiImplicitParam(name = "X-Username", value = "This header is required when X-Auth-Token "
+        + "is not provide and it goes with X-Password or X-Api-Key headers", paramType = "header"),
+    @ApiImplicitParam(name = "X-Password", value = "Required header if X-Username is given and X-Api-Key is not specified", paramType = "header"),
+    @ApiImplicitParam(name = "X-Api-Key", value = "Required header if X-Username is given and X-Password is not specified", paramType = "header"),
+})
 public class SuggestApiController {
 
   private final SuggestApiService suggestApiService;
@@ -49,8 +61,9 @@ public class SuggestApiController {
    * @return list of string containing the auto complete suggestions.
    */
   @GetMapping
+  @ApiOperation(value = "This api is used to get auto complete suggestions based on parameters")
   public Mono<List<String>> getSuggestions(
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam SuggestType type, @RequestParam(required = false) String q,
       @RequestParam(required = false, defaultValue = "25") int max) {
 
