@@ -102,7 +102,7 @@ public class MetadataController {
   public Mono<GetTagsResponse> getTags(
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
-      @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
     validator.validateMetricNameAndMetricGroup(metricName, metricGroup);
 
     return metadataService
