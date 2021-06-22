@@ -52,4 +52,23 @@ public class MetricNameAndGroupValidatorTest {
     Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
         .validateMetricNameAndMetricGroup("", ""));
   }
+
+  @Test
+  public void validateMetricNameAndMetricGroupTest_Null_MetricName() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
+        .validateMetricNameAndMetricGroup(null, ""));
+  }
+
+  @Test
+  public void validateMetricNameAndMetricGroupTest_Null_MetricGroup() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
+        .validateMetricNameAndMetricGroup("", null));
+  }
+
+  @Test
+  public void validateMetricNameAndMetricGroupTest_Both_Null() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
+        .validateMetricNameAndMetricGroup(null, null));
+  }
+
 }

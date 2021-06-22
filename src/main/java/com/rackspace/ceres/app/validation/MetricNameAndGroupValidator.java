@@ -17,18 +17,18 @@
 
 package com.rackspace.ceres.app.validation;
 
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Component
 public class MetricNameAndGroupValidator {
 
   public void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
-    if(StringUtils.isBlank(metricGroup) && StringUtils.isBlank(metricName)) {
+    if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName)) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
 
-    if(!StringUtils.isBlank(metricGroup) && !StringUtils.isBlank(metricName)) {
+    if(StringUtils.hasText(metricGroup) && StringUtils.hasText(metricName)) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
     }
   }

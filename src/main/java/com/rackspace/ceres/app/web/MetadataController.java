@@ -16,7 +16,7 @@
 
 package com.rackspace.ceres.app.web;
 
-import com.rackspace.ceres.app.model.GetTagsResponse;
+import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
 import io.swagger.annotations.ApiImplicitParam;
@@ -99,7 +99,7 @@ public class MetadataController {
   }
 
   @GetMapping("/tags")
-  public Mono<GetTagsResponse> getTags(
+  public Mono<TagsResponse> getTags(
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {

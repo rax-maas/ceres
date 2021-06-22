@@ -488,12 +488,12 @@ class MetadataServiceTest {
         seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
     ).block();
 
-    final GetTagsResponse getTagsResponse = metadataService.getTags(tenantId, metricName, "")
+    final TagsResponse tagsResponse = metadataService.getTags(tenantId, metricName, "")
         .block();
 
-    assertThat(getTagsResponse.getTenantId()).isEqualTo(tenantId);
-    assertThat(getTagsResponse.getMetric()).isEqualTo(metricName);
-    assertThat(getTagsResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
+    assertThat(tagsResponse.getTenantId()).isEqualTo(tenantId);
+    assertThat(tagsResponse.getMetric()).isEqualTo(metricName);
+    assertThat(tagsResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
   }
 
   @Test
@@ -521,12 +521,12 @@ class MetadataServiceTest {
         metricGroup(tenantId, metricGroup, metricName)
     ).block();
 
-    final GetTagsResponse getTagsResponse = metadataService.getTags(tenantId, "", metricGroup)
+    final TagsResponse tagsResponse = metadataService.getTags(tenantId, "", metricGroup)
         .block();
 
-    assertThat(getTagsResponse.getTenantId()).isEqualTo(tenantId);
-    assertThat(getTagsResponse.getMetricGroup()).isEqualTo(metricGroup);
-    assertThat(getTagsResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
+    assertThat(tagsResponse.getTenantId()).isEqualTo(tenantId);
+    assertThat(tagsResponse.getMetricGroup()).isEqualTo(metricGroup);
+    assertThat(tagsResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
   }
 
   private MetricGroup metricGroup(String tenantId, String metricGroup, String metricName) {

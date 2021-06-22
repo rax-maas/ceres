@@ -29,13 +29,13 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashMap;
-import org.apache.commons.lang3.StringUtils;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -371,14 +371,14 @@ public class MetadataService {
    * @param metricGroup  the metric group
    * @return the tags
    */
-  public Mono<GetTagsResponse> getTags(String tenantHeader, String metricName,
+  public Mono<TagsResponse> getTags(String tenantHeader, String metricName,
       String metricGroup) {
     HashMap<String, String> tags = new HashMap<>();
-    if (!StringUtils.isBlank(metricName)) {
+    if (StringUtils.hasText(metricName)) {
       return getTags(tenantHeader, metricName).map(e -> {
         tags.putAll(e);
         return tags;
-      }).then(Mono.just(new GetTagsResponse().setTags(tags).setMetric(metricName)
+      }).then(Mono.just(new TagsResponse().setTags(tags).setMetric(metricName)
           .setTenantId(tenantHeader)));
     } else {
       return getMetricNamesFromMetricGroup(tenantHeader, metricGroup)
@@ -386,7 +386,7 @@ public class MetadataService {
             tags.putAll(e);
             return tags;
           }).then(Mono.just(
-              new GetTagsResponse().setTags(tags).setMetricGroup(metricGroup)
+              new TagsResponse().setTags(tags).setMetricGroup(metricGroup)
                   .setTenantId(tenantHeader)));
     }
   }
