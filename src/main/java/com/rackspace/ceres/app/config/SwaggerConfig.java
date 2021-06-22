@@ -45,15 +45,39 @@ public class SwaggerConfig {
   }
 
   /**
-   * Add common parameter of X-Tenant to all the requests headers.
+   * Add common parameters to all the requests headers.
    * @return
    */
   private List<RequestParameter> addParameters() {
     List<RequestParameter> requestParameters = new ArrayList<>();
-    requestParameters.add(
-        new RequestParameterBuilder().name("X-Tenant").description("Tenant Id").required(true).in(
-            ParameterType.HEADER).query(q -> q.model(m -> m.scalarModel(ScalarType.STRING)))
-            .build());
+    RequestParameter xTenantHeader = new RequestParameterBuilder().name("X-Tenant")
+        .description("Tenant Id").required(true).in(
+            ParameterType.HEADER).build();
+
+    RequestParameter xAuthTokenHeader = new RequestParameterBuilder().name("X-Auth-Token")
+        .description(
+            "Either of X-Auth Token or X-Username and X-Password/X-Api-Key should be present")
+        .in(ParameterType.HEADER).build();
+
+    RequestParameter xUsernameHeader = new RequestParameterBuilder().name("X-Username")
+        .description("This header is required when X-Auth-Token header"
+            + "is not provided and it goes in combination with either X-Password or X-Api-Key headers")
+        .in(ParameterType.HEADER).build();
+
+    RequestParameter xPasswordHeader = new RequestParameterBuilder().name("X-Password")
+        .description("Required header if X-Username is given and X-Api-Key is not specified")
+        .in(ParameterType.HEADER).build();
+
+    RequestParameter xApiKeyHeader = new RequestParameterBuilder().name("X-Api-Key")
+        .description("Required header if X-Username is given and X-Password is not specified")
+        .in(ParameterType.HEADER).build();
+
+    requestParameters.add(xTenantHeader);
+    requestParameters.add(xAuthTokenHeader);
+    requestParameters.add(xUsernameHeader);
+    requestParameters.add(xPasswordHeader);
+    requestParameters.add(xApiKeyHeader);
+
     return requestParameters;
   }
 }
