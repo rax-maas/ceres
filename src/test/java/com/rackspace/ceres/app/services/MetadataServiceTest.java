@@ -25,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
+import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
@@ -36,6 +37,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -494,32 +496,41 @@ class MetadataServiceTest {
     assertThat(tagKeyPairResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
   }
 
-//  @Test
-//  void getTagsWithMetricGroup() {
-//    //TODO
-//    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-//    final String metricName = randomAlphabetic(5);
-//    final String tagK1 = randomAlphabetic(5);
-//    final String tagK2 = randomAlphabetic(5);
-//    final String tagV1 = randomAlphabetic(5);
-//    final String tagV2 = randomAlphabetic(5);
-//
-//    cassandraTemplate.insert(
-//        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
-//    ).block();
-//    cassandraTemplate.insert(
-//        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
-//    ).block();
-//    // and one with different metric name
-//    cassandraTemplate.insert(
-//        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
-//    ).block();
-//
-//    final TagKeyPairResponse tagKeyPairResponse = metadataService.getTags(tenantId, metricName, "")
-//        .block();
-//
-//    assertThat(tagKeyPairResponse.getTenantId()).isEqualTo(tenantId);
-//    assertThat(tagKeyPairResponse.getMetricGroup()).isEqualTo(metricG);
-//    assertThat(tagKeyPairResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
-//  }
+  @Test
+  void getTagsWithMetricGroup() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = randomAlphabetic(5);
+    final String metricGroup = randomAlphabetic(5);
+    final String tagK1 = randomAlphabetic(5);
+    final String tagK2 = randomAlphabetic(5);
+    final String tagV1 = randomAlphabetic(5);
+    final String tagV2 = randomAlphabetic(5);
+
+    cassandraTemplate.insert(
+        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
+    ).block();
+    cassandraTemplate.insert(
+        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
+    ).block();
+    // and one with different metric name
+    cassandraTemplate.insert(
+        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
+    ).block();
+
+    cassandraTemplate.insert(
+        metricGroup(tenantId, metricGroup, metricName)
+    ).block();
+
+    final TagKeyPairResponse tagKeyPairResponse = metadataService.getTags(tenantId, "", metricGroup)
+        .block();
+
+    assertThat(tagKeyPairResponse.getTenantId()).isEqualTo(tenantId);
+    assertThat(tagKeyPairResponse.getMetricGroup()).isEqualTo(metricGroup);
+    assertThat(tagKeyPairResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
+  }
+
+  private MetricGroup metricGroup(String tenantId, String metricGroup, String metricName) {
+    return new MetricGroup().setTenant(tenantId).setMetricGroup(metricGroup).setMetricNames(Set.of(metricName))
+        .setUpdatedAt(Instant.now().toString());
+  }
 }

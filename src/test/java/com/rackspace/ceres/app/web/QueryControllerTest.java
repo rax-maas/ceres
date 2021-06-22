@@ -16,6 +16,7 @@ import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
+import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.cumulative.CumulativeCounter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -54,6 +55,9 @@ public class QueryControllerTest {
 
   @Autowired
   private WebTestClient webTestClient;
+
+  @MockBean
+  MetricNameAndGroupValidator metricNameAndGroupValidator;
 
   @Test
   public void testQueryApiWithMetricName() {

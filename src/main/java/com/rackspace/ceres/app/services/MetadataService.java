@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -81,9 +80,6 @@ public class MetadataService {
           + "tenant = '%s' AND metric_group = '%s'";
   private static final String GET_METRIC_GROUP =
       "SELECT metric_group FROM metric_groups WHERE tenant = '%s' AND metric_group = '%s'";
-
-  private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
-      "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -364,28 +360,6 @@ public class MetadataService {
                 .setTags(result.getTags())
         );
 
-  }
-
-  public Flux<Row> getRowsMetricNamesFromMetricGroup(String tenant, String metricGroup) {
-    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY,
-        tenant,
-        metricGroup
-    );
-  }
-
-  public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
-    Flux<Row> rows = getRowsMetricNamesFromMetricGroup(tenant, metricGroup);
-    return rows.hasElements().flatMap(
-        isTrue -> {
-          if (isTrue) {
-            return rows.flatMap(
-                row -> Mono.just(row.getList("metric_names", String.class)))
-                .next();
-          } else {
-            List<String> emptyList = List.of();
-            return Mono.just(emptyList);
-          }
-        }).flatMapMany(Flux::fromIterable);
   }
 
   public Mono<TagKeyPairResponse> getTags(String tenantHeader, String metricName,
