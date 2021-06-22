@@ -31,13 +31,13 @@ POST http://localhost:8080/api/put
 Content-Type: application/json
 
 {
-  "metric": "idle",
+  "metric": "cpu_idle",
   "tags": {
     "tenant": "t-1",
     "os": "linux",
     "host": "h-1",
     "deployment": "prod",
-    "metricGroup": "cpu"
+    "metricGroup": "Misc"
   },
   "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
@@ -54,12 +54,28 @@ GET http://localhost:8080/api/metadata/metricNames
 X-Auth-Token: abc
 X-Tenant: t-1
 ```
+Response:
+```http response
+[
+  "cpu_idle",
+  "cpu_busy"
+]
+```
 
 Tag keys, such as
 ```http request
 GET http://localhost:8080/api/metadata/tagKeys?metricName=cpu_idle
 X-Auth-Token: abc
 X-Tenant: t-1
+```
+Response:
+```http response
+[
+  "os",
+  "deployment"
+  "host",
+  "metricGroup"
+]
 ```
 
 Tag values, such as
@@ -69,6 +85,56 @@ GET http://localhost:8080/api/metadata/tagValues?
   &tagKey=os
 X-Auth-Token: abc
 X-Tenant: t-1
+```
+Response:
+```http response
+[
+  "linux"
+]
+```
+
+Tags, such as
+
+i. Using metricName
+```http request
+GET http://localhost:8080/api/metadata/tags?
+  metricName=cpu_idle
+X-Auth-Token: abc
+X-Tenant: t-1
+```
+Response:
+```http response
+{
+    "tenantId": "t-1",
+    "metric": "Misc",
+    "tags": {
+        "os": "linux",
+        "host": "h-1",
+        "deployment": "prod",
+        "metricGroup": "Misc"
+    }
+}
+```
+
+ii. Using metricGroup
+```http request
+GET http://localhost:8080/api/metadata/tags?
+  metricGroup=Misc
+X-Auth-Token: abc
+X-Tenant: t-1
+```
+Response:
+```http response
+{
+    "tenantId": "t-1",
+    "metricGroup": "Misc",
+    "tags": {
+        "os": "linux",
+        "host": "h-1",
+        "deployment": "prod",
+        "metricGroup": "Misc"
+    }
+}
 ```
 
 ### Query data
@@ -89,32 +155,23 @@ Responds with query results per series-set, such as:
 ```json
 [
   {
-    "tenant": "t-1",
-    "metricName": "cpu_idle",
-    "tags": {
-      "host": "h-1",
-      "os": "linux",
-      "deployment": "prod",
-      "metricGroup": "cpu"
+    "data": {
+      "tenant": "t-1",
+      "metricName": "cpu_idle",
+      "tags": {
+        "os": "linux",
+        "host": "h-1",
+        "deployment": "prod",
+        "metricGroup": "Misc"
+      },
+      "values": {
+        "2021-06-21T13:15:10.050Z": 81.0
+      }
     },
-    "values": {
-      "2020-08-24T00:13:16Z": 491.0,
-      "2020-08-24T00:13:20Z": 792.0,
-      "2020-08-24T00:13:21Z": 824.0
-    }
-  },
-  {
-    "tenant": "t-1",
-    "metricName": "cpu_idle",
-    "tags": {
-      "host": "h-3",
-      "os": "linux",
-      "deployment": "dev",
-      "metricGroup": "cpu"
-    },
-    "values": {
-      "2020-08-24T00:15:52Z": 84.0,
-      "2020-08-24T00:15:55Z": 498.0
+    "metadata": {
+      "aggregator": "raw",
+      "startTime": "2021-05-13T13:49:52.270902Z",
+      "endTime": "2021-06-22T13:49:52.274252Z"
     }
   }
 ]
@@ -124,7 +181,7 @@ Using metricGroup
 
 ```http request
 GET http://localhost:8080/api/query?
-  metricGroup=cpu
+  metricGroup=Misc
   &tag=os=linux
   &start=2020-08-23T17:53:00Z
   &end=2020-08-23T17:54:40Z
@@ -136,32 +193,23 @@ Responds with query results per series-set, such as:
 ```json
 [
   {
-    "tenant": "t-1",
-    "metricName": "cpu_idle",
-    "tags": {
-      "host": "h-1",
-      "os": "linux",
-      "deployment": "prod",
-      "metricGroup": "cpu"
+    "data": {
+      "tenant": "t-1",
+      "metricName": "cpu_idle",
+      "tags": {
+        "os": "linux",
+        "host": "h-1",
+        "deployment": "prod",
+        "metricGroup": "Misc"
+      },
+      "values": {
+        "2021-06-21T13:15:10.050Z": 81.0
+      }
     },
-    "values": {
-      "2020-08-24T00:13:16Z": 491.0,
-      "2020-08-24T00:13:20Z": 792.0,
-      "2020-08-24T00:13:21Z": 824.0
-    }
-  },
-  {
-    "tenant": "t-1",
-    "metricName": "cpu_idle",
-    "tags": {
-      "host": "h-3",
-      "os": "linux",
-      "deployment": "dev",
-      "metricGroup": "cpu"
-    },
-    "values": {
-      "2020-08-24T00:15:52Z": 84.0,
-      "2020-08-24T00:15:55Z": 498.0
+    "metadata": {
+      "aggregator": "raw",
+      "startTime": "2021-05-13T13:49:52.270902Z",
+      "endTime": "2021-06-22T13:49:52.274252Z"
     }
   }
 ]
