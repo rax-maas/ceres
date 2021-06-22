@@ -23,7 +23,7 @@ import java.util.Map;
 import lombok.Data;
 
 @Data
-public class TagKeyPairResponse {
+public class GetTagsResponse {
 
   private String tenantId;
 

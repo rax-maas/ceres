@@ -362,22 +362,31 @@ public class MetadataService {
 
   }
 
-  public Mono<TagKeyPairResponse> getTags(String tenantHeader, String metricName,
+
+  /**
+   * Returns Tags based upon tenantId and metricName/metricGroup
+   *
+   * @param tenantHeader the tenant header
+   * @param metricName   the metric name
+   * @param metricGroup  the metric group
+   * @return the tags
+   */
+  public Mono<GetTagsResponse> getTags(String tenantHeader, String metricName,
       String metricGroup) {
-    HashMap<String, String> resultantMap = new HashMap<>();
+    HashMap<String, String> tags = new HashMap<>();
     if (!StringUtils.isBlank(metricName)) {
       return getTags(tenantHeader, metricName).map(e -> {
-        resultantMap.putAll(e);
-        return resultantMap;
-      }).then(Mono.just(new TagKeyPairResponse().setTags(resultantMap).setMetric(metricName)
+        tags.putAll(e);
+        return tags;
+      }).then(Mono.just(new GetTagsResponse().setTags(tags).setMetric(metricName)
           .setTenantId(tenantHeader)));
     } else {
       return getMetricNamesFromMetricGroup(tenantHeader, metricGroup)
           .flatMap(metricName1 -> getTags(tenantHeader, metricName1)).map(e -> {
-            resultantMap.putAll(e);
-            return resultantMap;
+            tags.putAll(e);
+            return tags;
           }).then(Mono.just(
-              new TagKeyPairResponse().setTags(resultantMap).setMetricGroup(metricGroup)
+              new GetTagsResponse().setTags(tags).setMetricGroup(metricGroup)
                   .setTenantId(tenantHeader)));
     }
   }

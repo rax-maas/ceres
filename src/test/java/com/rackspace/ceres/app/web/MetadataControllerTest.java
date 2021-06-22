@@ -5,7 +5,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.config.AppProperties;
-import com.rackspace.ceres.app.model.TagKeyPairResponse;
+import com.rackspace.ceres.app.model.GetTagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
 import java.util.List;
@@ -107,9 +107,9 @@ public class MetadataControllerTest {
   public void testGetTagWithMetricName() {
     Map<String, String> tags = Map.of("os","linux","host","h1");
     when(metadataService.getTags("t-1", "metric-1", null))
-        .thenReturn(Mono.just(new TagKeyPairResponse().setMetric("metric-1").setTenantId("t-1")
+        .thenReturn(Mono.just(new GetTagsResponse().setMetric("metric-1").setTenantId("t-1")
             .setTags(tags)));
-    TagKeyPairResponse tagKeyPairResponse = new TagKeyPairResponse().setTenantId("t-1")
+    GetTagsResponse getTagsResponse = new GetTagsResponse().setTenantId("t-1")
         .setMetric("metric-1").setTags(tags);
 
     webTestClient.get().uri(
@@ -117,8 +117,8 @@ public class MetadataControllerTest {
             .queryParam("metricName", "metric-1").build())
         .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
-        .expectBody(TagKeyPairResponse.class)
-        .isEqualTo(tagKeyPairResponse);
+        .expectBody(GetTagsResponse.class)
+        .isEqualTo(getTagsResponse);
 
     verify(metadataService).getTags("t-1", "metric-1", null);
     verifyNoMoreInteractions(metadataService);
@@ -129,9 +129,9 @@ public class MetadataControllerTest {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     Map<String, String> tags = Map.of("os","linux","host","h1");
     when(metadataService.getTags("t-1", null, metricGroup))
-        .thenReturn(Mono.just(new TagKeyPairResponse().setMetricGroup(metricGroup).setTenantId("t-1")
+        .thenReturn(Mono.just(new GetTagsResponse().setMetricGroup(metricGroup).setTenantId("t-1")
             .setTags(tags)));
-    TagKeyPairResponse tagKeyPairResponse = new TagKeyPairResponse().setTenantId("t-1")
+    GetTagsResponse getTagsResponse = new GetTagsResponse().setTenantId("t-1")
         .setMetricGroup(metricGroup).setTags(tags);
 
     webTestClient.get().uri(
@@ -139,8 +139,8 @@ public class MetadataControllerTest {
             .queryParam("metricGroup", metricGroup).build())
         .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk()
-        .expectBody(TagKeyPairResponse.class)
-        .isEqualTo(tagKeyPairResponse);
+        .expectBody(GetTagsResponse.class)
+        .isEqualTo(getTagsResponse);
 
     verify(metadataService).getTags("t-1", null, metricGroup);
     verifyNoMoreInteractions(metadataService);

@@ -16,13 +16,12 @@
 
 package com.rackspace.ceres.app.web;
 
-import com.rackspace.ceres.app.model.TagKeyPairResponse;
+import com.rackspace.ceres.app.model.GetTagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.v3.oas.annotations.headers.Header;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -37,7 +36,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import springfox.documentation.annotations.ApiIgnore;
-import springfox.documentation.service.ParameterType;
 
 @RestController
 @RequestMapping("/api/metadata")
@@ -101,7 +99,7 @@ public class MetadataController {
   }
 
   @GetMapping("/tags")
-  public Mono<TagKeyPairResponse> getTags(
+  public Mono<GetTagsResponse> getTags(
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
