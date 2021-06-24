@@ -17,7 +17,6 @@
 
 package com.rackspace.ceres.app.validation;
 
-
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,17 +24,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-public class MetricNameAndGroupValidatorTest {
+public class StringValidatorTest {
 
   @Autowired
-  private MetricNameAndGroupValidator metricNameAndGroupValidator;
+  private StringValidator stringValidator;
 
   @Test
   public void validateMetricNameAndMetricGroupTest_MetricName() {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
 
-    Assertions.assertDoesNotThrow(() -> metricNameAndGroupValidator
-        .validateMetricNameAndMetricGroup(metricName, ""));
+    Assertions.assertDoesNotThrow(() -> stringValidator
+        .validateRequest(new String[]{metricName, ""}));
   }
 
   @Test
@@ -43,32 +42,32 @@ public class MetricNameAndGroupValidatorTest {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
 
-    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
-        .validateMetricNameAndMetricGroup(metricName, metricGroup));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> stringValidator
+        .validateRequest(new String[]{metricName, metricGroup}));
   }
 
   @Test
   public void validateMetricNameAndMetricGroupTest_Both_Empty() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
-        .validateMetricNameAndMetricGroup("", ""));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> stringValidator
+        .validateRequest(new String[]{"", ""}));
   }
 
   @Test
   public void validateMetricNameAndMetricGroupTest_Null_MetricName() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
-        .validateMetricNameAndMetricGroup(null, ""));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> stringValidator
+        .validateRequest(new String[]{null, ""}));
   }
 
   @Test
   public void validateMetricNameAndMetricGroupTest_Null_MetricGroup() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
-        .validateMetricNameAndMetricGroup("", null));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> stringValidator
+        .validateRequest(new String[]{"", null}));
   }
 
   @Test
   public void validateMetricNameAndMetricGroupTest_Both_Null() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> metricNameAndGroupValidator
-        .validateMetricNameAndMetricGroup(null, null));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> stringValidator
+        .validateRequest(new String[]{null, null}));
   }
 
 }

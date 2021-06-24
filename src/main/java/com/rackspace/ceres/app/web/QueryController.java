@@ -25,7 +25,7 @@ import com.rackspace.ceres.app.model.TsdbQueryRequestData;
 import com.rackspace.ceres.app.model.TsdbQueryResult;
 import com.rackspace.ceres.app.services.QueryService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
-import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
+import com.rackspace.ceres.app.validation.StringValidator;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.annotations.ApiImplicitParam;
@@ -64,13 +64,13 @@ import springfox.documentation.annotations.ApiIgnore;
 public class QueryController {
 
   private final QueryService queryService;
-  private final MetricNameAndGroupValidator validator;
+  private final StringValidator validator;
   private final DownsampleProperties downsampleProperties;
   private final Counter rawQueryCounter;
   private final Counter downSampleQueryCounter;
 
   @Autowired
-  public QueryController(QueryService queryService, MetricNameAndGroupValidator validator,
+  public QueryController(QueryService queryService, StringValidator validator,
       DownsampleProperties downsampleProperties, MeterRegistry meterRegistry) {
     this.queryService = queryService;
     this.validator = validator;
@@ -101,7 +101,7 @@ public class QueryController {
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
-    validator.validateMetricNameAndMetricGroup(metricName, metricGroup);
+    validator.validateRequest(new String[]{metricName, metricGroup});
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);

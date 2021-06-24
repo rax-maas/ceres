@@ -17,18 +17,21 @@
 
 package com.rackspace.ceres.app.validation;
 
+import java.util.Arrays;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-public class MetricNameAndGroupValidator {
+public class StringValidator {
 
-  public void validateMetricNameAndMetricGroup(String metricName, String metricGroup) {
-    if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName)) {
+  public static void validateRequest(String[] strArr) {
+    if (Arrays.stream(strArr)
+        .noneMatch(e -> (StringUtils.hasText(e) && !StringUtils.containsWhitespace(e)))) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
 
-    if(StringUtils.hasText(metricGroup) && StringUtils.hasText(metricName)) {
+    if (Arrays.stream(strArr)
+        .allMatch(e -> StringUtils.hasText(e))) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
     }
   }
