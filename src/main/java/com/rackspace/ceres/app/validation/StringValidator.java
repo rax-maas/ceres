@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
 @Component
 public class StringValidator {
 
-  public static void validateRequest(String[] strArr) {
+  public void validateRequest(String[] strArr) {
     if (Arrays.stream(strArr)
         .noneMatch(e -> (StringUtils.hasText(e) && !StringUtils.containsWhitespace(e)))) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");

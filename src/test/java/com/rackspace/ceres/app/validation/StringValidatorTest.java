@@ -70,4 +70,17 @@ public class StringValidatorTest {
         .validateRequest(new String[]{null, null}));
   }
 
+  @Test
+  public void validateMetricNameAndMetricGroupTest_WithMetricNameAndEmptyMetricGroup() {
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    Assertions.assertDoesNotThrow(() -> stringValidator
+        .validateRequest(new String[]{metricName, ""}));
+  }
+
+  @Test
+  public void validateMetricNameAndMetricGroupTest_WithMetricNameAndNullMetricGroup() {
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    Assertions.assertDoesNotThrow(() -> stringValidator
+        .validateRequest(new String[]{metricName, null}));
+  }
 }
