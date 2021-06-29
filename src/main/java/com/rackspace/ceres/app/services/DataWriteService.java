@@ -33,7 +33,6 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 import java.util.Map;
-import java.util.Set;
 
 @Service
 @Slf4j
@@ -151,8 +150,6 @@ public class DataWriteService {
     String updatedAt = metric.getTimestamp().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
-    return metadataService.metricGroupExists(tenant, metricGroup).flatMap(exists -> exists ?
-        metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
-        : metadataService.storeMetricGroup(tenant, metricGroup, Set.of(metricName), updatedAt));
+    return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt);
   }
 }

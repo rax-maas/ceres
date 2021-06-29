@@ -127,14 +127,6 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
-  public Mono<?> storeMetricGroup(String tenant, String metricGroup, Set<String> metricNames, String updatedAt) {
-    return cassandraTemplate.insert(new MetricGroup()
-        .setTenant(tenant)
-        .setMetricGroup(metricGroup)
-        .setMetricNames(metricNames)
-        .setUpdatedAt(updatedAt));
-  }
-
   public Mono<?> updateMetricGroupAddMetricName(
       String tenant, String metricGroup, String metricName, String updatedAt) {
     return cqlTemplate.execute(String.format(
@@ -193,11 +185,6 @@ public class MetadataService {
         String.class,
         tenant
     ).collectList();
-  }
-
-  public Mono<Boolean> metricGroupExists(String tenant, String metricGroup) {
-    return cqlTemplate.queryForRows(String.format(GET_METRIC_GROUP, tenant, metricGroup))
-        .hasElements().flatMap(Mono::just);
   }
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
