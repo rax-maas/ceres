@@ -21,3 +21,6 @@ spring:
   data:
     cassandra:
       local-datacenter: datacenter1
+management:
+  server:
+    port: 8081
