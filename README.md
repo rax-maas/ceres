@@ -24,7 +24,7 @@ Start the ingest/query application:
 mvn spring-boot:run
 ```
 
-### Write some data
+### Write a metric
 
 ```http request
 POST http://localhost:8080/api/put
@@ -42,6 +42,40 @@ Content-Type: application/json
   "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
 }
+```
+
+### Write a bunch of metrics
+
+```http request
+POST http://localhost:8080/api/put
+Content-Type: application/json
+
+[
+    {
+        "metric": "cpu_idle",
+        "tags": {
+            "tenant": "t-1",
+            "os": "linux",
+            "host": "h-1",
+            "deployment": "prod",
+            "metricGroup": "Misc"
+        },
+        "timestamp": {{$timestamp}},
+        "value": {{$randomInt}}
+    },
+    {
+        "metric": "memory_free",
+        "tags": {
+            "tenant": "t-1",
+            "os": "linux",
+            "host": "h-1",
+            "deployment": "prod",
+            "metricGroup": "Misc"
+        },
+        "timestamp": {{$timestamp}},
+        "value": {{$randomInt}}
+    }
+]
 ```
 
 where the above IntelliJ HTTP request snippet substitutes current epoch seconds for `{{$timestamp}}` and a random integer value at `{{$randomInt}}`.
