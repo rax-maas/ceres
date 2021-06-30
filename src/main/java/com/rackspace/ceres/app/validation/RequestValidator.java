@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-public class MetricNameAndGroupValidator {
+public class RequestValidator {
 
   public void validateMetricNameAndGroup(String metricName, String metricGroup) {
     if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName)) {

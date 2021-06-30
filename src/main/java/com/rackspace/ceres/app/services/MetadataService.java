@@ -378,16 +378,18 @@ public class MetadataService {
       return getTags(tenantHeader, metricName).map(e -> {
         tags.putAll(e);
         return tags;
-      }).then(Mono.just(new TagsResponse().setTags(tags).setMetric(metricName)
-          .setTenantId(tenantHeader)));
+      }).then(Mono.just(buildTagsResponse(tenantHeader, tags).setMetric(metricName)));
     } else {
       return getMetricNamesFromMetricGroup(tenantHeader, metricGroup)
           .flatMap(metricName1 -> getTags(tenantHeader, metricName1)).map(e -> {
             tags.putAll(e);
             return tags;
-          }).then(Mono.just(
-              new TagsResponse().setTags(tags).setMetricGroup(metricGroup)
-                  .setTenantId(tenantHeader)));
+          }).then(Mono.just(buildTagsResponse(tenantHeader, tags).setMetricGroup(metricGroup)));
     }
+  }
+
+  private TagsResponse buildTagsResponse(String tenantHeader, HashMap<String, String> tags) {
+    return new TagsResponse().setTags(tags)
+        .setTenantId(tenantHeader);
   }
 }

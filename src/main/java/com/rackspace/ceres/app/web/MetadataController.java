@@ -18,7 +18,7 @@ package com.rackspace.ceres.app.web;
 
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
-import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
+import com.rackspace.ceres.app.validation.RequestValidator;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
@@ -51,12 +51,12 @@ import springfox.documentation.annotations.ApiIgnore;
 public class MetadataController {
 
   private final MetadataService metadataService;
-  private final MetricNameAndGroupValidator validator;
+  private final RequestValidator validator;
 
   private final Environment environment;
 
   @Autowired
-  public MetadataController(MetadataService metadataService, MetricNameAndGroupValidator validator,
+  public MetadataController(MetadataService metadataService, RequestValidator validator,
       Environment environment) {
     this.metadataService = metadataService;
     this.validator = validator;

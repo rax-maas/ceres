@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
-import com.rackspace.ceres.app.validation.MetricNameAndGroupValidator;
+import com.rackspace.ceres.app.validation.RequestValidator;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -23,7 +23,7 @@ import reactor.core.publisher.Mono;
 
 @ActiveProfiles(profiles = {"test", "query", "dev"})
 @SpringBootTest(classes = {MetadataController.class, AppProperties.class,
-    MetricNameAndGroupValidator.class})
+    RequestValidator.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
 public class MetadataControllerTest {
@@ -32,7 +32,7 @@ public class MetadataControllerTest {
   MetadataService metadataService;
 
   @Autowired
-  MetricNameAndGroupValidator metricNameAndGroupValidator;
+  RequestValidator requestValidator;
 
   @Autowired
   WebTestClient webTestClient;
