@@ -33,7 +33,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByTenantId() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any(), anyString()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -46,7 +46,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByMetricName() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any(), anyString()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -60,13 +60,27 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByMetricNameAndTag() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any(), anyString()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
         .uri(uriBuilder -> uriBuilder.path("/api/metric")
             .queryParam("metricName", "cpu-idle")
             .queryParam("tag", "os=linux")
+            .queryParam("start", "1d-ago")
+            .build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk();
+  }
+
+  @Test
+  public void testDeleteMetricByMetricGroup() {
+    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any(), anyString()))
+        .thenReturn(Mono.empty());
+
+    webTestClient.delete()
+        .uri(uriBuilder -> uriBuilder.path("/api/metric")
+            .queryParam("metricGroup", "cpu")
             .queryParam("start", "1d-ago")
             .build())
         .header("X-Tenant", "t-1")

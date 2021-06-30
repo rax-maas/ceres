@@ -31,11 +31,12 @@ public class DeleteMetricController {
   @DeleteMapping
   public Mono<Empty> deleteMetrics(@RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
+      @RequestParam(required = false) String metricGroup,
       @RequestParam(required = false) List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
-    return metricDeletionService.deleteMetrics(tenantHeader, metricName, tag, startTime, endTime);
+    return metricDeletionService.deleteMetrics(tenantHeader, metricName, tag, startTime, endTime, metricGroup);
   }
 }

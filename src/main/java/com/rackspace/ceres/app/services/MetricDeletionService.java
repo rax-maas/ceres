@@ -59,14 +59,34 @@ public class MetricDeletionService {
   }
 
   public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
-      Instant start, Instant end) {
-    if (StringUtils.isBlank(metricName)) {
+      Instant start, Instant end, String metricGroup) {
+    if(StringUtils.isNotBlank(metricGroup)) {
+      return deleteMetricsByMetricGroup(tenant, metricGroup, start, end);
+    }
+    else if (StringUtils.isBlank(metricName)) {
       return deleteMetricsByTenantId(tenant, start, end);
     } else if (CollectionUtils.isEmpty(tag)) {
       return deleteMetricsByMetricName(tenant, metricName, start, end);
     } else {
       return deleteMetricsByMetricNameAndTag(tenant, metricName, tag, start, end);
     }
+  }
+
+  /**
+   * Deletes a metric by metric group.
+   *
+   * @param tenant
+   * @param metricGroup
+   * @param start
+   * @param end
+   * @return
+   */
+  private Mono<Empty> deleteMetricsByMetricGroup(String tenant, String metricGroup, Instant start,
+      Instant end) {
+    return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
+        .flatMap(metricName -> deleteMetricsByMetricName(tenant, metricName, start, end))
+        .then(metricDeletionHelper.deleteMetricGroupByTenantAndMetricGroup(tenant, metricGroup))
+        .then(Mono.empty());
   }
 
   /**
