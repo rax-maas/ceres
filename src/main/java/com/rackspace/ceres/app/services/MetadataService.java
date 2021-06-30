@@ -76,8 +76,6 @@ public class MetadataService {
   private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
       "UPDATE metric_groups SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
           + "tenant = '%s' AND metric_group = '%s'";
-  private static final String GET_METRIC_GROUP =
-      "SELECT metric_group FROM metric_groups WHERE tenant = '%s' AND metric_group = '%s'";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
