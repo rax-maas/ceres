@@ -28,12 +28,14 @@ import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.HashMap;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -358,5 +360,36 @@ public class MetadataService {
                 .setTags(result.getTags())
         );
 
+  }
+
+
+  /**
+   * Returns Tags based upon tenantId and metricName/metricGroup
+   *
+   * @param tenantHeader the tenant header
+   * @param metricName   the metric name
+   * @param metricGroup  the metric group
+   * @return the tags
+   */
+  public Mono<TagsResponse> getTags(String tenantHeader, String metricName,
+      String metricGroup) {
+    HashMap<String, String> tags = new HashMap<>();
+    if (StringUtils.hasText(metricName)) {
+      return getTags(tenantHeader, metricName).map(e -> {
+        tags.putAll(e);
+        return tags;
+      }).then(Mono.just(buildTagsResponse(tenantHeader, tags).setMetric(metricName)));
+    } else {
+      return getMetricNamesFromMetricGroup(tenantHeader, metricGroup)
+          .flatMap(metricName1 -> getTags(tenantHeader, metricName1)).map(e -> {
+            tags.putAll(e);
+            return tags;
+          }).then(Mono.just(buildTagsResponse(tenantHeader, tags).setMetricGroup(metricGroup)));
+    }
+  }
+
+  private TagsResponse buildTagsResponse(String tenantHeader, HashMap<String, String> tags) {
+    return new TagsResponse().setTags(tags)
+        .setTenantId(tenantHeader);
   }
 }

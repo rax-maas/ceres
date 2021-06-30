@@ -5,8 +5,12 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
+import com.rackspace.ceres.app.validation.RequestValidator;
 import java.util.List;
+import java.util.Map;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
@@ -18,13 +22,17 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
 @ActiveProfiles(profiles = {"test", "query", "dev"})
-@SpringBootTest(classes = {MetadataController.class, AppProperties.class})
+@SpringBootTest(classes = {MetadataController.class, AppProperties.class,
+    RequestValidator.class})
 @AutoConfigureWebTestClient
 @AutoConfigureWebFlux
 public class MetadataControllerTest {
 
   @MockBean
   MetadataService metadataService;
+
+  @Autowired
+  RequestValidator requestValidator;
 
   @Autowired
   WebTestClient webTestClient;
@@ -93,6 +101,49 @@ public class MetadataControllerTest {
         .isEqualTo(List.of("linux"));
 
     verify(metadataService).getTagValues("t-1", "metric-1", "os");
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetTagWithMetricName() {
+    Map<String, String> tags = Map.of("os","linux","host","h1");
+    when(metadataService.getTags("t-1", "metric-1", null))
+        .thenReturn(Mono.just(new TagsResponse().setMetric("metric-1").setTenantId("t-1")
+            .setTags(tags)));
+    TagsResponse tagsResponse = new TagsResponse().setTenantId("t-1")
+        .setMetric("metric-1").setTags(tags);
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/tags")
+            .queryParam("metricName", "metric-1").build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(TagsResponse.class)
+        .isEqualTo(tagsResponse);
+
+    verify(metadataService).getTags("t-1", "metric-1", null);
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetTagWithMetricGroup() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Map<String, String> tags = Map.of("os","linux","host","h1");
+    when(metadataService.getTags("t-1", null, metricGroup))
+        .thenReturn(Mono.just(new TagsResponse().setMetricGroup(metricGroup).setTenantId("t-1")
+            .setTags(tags)));
+    TagsResponse tagsResponse = new TagsResponse().setTenantId("t-1")
+        .setMetricGroup(metricGroup).setTags(tags);
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/tags")
+            .queryParam("metricGroup", metricGroup).build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(TagsResponse.class)
+        .isEqualTo(tagsResponse);
+
+    verify(metadataService).getTags("t-1", null, metricGroup);
     verifyNoMoreInteractions(metadataService);
   }
 }

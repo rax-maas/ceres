@@ -16,6 +16,7 @@ import com.rackspace.ceres.app.model.Metadata;
 import com.rackspace.ceres.app.model.QueryData;
 import com.rackspace.ceres.app.model.QueryResult;
 import com.rackspace.ceres.app.services.QueryService;
+import com.rackspace.ceres.app.validation.RequestValidator;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.cumulative.CumulativeCounter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -54,6 +55,9 @@ public class QueryControllerTest {
 
   @Autowired
   private WebTestClient webTestClient;
+
+  @MockBean
+  RequestValidator requestValidator;
 
   @Test
   public void testQueryApiWithMetricName() {
@@ -307,8 +311,6 @@ public class QueryControllerTest {
         .exchange().expectStatus().isBadRequest()
         .expectBody()
         .jsonPath("$.status").isEqualTo(400);
-
-    verifyNoInteractions(queryService);
   }
 
   @Test

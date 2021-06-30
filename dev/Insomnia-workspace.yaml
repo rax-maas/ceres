@@ -1,8 +1,75 @@
 _type: export
 __export_format: 4
-__export_date: 2021-04-22T11:12:13.775Z
+__export_date: 2021-06-22T15:12:20.372Z
 __export_source: insomnia.desktop.app:v2020.5.2
 resources:
+  - _id: req_f8b7194259414ee2bedb9883b22d135e
+    parentId: fld_6998b76084524b1884be7884164ba422
+    modified: 1624374548818
+    created: 1624373842197
+    url: "{{ api_public }}/api/metric"
+    name: Delete Metric
+    description: ""
+    method: DELETE
+    body: {}
+    parameters:
+      - name: metricName
+        value: cpu_idle
+        description: ""
+        id: pair_7e9f3c41ac774d7bbc72240e609a4de8
+        disabled: true
+      - name: metricGroup
+        value: Misc
+        description: ""
+        id: pair_d5bfeb036b984f5a8f395c3121b05a29
+        disabled: true
+      - name: tag
+        value: ""
+        description: ""
+        id: pair_660015089d0949d4af872f3968051786
+        disabled: true
+      - name: start
+        value: 2d-ago
+        description: ""
+        id: pair_86e6b68288fc4e62b67a84b08a6fb3a7
+      - name: end
+        value: ""
+        description: ""
+        id: pair_9cf07d3c52c14ca49d3f97122aa0ca9d
+        disabled: true
+    headers:
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_6ce6c42937b54feb998b7f5890dec92f
+    authentication: {}
+    metaSortKey: -1624373842197
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_6998b76084524b1884be7884164ba422
+    parentId: wrk_8fc4b25f197147728096ac966f73b62e
+    modified: 1624373796488
+    created: 1624373796488
+    name: Admin
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1624373796488
+    _type: request_group
+  - _id: wrk_8fc4b25f197147728096ac966f73b62e
+    parentId: null
+    modified: 1612868139531
+    created: 1612868139531
+    name: Ceres Workspace
+    description: ""
+    scope: null
+    _type: workspace
   - _id: req_0f668a996e1d4c66a17ee7c58f20d60d
     parentId: fld_d7700ed860b740ce8c350442b50dbe56
     modified: 1619089507760
@@ -80,14 +147,6 @@ resources:
     environmentPropertyOrder: null
     metaSortKey: -1612880827070
     _type: request_group
-  - _id: wrk_8fc4b25f197147728096ac966f73b62e
-    parentId: null
-    modified: 1612868139531
-    created: 1612868139531
-    name: Ceres Workspace
-    description: ""
-    scope: null
-    _type: workspace
   - _id: req_ea9cca38d7924d218ca2b1d0831c93d7
     parentId: fld_48b9ea2fb7374017b2992b281547a65f
     modified: 1619089620934
@@ -219,6 +278,69 @@ resources:
     settingRebuildPath: true
     settingFollowRedirects: global
     _type: request
+  - _id: req_e9eb7cff343d47169dcc53aca1e2fbb4
+    parentId: fld_e24cbfe180534c5dbfba098ca73534d0
+    modified: 1624374703226
+    created: 1624373930183
+    url: "{{ api_public }}/api/metadata/tags/"
+    name: Get Tags
+    description: ""
+    method: GET
+    body: {}
+    parameters:
+      - name: metricName
+        value: cpu_idle
+        description: ""
+        id: pair_03b195e6b03c4f059b5d830266cc6189
+      - name: metricGroup
+        value: Misc
+        description: ""
+        id: pair_b44d91a848b540cabd40e78156684f63
+        disabled: true
+    headers:
+      - name: X-Auth-Token
+        value: "{{ auth_token }}"
+        description: ""
+        id: pair_bca4aab8b8cc4dcd8e6aee26d856f7b3
+      - name: X-Tenant
+        value: t-1
+        description: ""
+        id: pair_31842682125a46b09339b8ece84b54bf
+      - name: X-Username
+        value: "{{ _.username }}"
+        description: ""
+        id: pair_d9c5e8759f8c4852a61e4acaa862cc65
+        disabled: true
+      - name: X-Password
+        value: "{{ _.password }}"
+        description: ""
+        id: pair_bcec3ad53082473ea814bcd2272c2d34
+        disabled: true
+      - name: X-Api-Key
+        value: "{{ _.api_key }}"
+        description: ""
+        id: pair_2ef588dca9cf4c708a359364bd1e9426
+        disabled: true
+    authentication: {}
+    metaSortKey: -1612875952645
+    isPrivate: false
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: fld_e24cbfe180534c5dbfba098ca73534d0
+    parentId: fld_76f005b356994fb6a17aa0229edd5089
+    modified: 1612880837590
+    created: 1612875850206
+    name: Metadata
+    description: ""
+    environment: {}
+    environmentPropertyOrder: null
+    metaSortKey: -1612880053455
+    _type: request_group
   - _id: req_5fe272d5901e4c0c87479e9ffab5f5cd
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
     modified: 1619089741760
@@ -267,16 +389,6 @@ resources:
     settingRebuildPath: true
     settingFollowRedirects: global
     _type: request
-  - _id: fld_e24cbfe180534c5dbfba098ca73534d0
-    parentId: fld_76f005b356994fb6a17aa0229edd5089
-    modified: 1612880837590
-    created: 1612875850206
-    name: Metadata
-    description: ""
-    environment: {}
-    environmentPropertyOrder: null
-    metaSortKey: -1612880053455
-    _type: request_group
   - _id: req_1df3e61522154c28822299e5a2fb34eb
     parentId: fld_e24cbfe180534c5dbfba098ca73534d0
     modified: 1619089737269
