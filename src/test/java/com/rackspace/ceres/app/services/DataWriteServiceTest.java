@@ -112,11 +112,12 @@ class DataWriteServiceTest {
       );
       final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
+      when(metadataService.updateMetricGroupAddMetricName(any(), any(), any(), any()))
+          .thenReturn(Mono.empty());
       when(metadataService.storeMetadata(any(), any(), any(), any())).thenReturn(Mono.empty());
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
-      when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
 
       final Metric metric = dataWriteService.ingest(
           tenantId,
@@ -133,10 +134,9 @@ class DataWriteServiceTest {
       assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
 
       verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(), metric.getTags());
-      verify(metadataService).metricGroupExists(tenantId, metricGroup);
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
-      verify(metadataService).storeMetricGroup(
-          tenantId, metricGroup, Set.of(metric.getMetric()), metric.getTimestamp().toString());
+      verify(metadataService).updateMetricGroupAddMetricName(
+          tenantId, metricGroup, metric.getMetric(), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -157,14 +157,13 @@ class DataWriteServiceTest {
       final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
       final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
 
+      when(metadataService.updateMetricGroupAddMetricName(any(), any(), any(), any()))
+          .thenReturn(Mono.empty());
       when(metadataService.storeMetadata(any(), any(), any(), any()))
           .thenReturn(Mono.empty());
 
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
-
-      when(metadataService.metricGroupExists(anyString(), anyString())).thenReturn(Mono.just(false));
-      when(metadataService.storeMetricGroup(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
 
       final Metric metric1 = new Metric()
           .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
@@ -190,12 +189,10 @@ class DataWriteServiceTest {
       verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2.getMetric(),
           metric2.getTags());
 
-      verify(metadataService).metricGroupExists(tenant1, metricGroup);
-      verify(metadataService).metricGroupExists(tenant2, metricGroup);
-      verify(metadataService).storeMetricGroup(
-          tenant1, metricGroup, Set.of(metric1.getMetric()), metric1.getTimestamp().toString());
-      verify(metadataService).storeMetricGroup(
-          tenant2, metricGroup, Set.of(metric2.getMetric()), metric2.getTimestamp().toString());
+      verify(metadataService).updateMetricGroupAddMetricName(
+          tenant1, metricGroup, metric1.getMetric(), metric1.getTimestamp().toString());
+      verify(metadataService).updateMetricGroupAddMetricName(
+          tenant2, metricGroup, metric2.getMetric(), metric2.getTimestamp().toString());
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
