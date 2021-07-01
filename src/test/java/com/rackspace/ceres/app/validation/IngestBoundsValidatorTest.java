@@ -20,11 +20,12 @@ import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
 
 import com.rackspace.ceres.app.config.AppProperties;
+
 import java.time.Duration;
 import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 
 public class IngestBoundsValidatorTest {
@@ -32,9 +33,9 @@ public class IngestBoundsValidatorTest {
   @Test
   public void testIngestBounds() {
     IngestBoundsValidator validator = new IngestBoundsValidator(getAppProperties());
-    validator.initialize(any());
+    validator.initialize(null);
     Instant value = Instant.now();
-    var result = validator.isValid(value, any());
+    var result = validator.isValid(value, null);
     assertTrue(result);
   }
 
@@ -43,7 +44,7 @@ public class IngestBoundsValidatorTest {
     IngestBoundsValidator validator = new IngestBoundsValidator(getAppProperties());
     validator.initialize(null);
     Instant value = Instant.now().minus(8, DAYS);
-    var result = validator.isValid(value, any());
+    var result = validator.isValid(value, null);
     assertFalse(result);
   }
 
@@ -55,7 +56,7 @@ public class IngestBoundsValidatorTest {
     IngestBoundsValidator validator = new IngestBoundsValidator(getAppProperties());
     validator.initialize(null);
     Instant value = Instant.now().minus(11, HOURS);
-    var result = validator.isValid(value, any());
+    var result = validator.isValid(value, null);
     assertTrue(result);
   }
 
