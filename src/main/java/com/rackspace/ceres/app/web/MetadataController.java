@@ -71,6 +71,13 @@ public class MetadataController {
     return metadataService.getMetricNames(tenantHeader);
   }
 
+  @GetMapping("/metricGroups")
+  @ApiOperation(value = "This api is used to get metric groups for the given tenant")
+  public Mono<List<String>> getMetricGroups(
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+    return metadataService.getMetricGroups(tenantHeader);
+  }
+
   @GetMapping("/tagKeys")
   @ApiOperation(value = "This api is used to get metric tag keys for the given tenant and metric name")
   public Mono<List<String>> getTagKeys(
