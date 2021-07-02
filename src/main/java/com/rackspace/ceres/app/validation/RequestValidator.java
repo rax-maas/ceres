@@ -17,19 +17,28 @@
 
 package com.rackspace.ceres.app.validation;
 
+import java.util.List;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
-@Component
 public class RequestValidator {
 
-  public void validateMetricNameAndGroup(String metricName, String metricGroup) {
+  public static void validateMetricNameAndGroup(String metricName, String metricGroup) {
     if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName)) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
     }
 
     if(StringUtils.hasText(metricGroup) && StringUtils.hasText(metricName)) {
       throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
+    }
+  }
+
+  public static void validateMetricGroupAndTags(String metricGroup, List<String> tags) {
+    if(StringUtils.hasText(metricGroup)) {
+      if (!ObjectUtils.isEmpty(tags)) {
+        throw new IllegalArgumentException("Tags are not required when passing metric group");
+      }
     }
   }
 }

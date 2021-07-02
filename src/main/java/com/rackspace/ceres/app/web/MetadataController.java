@@ -19,8 +19,6 @@ package com.rackspace.ceres.app.web;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,15 +41,12 @@ import springfox.documentation.annotations.ApiIgnore;
 public class MetadataController {
 
   private final MetadataService metadataService;
-  private final RequestValidator validator;
 
   private final Environment environment;
 
   @Autowired
-  public MetadataController(MetadataService metadataService, RequestValidator validator,
-      Environment environment) {
+  public MetadataController(MetadataService metadataService, Environment environment) {
     this.metadataService = metadataService;
-    this.validator = validator;
     this.environment = environment;
   }
 
@@ -95,7 +90,7 @@ public class MetadataController {
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
-    validator.validateMetricNameAndGroup(metricName, metricGroup);
+    RequestValidator.validateMetricNameAndGroup(metricName, metricGroup);
 
     return metadataService
         .getTags(tenantHeader, metricName, metricGroup);

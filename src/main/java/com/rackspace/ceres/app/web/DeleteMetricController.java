@@ -2,6 +2,7 @@ package com.rackspace.ceres.app.web;
 
 import com.rackspace.ceres.app.services.MetricDeletionService;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import com.rackspace.ceres.app.validation.RequestValidator;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ public class DeleteMetricController {
       @RequestParam(required = false) String end) {
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
+    RequestValidator.validateMetricGroupAndTags(metricGroup, tag);
     return metricDeletionService.deleteMetrics(tenantHeader, metricName, tag, startTime, endTime, metricGroup);
   }
 }
