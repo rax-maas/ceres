@@ -67,6 +67,8 @@ public class MetadataService {
   private static final String GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
   private static final String GET_METRIC_NAMES_QUERY =
       "SELECT metric_name FROM metric_names WHERE tenant = ?";
+  private static final String GET_METRIC_GROUPS_QUERY =
+      "SELECT metric_group FROM metric_groups WHERE tenant = ?";
   private static final String GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
       + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
   private static final String GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
@@ -182,6 +184,13 @@ public class MetadataService {
 
   public Mono<List<String>> getMetricNames(String tenant) {
     return cqlTemplate.queryForFlux(GET_METRIC_NAMES_QUERY,
+        String.class,
+        tenant
+    ).collectList();
+  }
+
+  public Mono<List<String>> getMetricGroups(String tenant) {
+    return cqlTemplate.queryForFlux(GET_METRIC_GROUPS_QUERY,
         String.class,
         tenant
     ).collectList();

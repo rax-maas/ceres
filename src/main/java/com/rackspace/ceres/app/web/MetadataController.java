@@ -19,8 +19,6 @@ package com.rackspace.ceres.app.web;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +67,13 @@ public class MetadataController {
   public Mono<List<String>> getMetricNames(
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
     return metadataService.getMetricNames(tenantHeader);
+  }
+
+  @GetMapping("/metricGroups")
+  @ApiOperation(value = "This api is used to get metric groups for the given tenant")
+  public Mono<List<String>> getMetricGroups(
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+    return metadataService.getMetricGroups(tenantHeader);
   }
 
   @GetMapping("/tagKeys")
