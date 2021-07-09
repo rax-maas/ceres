@@ -58,3 +58,10 @@ kubectl get deployments ceres
 kubectl get services ceres
 kubectl describe deployments ceres
 ```
+* Clean up commands
+```shell script
+kubectl delete deployment ceres
+kubectl delete service ceres
+minikube stop # graceful stop
+minikube delete --all # this will delete the whole cluster
+```
