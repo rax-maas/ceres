@@ -3,13 +3,17 @@
 * Modify src/main/java/resources/application.yml to look like this:
 ```yaml
 spring:
+  redis:
+    database: 0
+    port: 6379
+    host: 192.168.49.1 # Check your localhost ip address
   data:
     cassandra:
       keyspace-name: ceres
       schema-action: create_if_not_exists
       local-datacenter: datacenter1
       port: 9042
-      contact-points: <local machine address e.g. 192.168.0.1 (not localhost)>
+      contact-points: 192.168.49.1 # Check your localhost ip address
 ```
 * Install minikube
 * Start minikube
