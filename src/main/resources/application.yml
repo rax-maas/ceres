@@ -8,7 +8,7 @@ spring:
     # we have redis, but really just want in-memory caching
     type: simple
   profiles:
-    active: downsample, ingest, query
+    active: downsample, ingest, query, admin
     group:
       dev:
         - debug
