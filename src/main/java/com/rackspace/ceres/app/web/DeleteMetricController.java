@@ -32,7 +32,7 @@ public class DeleteMetricController {
   public Mono<Empty> deleteMetrics(@RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) List<String> tag,
-      @RequestParam String start,
+      @RequestParam(required = false) String start,
       @RequestParam(required = false) String end) {
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
