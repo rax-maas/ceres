@@ -25,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
+import com.rackspace.ceres.app.entities.Devices;
 import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
@@ -531,6 +532,66 @@ class MetadataServiceTest {
 
   private MetricGroup metricGroup(String tenantId, String metricGroup, String metricName) {
     return new MetricGroup().setTenant(tenantId).setMetricGroup(metricGroup).setMetricNames(Set.of(metricName))
+        .setUpdatedAt(Instant.now().toString());
+  }
+
+
+  @Test
+  public void testGetMetricNamesFromDevice() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String device = RandomStringUtils.randomAlphanumeric(10);
+    final Set<String> metricNames = Set.of("metricName1", "metricName2", "metricName3");
+
+    cassandraTemplate.insert(
+        insertDeviceData(tenantId, device, metricNames)
+    ).block();
+
+    List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device).block();
+    assertThat(metricNamesResult).containsExactlyInAnyOrderElementsOf(metricNames);
+  }
+
+  @Test
+  public void testGetDevices() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String device1 = RandomStringUtils.randomAlphanumeric(10);
+    final String device2 = RandomStringUtils.randomAlphanumeric(10);
+    final Set<String> metricNames1 = Set.of("metricName1", "metricName2", "metricName3");
+    final Set<String> metricNames2 = Set.of("metricName4", "metricName5", "metricName6");
+
+
+    cassandraTemplate.insert(
+        insertDeviceData(tenantId, device1, metricNames1)
+    ).block();
+
+    cassandraTemplate.insert(
+        insertDeviceData(tenantId, device2, metricNames2)
+    ).block();
+
+    List<String> metricNamesResult = metadataService.getDevices(tenantId).block();
+    assertThat(metricNamesResult).containsExactlyInAnyOrder(device1, device2);
+  }
+
+  @Test
+  public void testUpdateDeviceAddMetricName() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String device1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName2 = RandomStringUtils.randomAlphanumeric(10);
+
+    metadataService
+        .updateDeviceAddMetricName(tenantId, device1, metricName1, Instant.now().toString())
+        .block();
+    metadataService
+        .updateDeviceAddMetricName(tenantId, device1, metricName2, Instant.now().toString())
+        .block();
+
+    List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device1)
+        .block();
+    assertThat(metricNamesResult).containsExactlyInAnyOrder(metricName1, metricName2);
+  }
+
+  private Devices insertDeviceData(String tenantId, String device, Set<String> metricNames) {
+    return new Devices().setTenant(tenantId).setDevice(device).setMetricNames(metricNames)
         .setUpdatedAt(Instant.now().toString());
   }
 }

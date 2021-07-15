@@ -126,11 +126,14 @@ class QueryServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
+
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
@@ -149,6 +152,8 @@ class QueryServiceTest {
         .thenReturn(Mono.just(metricNameAndTags));
 
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
     Metric metric = dataWriteService.ingest(
@@ -175,11 +180,14 @@ class QueryServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
+
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
@@ -197,6 +205,8 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(
@@ -223,11 +233,13 @@ class QueryServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
@@ -239,6 +251,8 @@ class QueryServiceTest {
         .thenReturn(Mono.empty());
 
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
@@ -327,11 +341,14 @@ class QueryServiceTest {
     final String tenant = randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
+
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
 
     final String seriesSetHash = seriesSetService
@@ -350,6 +367,8 @@ class QueryServiceTest {
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
