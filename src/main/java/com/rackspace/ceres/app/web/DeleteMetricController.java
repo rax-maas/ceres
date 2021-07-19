@@ -34,7 +34,10 @@ public class DeleteMetricController {
       @RequestParam(required = false) List<String> tag,
       @RequestParam(required = false) String start,
       @RequestParam(required = false) String end) {
-    Instant startTime = DateTimeUtils.parseInstant(start);
+    Instant startTime = null;
+    if(start != null) {
+      startTime = DateTimeUtils.parseInstant(start);
+    }
     Instant endTime = DateTimeUtils.parseInstant(end);
     return metricDeletionService.deleteMetrics(tenantHeader, metricName, tag, startTime, endTime);
   }

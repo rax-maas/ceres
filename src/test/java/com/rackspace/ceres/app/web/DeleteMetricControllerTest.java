@@ -45,6 +45,18 @@ public class DeleteMetricControllerTest {
   }
 
   @Test
+  public void testDeleteMetricByTenantIdAndWithoutStartTime() {
+    when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    webTestClient.delete()
+        .uri(uriBuilder -> uriBuilder.path("/api/metric")
+            .build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk();
+  }
+
+  @Test
   public void testDeleteMetricByMetricName() {
     when(metricDeletionService.deleteMetrics(anyString(), anyString(), any(), any(), any()))
         .thenReturn(Mono.empty());

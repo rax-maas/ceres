@@ -87,9 +87,10 @@ public class MetricDeletionService {
           .then(deleteMetricsFromRaw(tenant, start, end))
           .then(Mono.empty());
     } else {
+      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
       seriesSetHashes = metricDeletionHelper
           .getSeriesSetHashFromRawOrDownsampled(tenant,
-              Instant.now().minus(getHighestTTLGranularity().getTtl()), end);
+              start, end);
       return deleteMetadataByTenantId(tenant, seriesSetHashes)
           .then(deleteMetricsFromDownsampled(tenant, start, end))
           .then(deleteMetricsFromRaw(tenant, start, end))
