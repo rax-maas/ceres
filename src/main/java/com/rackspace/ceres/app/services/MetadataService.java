@@ -80,6 +80,13 @@ public class MetadataService {
   private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
       "UPDATE metric_groups SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
           + "tenant = '%s' AND metric_group = '%s'";
+  private static final String UPDATE_DEVICE_ADD_METRIC_NAME =
+      "UPDATE devices SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
+          + "tenant = '%s' AND device = '%s'";
+  private static final String GET_DEVICES_PER_TENANT_QUERY =
+      "SELECT device FROM devices WHERE tenant = ?";
+  private static final String GET_METRIC_NAMES_FROM_DEVICE_QUERY =
+      "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -385,5 +392,23 @@ public class MetadataService {
   private TagsResponse buildTagsResponse(String tenantHeader, HashMap<String, String> tags) {
     return new TagsResponse().setTags(tags)
         .setTenantId(tenantHeader);
+  }
+
+  public Mono<Boolean> updateDeviceAddMetricName(
+      String tenant, String device, String metricName, String updatedAt) {
+    return cqlTemplate.execute(String.format(
+        UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device));
+  }
+
+  public Mono<List<String>> getDevices(String tenant) {
+    return cqlTemplate.queryForFlux(GET_DEVICES_PER_TENANT_QUERY,
+        String.class,
+        tenant
+    ).collectList();
+  }
+
+  public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
+    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class))).collectList();
   }
 }

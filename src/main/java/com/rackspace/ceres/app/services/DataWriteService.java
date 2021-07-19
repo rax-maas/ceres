@@ -39,6 +39,7 @@ import java.util.Map;
 public class DataWriteService {
 
   private static final String LABEL_METRIC_GROUP = "metricGroup";
+  private static final String LABEL_RESOURCE = "resource";
   private final ReactiveCqlTemplate cqlTemplate;
   private final SeriesSetService seriesSetService;
   private final MetadataService metadataService;
@@ -72,8 +73,9 @@ public class DataWriteService {
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
     String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
-    if (metricGroupTag == null || metricGroupTag.isEmpty()) {
-      return Mono.error(new ServerWebInputException("metricGroup tag must be present"));
+    String resourceTag = metric.getTags().get(LABEL_RESOURCE);
+    if (!StringUtils.hasText(metricGroupTag) || !StringUtils.hasText(resourceTag)) {
+      return Mono.error(new ServerWebInputException("metricGroup tag and resource tag must be present"));
     }
 
     cleanTags(metric.getTags());
@@ -86,6 +88,7 @@ public class DataWriteService {
         .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
         .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
         .and(storeMetricGroup(tenant, metric))
+        .and(storeDeviceData(tenant, metric))
         .then(Mono.just(metric));
   }
 
@@ -151,5 +154,12 @@ public class DataWriteService {
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
     return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt);
+  }
+
+  private Mono<?> storeDeviceData(String tenant, Metric metric) {
+    String updatedAt = metric.getTimestamp().toString();
+    String device = metric.getTags().get(LABEL_RESOURCE);
+    String metricName = metric.getMetric();
+    return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt);
   }
 }
