@@ -484,6 +484,78 @@ public class MetricDeletionServiceTest {
     assertMetricNamesViaQuery(tenantId, metricName, 1);
   }
 
+  @Test
+  public void testDeleteMultipleMetricsByTenantIdAndWithoutStartTime() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    Instant currentTime = Instant.now();
+    Metric metric1 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime.minus(10, ChronoUnit.MINUTES))
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    Metric metric2 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    Metric metric3 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime.plus(10, ChronoUnit.MINUTES))
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    //validate data raw
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 3);
+
+    //validate series_set_hashes
+    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 4);
+
+    //validate metric_names
+    assertMetricNamesViaQuery(tenantId, metricName, 1);
+
+    metricDeletionService.deleteMetrics(tenantId, "", null,
+        null, Instant.now()).then().block();
+
+    //validate data raw
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+
+    //validate series_set_hashes
+    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 0);
+
+    //validate metric_names
+    assertMetricNamesViaQuery(tenantId, metricName, 0);
+  }
+
   private void deleteDataFromRawTable(String tenant, Instant timeSlot) {
     cqlTemplate.queryForRows(dataTablesStatements.getRawDelete(), tenant, timeSlot)
         .collectList().block();
