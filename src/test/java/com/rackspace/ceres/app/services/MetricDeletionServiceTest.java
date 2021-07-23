@@ -123,7 +123,8 @@ public class MetricDeletionServiceTest {
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -165,7 +166,8 @@ public class MetricDeletionServiceTest {
         null, Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
@@ -199,7 +201,8 @@ public class MetricDeletionServiceTest {
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
@@ -241,7 +244,8 @@ public class MetricDeletionServiceTest {
         Instant.now(), Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -325,7 +329,8 @@ public class MetricDeletionServiceTest {
         null, Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
@@ -367,7 +372,8 @@ public class MetricDeletionServiceTest {
         Instant.now().minusSeconds(60), Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -409,7 +415,8 @@ public class MetricDeletionServiceTest {
         null, Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
@@ -472,7 +479,8 @@ public class MetricDeletionServiceTest {
         Instant.now().plus(5, ChronoUnit.MINUTES)).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -529,7 +537,8 @@ public class MetricDeletionServiceTest {
     ).block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 3);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        3);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -544,7 +553,8 @@ public class MetricDeletionServiceTest {
         null, Instant.now()).then().block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
@@ -557,7 +567,7 @@ public class MetricDeletionServiceTest {
   }
 
   @Test
-  public void testDeleteByTenantIdAndWithoutStartTimeByCheckingBoundaryConditions() {
+  public void testDeleteByTenantIdAndWithoutStartTimeByCheckingBoundaryConditions1() {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
@@ -623,11 +633,16 @@ public class MetricDeletionServiceTest {
     ).block();
 
     //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus5Hours), 1);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus4Hours), 1);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus3Hours), 1);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus2Hours), 1);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus1Hours), 1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus5Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus4Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus3Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus2Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus1Hours),
+        1);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -643,11 +658,130 @@ public class MetricDeletionServiceTest {
 
     //validate data raw
     //it must not delete metrics which are older than 3 hours
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus5Hours), 1);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus4Hours), 1);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus3Hours), 0);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus2Hours), 0);
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus1Hours), 0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus5Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus4Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus3Hours),
+        0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus2Hours),
+        0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus1Hours),
+        0);
+
+    //validate series_set_hashes
+    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 4);
+
+    //validate metric_names
+    assertMetricNamesViaQuery(tenantId, metricName, 1);
+  }
+
+  @Test
+  public void testDeleteByTenantIdAndWithoutStartTimeByCheckingBoundaryConditions2() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    Instant currentTimeMinus5Hours = Instant.now().minus(5, ChronoUnit.HOURS);
+    Metric metric1 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTimeMinus5Hours)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    Instant currentTimeMinus4Hours = Instant.now().minus(4, ChronoUnit.HOURS);
+    Metric metric2 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTimeMinus4Hours)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    Instant currentTimeMinus3Hours = Instant.now().minus(3, ChronoUnit.HOURS);
+    Metric metric3 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTimeMinus3Hours)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    Instant currentTimeMinus2Hours = Instant.now().minus(2, ChronoUnit.HOURS);
+    Metric metric4 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTimeMinus2Hours)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    Instant currentTimeMinus1Hours = Instant.now().minus(1, ChronoUnit.HOURS);
+    Metric metric5 = dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTimeMinus1Hours)
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    //validate data raw
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus5Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus4Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus3Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus2Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus1Hours),
+        1);
+
+    //validate series_set_hashes
+    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 4);
+
+    //validate metric_names
+    assertMetricNamesViaQuery(tenantId, metricName, 1);
+
+    metricDeletionService.deleteMetrics(tenantId, "", null,
+        Instant.now().minus(4, ChronoUnit.HOURS),
+        Instant.now().minus(2, ChronoUnit.HOURS)).then().block();
+
+    //validate data raw
+    //it must not delete metrics which are in range of 4 to 2 hours back from current time
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus5Hours),
+        1);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus4Hours),
+        0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus3Hours),
+        0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus2Hours),
+        0);
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTimeMinus1Hours),
+        1);
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
@@ -701,14 +835,5 @@ public class MetricDeletionServiceTest {
         .collectList().block();
 
     assertThat(queryRawResult).hasSize(expectedRowNum);
-  }
-
-  private void assertQueryRawViaQueryUsingRange(String tenant, Instant start, Instant end, int expectedRowNum) {
-    timeSlotPartitioner.partitionsOverRange(start, end, null).forEach(timeSlot -> {
-      final List<Row> queryRawResult = cqlTemplate.queryForRows(QUERY_RAW, tenant, timeSlot)
-          .collectList().block();
-
-      assertThat(queryRawResult).hasSize(expectedRowNum);
-    });
   }
 }
