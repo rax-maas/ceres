@@ -21,8 +21,10 @@ package com.rackspace.ceres.app.services;
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -79,12 +81,20 @@ public class MetricDeletionService {
    */
   private Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
     log.debug("Deleting metrics for tenant: {}", tenant);
-    Flux<String> seriesSetHashes = metricDeletionHelper
-        .getSeriesSetHashFromRawOrDownsampled(tenant, start, end);
-    return deleteMetadataByTenantId(tenant, seriesSetHashes)
-        .then(deleteMetricsFromDownsampled(tenant, start, end))
-        .then(deleteMetricsFromRaw(tenant, start, end))
-        .then(Mono.empty());
+    Flux<String> seriesSetHashes = null;
+    if (start != null) {
+      return deleteMetricsFromDownsampled(tenant, start, end)
+          .then(deleteMetricsFromRaw(tenant, start, end))
+          .then(Mono.empty());
+    } else {
+      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
+      seriesSetHashes = metricDeletionHelper
+          .getSeriesSetHashFromRawOrDownsampled(tenant, start, end);
+      return deleteMetadataByTenantId(tenant, seriesSetHashes)
+          .then(deleteMetricsFromDownsampled(tenant, start, end))
+          .then(deleteMetricsFromRaw(tenant, start, end))
+          .then(Mono.empty());
+    }
   }
 
   /**
@@ -102,9 +112,18 @@ public class MetricDeletionService {
         tenant);
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromSeriesSets(tenant,
         metricName);
-    return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
-        .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
-        .then(Mono.empty());
+    if (start != null) {
+      final Instant startDateTime = start;
+      return seriesSetHashes.flatMap(seriesSetHash ->
+          deleteMetricsFromDownsampledWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)
+              .then(deleteMetricsFromRawWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)))
+              .then(Mono.empty());
+    } else  {
+      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
+      return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
+          .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
+          .then(Mono.empty());
+    }
   }
 
   /**
@@ -125,8 +144,17 @@ public class MetricDeletionService {
     Map<String, String> queryTags = convertPairsListToMap(tag);
     Flux<String> seriesSetHashes =
         metadataService.locateSeriesSetHashes(tenant, metricName, queryTags);
-    return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
-        .then(Mono.empty());
+    if (start != null) {
+      final Instant startDateTime = start;
+      return seriesSetHashes.flatMap(seriesSetHash ->
+          deleteMetricsFromDownsampledWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)
+              .then(deleteMetricsFromRawWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)))
+          .then(Mono.empty());
+    } else  {
+      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
+      return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
+          .then(Mono.empty());
+    }
   }
 
   /**
@@ -271,5 +299,10 @@ public class MetricDeletionService {
                 .deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash()
                     , tenant, timeSlot, seriesSetHash))
         .then(Mono.just(true));
+  }
+
+  private Granularity getHighestTTLGranularity()  {
+    return downsampleProperties.getGranularities()
+        .stream().max(Comparator.comparing(e -> e.getTtl())).get();
   }
 }

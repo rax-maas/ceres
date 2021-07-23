@@ -195,13 +195,11 @@ public class MetricDeletionHelper {
    * @return the series set hash from downsampled
    */
   private Flux<String> getSeriesSetHashFromDownsampled(String tenant, Instant start, Instant end) {
-    return Flux.fromIterable(downsampleProperties.getGranularities()).flatMap(granularity -> {
-      return Flux.fromIterable(
-          timeSlotPartitioner.partitionsOverRange(start, end, granularity.getWidth()))
-          .flatMap(timeSlot -> cqlTemplate
-              .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class,
-                  tenant, timeSlot));
-    });
+    return Flux.fromIterable(downsampleProperties.getGranularities()).flatMap(granularity -> Flux.fromIterable(
+        timeSlotPartitioner.partitionsOverRange(start, end, granularity.getWidth()))
+        .flatMap(timeSlot -> cqlTemplate
+            .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class,
+                tenant, timeSlot)));
   }
 
   /**
