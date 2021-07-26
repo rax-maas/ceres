@@ -98,11 +98,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -130,7 +132,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -141,11 +143,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -184,11 +188,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -219,11 +225,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -251,7 +259,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -262,11 +270,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -293,7 +303,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -304,11 +314,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -347,11 +359,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -379,7 +393,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -390,11 +404,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -439,12 +455,14 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Number value = Math.random();
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -486,7 +504,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -497,11 +515,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -544,7 +564,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -571,11 +591,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -648,7 +670,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -673,7 +695,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -684,11 +706,13 @@ public class MetricDeletionServiceTest {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup
+        "metricGroup", metricGroup,
+        "resource", resource
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -761,7 +785,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -787,7 +811,7 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
     //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 4);
+    assertSeriesSetViaQuery(tenantId, metricName, 5);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
