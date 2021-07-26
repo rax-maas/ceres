@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
@@ -163,6 +164,40 @@ public class MetadataControllerTest {
         .isEqualTo(tagsResponse);
 
     verify(metadataService).getTags("t-1", null, metricGroup);
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetDevices() {
+    when(metadataService.getDevices("t-1"))
+        .thenReturn(Mono.just(List.of("device1", "device2")));
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/devices").build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(List.class)
+        .value(val -> Assertions.assertThat(val).contains("device1", "device2"));
+
+    verify(metadataService).getDevices("t-1");
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetMetricNamesWithDeviceId() {
+
+    when(metadataService.getMetricNamesFromDevice("t-1", "device-1"))
+        .thenReturn(Mono.just(List.of("metric-1", "metric-2")));
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/metricNames")
+            .queryParam("device", "device-1").build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(List.class)
+        .isEqualTo(List.of("metric-1", "metric-2"));
+
+    verify(metadataService).getMetricNamesFromDevice("t-1", "device-1");
     verifyNoMoreInteractions(metadataService);
   }
 }
