@@ -23,13 +23,19 @@ import org.springframework.util.StringUtils;
 @Component
 public class RequestValidator {
 
-  public void validateMetricNameAndGroup(String metricName, String metricGroup) {
-    if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName)) {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be empty");
+  public void validate(String metricName, String metricGroup, String device) {
+    if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName) &&
+        !StringUtils.hasText(device)) {
+      throw new IllegalArgumentException("metricGroup, metricName and device all cannot be empty");
     }
 
-    if(StringUtils.hasText(metricGroup) && StringUtils.hasText(metricName)) {
-      throw new IllegalArgumentException("metricGroup and metricName both cannot be non-empty");
+    if(StringUtils.hasText(metricGroup) && StringUtils.hasText(metricName) &&
+        StringUtils.hasText(device)) {
+      throw new IllegalArgumentException("metricGroup, metricName and device all cannot be non-empty");
     }
+  }
+
+  public void validate(String... strings) {
+
   }
 }

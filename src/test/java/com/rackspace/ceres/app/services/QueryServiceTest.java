@@ -166,7 +166,8 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRaw(tenantId, metricName,"", tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .queryRaw(tenantId, metricName,"", "", tags, Instant.now()
+            .minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -201,13 +202,16 @@ class QueryServiceTest {
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags)
+        .setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
     when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
-    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
+    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString()))
+        .thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(
         tenantId,
@@ -219,7 +223,68 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRaw(tenantId, "", metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .queryRaw(tenantId, "", metricGroup, "", tags, Instant.now()
+            .minusSeconds(60), Instant.now()).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenantId);
+          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+        }).verifyComplete();
+  }
+
+  @Test
+  void testQueryRawWithDeviceNo() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
+
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup,
+        "resource", resource
+    );
+    final String seriesSetHash = seriesSetService
+        .hash(metricName, tags);
+
+    when(downsampleTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    when(metadataService.getMetricNamesFromDevice(anyString(), anyString()))
+        .thenReturn(Flux.just(metricName));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags)
+        .setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString()))
+        .thenReturn(Flux.just(metricName));
+
+    dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(Instant.now())
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    StepVerifier.create(queryService
+        .queryRaw(tenantId, "", "", resource, tags, Instant.now()
+            .minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -257,7 +322,8 @@ class QueryServiceTest {
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags)
+        .setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
 
@@ -272,7 +338,8 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRawWithSeriesSet(tenantId, seriesSetHash, Instant.now().minusSeconds(60), Instant.now()).collectList())
+        .queryRawWithSeriesSet(tenantId, seriesSetHash, Instant.now().minusSeconds(60),
+            Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getTimestamp()).isEqualTo(instant.truncatedTo(ChronoUnit.MILLIS));
@@ -300,7 +367,8 @@ class QueryServiceTest {
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags)
+        .setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
@@ -326,7 +394,8 @@ class QueryServiceTest {
         false
     ).block();
 
-    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(2), tags,
+    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", "",
+        Aggregator.min, Duration.ofMinutes(2), tags,
         Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
@@ -363,14 +432,16 @@ class QueryServiceTest {
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags)
+        .setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
     when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
-    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
+    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString()))
+        .thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(
         tenant,
@@ -392,7 +463,8 @@ class QueryServiceTest {
         false
     ).block();
 
-    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
+    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, "",
+        Aggregator.min, Duration.ofMinutes(2), tags,
         Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
@@ -425,7 +497,8 @@ class QueryServiceTest {
             .setGranularity(Duration.ofMinutes(2))
             .setAggregator(Aggregator.avg);
 
-    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
+    List<Granularity> granularities = List.of(granularity(1, 12),
+        granularity(2, 24));
 
     final TsdbFilter filter = new TsdbFilter()
             .setType(FilterType.literal_or)
@@ -437,7 +510,8 @@ class QueryServiceTest {
             .setDownsample("2m-avg")
             .setFilters(List.of(filter));
 
-    when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
+    when(metadataService.locateSeriesSetHashesFromQuery(any(), any()))
+        .thenReturn(Flux.just(tsdbQuery));
     when(metadataService.getTsdbQueries(
             List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
 
@@ -459,7 +533,8 @@ class QueryServiceTest {
     );
 
     StepVerifier.create(
-            queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
+            queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities)
+                .collectList())
             .assertNext(result -> {
               assertThat(result).isNotEmpty();
               assertThat(result.get(0).getMetric()).isEqualTo(metricName);

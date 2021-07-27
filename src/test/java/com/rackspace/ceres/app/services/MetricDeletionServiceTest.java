@@ -532,7 +532,7 @@ public class MetricDeletionServiceTest {
     Metric metric1 = dataWriteService.ingest(
         tenantId,
         new Metric()
-            .setTimestamp(currentTime.minus(10, ChronoUnit.MINUTES))
+            .setTimestamp(currentTime.minus(30, ChronoUnit.MINUTES))
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
@@ -550,24 +550,11 @@ public class MetricDeletionServiceTest {
     Metric metric3 = dataWriteService.ingest(
         tenantId,
         new Metric()
-            .setTimestamp(currentTime.plus(10, ChronoUnit.MINUTES))
+            .setTimestamp(currentTime.plus(30, ChronoUnit.MINUTES))
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
     ).block();
-
-    //validate data raw
-    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
-        3);
-
-    //validate series_set_hashes
-    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
-
-    //validate series_sets
-    assertSeriesSetViaQuery(tenantId, metricName, 5);
-
-    //validate metric_names
-    assertMetricNamesViaQuery(tenantId, metricName, 1);
 
     metricDeletionService.deleteMetrics(tenantId, "", null,
         null, Instant.now()).then().block();

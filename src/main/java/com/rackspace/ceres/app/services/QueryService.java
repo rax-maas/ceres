@@ -65,10 +65,14 @@ public class QueryService {
     }
 
     public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
-                                      Map<String, String> queryTags,
+                                      String device, Map<String, String> queryTags,
                                       Instant start, Instant end) {
         if (!StringUtils.isBlank(metricName)) {
             return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
+        }  else if (!StringUtils.isBlank(device)) {
+          return metadataService.getMetricNamesFromDevice(tenant, device)
+              .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
+              .checkpoint();
         } else {
             return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
                     .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
@@ -118,11 +122,15 @@ public class QueryService {
     }
 
     public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
-                                              Aggregator aggregator, Duration granularity,
-                                              Map<String, String> queryTags, Instant start,
-                                              Instant end) {
+                                              String device, Aggregator aggregator,
+                                              Duration granularity, Map<String, String> queryTags,
+                                              Instant start, Instant end) {
         if (!StringUtils.isBlank(metricName)) {
             return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
+        } else if (!StringUtils.isBlank(device)) {
+          return metadataService.getMetricNamesFromDevice(tenant, device)
+              .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
+              .checkpoint();
         } else {
             return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
                     .flatMap(metric ->

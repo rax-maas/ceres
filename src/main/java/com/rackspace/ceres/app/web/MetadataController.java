@@ -69,7 +69,7 @@ public class MetadataController {
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String device) {
     if (StringUtils.hasText(device)) {
-      return metadataService.getMetricNamesFromDevice(tenantHeader, device);
+      return metadataService.getMetricNamesFromDevice(tenantHeader, device).collectList();
     }
     return metadataService.getMetricNames(tenantHeader);
   }
@@ -112,7 +112,7 @@ public class MetadataController {
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
-    validator.validateMetricNameAndGroup(metricName, metricGroup);
+    validator.validate(metricName, metricGroup, null);
 
     return metadataService
         .getTags(tenantHeader, metricName, metricGroup);

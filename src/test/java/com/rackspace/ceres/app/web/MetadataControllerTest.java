@@ -22,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @ActiveProfiles(profiles = {"test", "query", "dev"})
@@ -187,7 +188,7 @@ public class MetadataControllerTest {
   public void testGetMetricNamesWithDeviceId() {
 
     when(metadataService.getMetricNamesFromDevice("t-1", "device-1"))
-        .thenReturn(Mono.just(List.of("metric-1", "metric-2")));
+        .thenReturn(Flux.just("metric-1", "metric-2"));
 
     webTestClient.get().uri(
         uriBuilder -> uriBuilder.path("/api/metadata/metricNames")

@@ -546,7 +546,8 @@ class MetadataServiceTest {
         insertDeviceData(tenantId, device, metricNames)
     ).block();
 
-    List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device).block();
+    List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device)
+        .collectList().block();
     assertThat(metricNamesResult).containsExactlyInAnyOrderElementsOf(metricNames);
   }
 
@@ -586,7 +587,7 @@ class MetadataServiceTest {
         .block();
 
     List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device1)
-        .block();
+        .collectList().block();
     assertThat(metricNamesResult).containsExactlyInAnyOrder(metricName1, metricName2);
   }
 

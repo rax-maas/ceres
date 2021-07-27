@@ -67,11 +67,12 @@ public class QueryControllerTest {
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
     List<QueryResult> queryResults = List
-        .of(new QueryResult().setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-            .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
+        .of(new QueryResult()
+            .setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
+                .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
 
-    when(queryService.queryRaw(anyString(), anyString(), eq(null), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
+    when(queryService.queryRaw(anyString(), anyString(), eq(null), eq(null),
+        any(), any(), any())).thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
@@ -83,11 +84,13 @@ public class QueryControllerTest {
         .exchange().expectStatus().isOk()
         .returnResult(QueryResult.class).getResponseBody();
 
-    double count = meterRegistry.get("ceres.query").tag("type", "raw").counter().count();
+    double count = meterRegistry.get("ceres.query").
+        tag("type", "raw").counter().count();
     assertThat(count).isEqualTo(1.0);
 
     StepVerifier.create(result).assertNext(queryResult -> {
-      assertThat(meterRegistry.get("ceres.query").tag("type", "raw").counter().count()).isEqualTo(1);
+      assertThat(meterRegistry.get("ceres.query").tag("type", "raw")
+          .counter().count()).isEqualTo(1);
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata().getAggregator()).isEqualTo(Aggregator.raw);
     }).verifyComplete();
@@ -97,16 +100,18 @@ public class QueryControllerTest {
   public void testQueryApiWithMetricGroup() {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     Map<String, String> queryTags = Map
-        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
+        .of("os", "linux", "deployment", "dev",
+            "host", "h-1", "metricGroup", metricGroup);
 
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
     List<QueryResult> queryResults = List
-        .of(new QueryResult().setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
-            .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
+        .of(new QueryResult()
+            .setData(new QueryData().setMetricName("cpu-idle").setTags(queryTags).setTenant("t-1")
+                .setValues(values)).setMetadata(new Metadata().setAggregator(Aggregator.raw)));
 
-    when(queryService.queryRaw(anyString(), eq(null), anyString(), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
+    when(queryService.queryRaw(anyString(), eq(null), anyString(), eq(null),
+        any(), any(), any())).thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
@@ -129,7 +134,8 @@ public class QueryControllerTest {
   public void testQueryApiWithAggregator() {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     Map<String, String> queryTags = Map
-        .of("os", "linux", "deployment", "dev", "host", "h-1","metricGroup", metricGroup);
+        .of("os", "linux", "deployment", "dev",
+            "host", "h-1", "metricGroup", metricGroup);
 
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
@@ -148,13 +154,14 @@ public class QueryControllerTest {
                     .setStartTime(Instant.ofEpochSecond(1605611015))
                     .setEndTime(Instant.ofEpochSecond(1605697439))));
 
-    when(queryService.queryDownsampled(anyString(), anyString(), eq(null), any(), any(), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
+    when(queryService
+        .queryDownsampled(anyString(), anyString(), eq(null), eq(null),
+            any(), any(), any(), any(), any())).thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("metricName", "cpu-idle")
-            .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
+            .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup=" + metricGroup)
             .queryParam("start", "1605611015")
             .queryParam("end", "1605697439")
             .queryParam("aggregator", "min")
@@ -171,7 +178,8 @@ public class QueryControllerTest {
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "cpu-idle", null, Aggregator.min, Duration.ofMinutes(1), queryTags,
+        .queryDownsampled("t-1", "cpu-idle", null, null,
+            Aggregator.min, Duration.ofMinutes(1), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);
@@ -181,7 +189,8 @@ public class QueryControllerTest {
   public void testQueryApiWithAggregatorWithMetricGroup() {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     Map<String, String> queryTags = Map
-        .of("os", "linux", "deployment", "dev", "host", "h-1", "metricGroup", metricGroup);
+        .of("os", "linux", "deployment", "dev",
+            "host", "h-1", "metricGroup", metricGroup);
 
     Map<Instant, Double> values = Map.of(Instant.now(), 111.0);
 
@@ -200,13 +209,14 @@ public class QueryControllerTest {
                     .setStartTime(Instant.ofEpochSecond(1605611015))
                     .setEndTime(Instant.ofEpochSecond(1605697439))));
 
-    when(queryService.queryDownsampled(anyString(), eq(null), anyString(), any(), any(), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
+    when(queryService
+        .queryDownsampled(anyString(), eq(null), anyString(), eq(null),
+            any(), any(), any(), any(), any())).thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
             .queryParam("metricGroup", metricGroup)
-            .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup="+metricGroup)
+            .queryParam("tag", "os=linux,deployment=dev,host=h-1,metricGroup=" + metricGroup)
             .queryParam("start", "1605611015")
             .queryParam("end", "1605697439")
             .queryParam("aggregator", "min")
@@ -219,11 +229,13 @@ public class QueryControllerTest {
     StepVerifier.create(result).assertNext(queryResult -> {
       assertThat(queryResult.getData()).isEqualTo(queryResults.get(0).getData());
       assertThat(queryResult.getMetadata()).isEqualTo(queryResults.get(0).getMetadata());
-      assertThat(queryResult.getData().getTags().get("metricGroup")).isEqualTo(queryResults.get(0).getData().getTags().get("metricGroup"));
+      assertThat(queryResult.getData().getTags().get("metricGroup"))
+          .isEqualTo(queryResults.get(0).getData().getTags().get("metricGroup"));
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", null, metricGroup, Aggregator.min, Duration.ofMinutes(1), queryTags,
+        .queryDownsampled("t-1", null, metricGroup, null, Aggregator.min,
+            Duration.ofMinutes(1), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);
@@ -251,8 +263,9 @@ public class QueryControllerTest {
                     .setStartTime(Instant.ofEpochSecond(1605611015))
                     .setEndTime(Instant.ofEpochSecond(1605697439))));
 
-    when(queryService.queryDownsampled(anyString(), anyString(), eq(null), any(), any(), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(queryResults));
+    when(queryService
+        .queryDownsampled(anyString(), anyString(), eq(null), eq(null),
+            any(), any(), any(), any(), any())).thenReturn(Flux.fromIterable(queryResults));
 
     Flux<QueryResult> result = webTestClient.get()
         .uri(uriBuilder -> uriBuilder.path("/api/query")
@@ -276,7 +289,8 @@ public class QueryControllerTest {
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "cpu-idle", null, Aggregator.max, Duration.ofMinutes(2), queryTags,
+        .queryDownsampled("t-1", "cpu-idle", null, null,
+            Aggregator.max, Duration.ofMinutes(2), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);

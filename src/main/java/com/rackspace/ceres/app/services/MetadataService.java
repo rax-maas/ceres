@@ -406,8 +406,8 @@ public class MetadataService {
     ).collectList();
   }
 
-  public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
+  public Flux<String> getMetricNamesFromDevice(String tenantHeader, String device) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
-        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class))).collectList();
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)));
   }
 }

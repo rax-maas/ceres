@@ -31,58 +31,34 @@ public class RequestValidatorTest {
   @Autowired
   private RequestValidator requestValidator;
 
-  @Test
-  public void validateMetricNameAndMetricGroupTest_MetricName() {
-    final String metricName = RandomStringUtils.randomAlphabetic(5);
 
-    Assertions.assertDoesNotThrow(() -> requestValidator
-        .validateMetricNameAndGroup(metricName, ""));
+  @Test
+  public void validate_AllEmpty() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
+        .validate("", "", ""));
   }
 
   @Test
-  public void validateMetricNameAndMetricGroupTest_Both_Non_Empty() {
+  public void validate_AllNull() {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
+        .validate(null, null, null));
+  }
+
+  @Test
+  public void validate_AllNotBlank() {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String device = RandomStringUtils.randomAlphabetic(5);
 
     Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
-        .validateMetricNameAndGroup(metricName, metricGroup));
+        .validate(metricName, metricGroup, device));
   }
 
   @Test
-  public void validateMetricNameAndMetricGroupTest_Both_Empty() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
-        .validateMetricNameAndGroup("", ""));
-  }
-
-  @Test
-  public void validateMetricNameAndMetricGroupTest_Null_MetricName() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
-        .validateMetricNameAndGroup(null, ""));
-  }
-
-  @Test
-  public void validateMetricNameAndMetricGroupTest_Null_MetricGroup() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
-        .validateMetricNameAndGroup("", null));
-  }
-
-  @Test
-  public void validateMetricNameAndMetricGroupTest_Both_Null() {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> requestValidator
-        .validateMetricNameAndGroup(null, null));
-  }
-
-  @Test
-  public void validateMetricNameAndMetricGroupTest_WithMetricNameAndEmptyMetricGroup() {
+  public void validate_Success() {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
-    Assertions.assertDoesNotThrow(() -> requestValidator
-        .validateMetricNameAndGroup(metricName, ""));
-  }
 
-  @Test
-  public void validateMetricNameAndMetricGroupTest_WithMetricNameAndNullMetricGroup() {
-    final String metricName = RandomStringUtils.randomAlphabetic(5);
     Assertions.assertDoesNotThrow(() -> requestValidator
-        .validateMetricNameAndGroup(metricName, null));
+        .validate(metricName, null, ""));
   }
 }

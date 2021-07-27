@@ -88,19 +88,20 @@ public class QueryController {
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
+      @RequestParam(required = false) String deviceNo,
       @RequestParam(defaultValue = "raw") Aggregator aggregator,
       @RequestParam(required = false) Duration granularity,
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
-    validator.validateMetricNameAndGroup(metricName, metricGroup);
+    validator.validate(metricName, metricGroup, deviceNo);
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
 
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
         rawQueryCounter.increment();
-        return queryService.queryRaw(tenantHeader, metricName, metricGroup,
+        return queryService.queryRaw(tenantHeader, metricName, metricGroup, deviceNo,
             convertPairsListToMap(tag),
             startTime, endTime
         );
@@ -110,7 +111,7 @@ public class QueryController {
             .getGranularity(startTime, endTime, downsampleProperties.getGranularities());
       }
       downSampleQueryCounter.increment();
-      return queryService.queryDownsampled(tenantHeader, metricName, metricGroup,
+      return queryService.queryDownsampled(tenantHeader, metricName, metricGroup, deviceNo,
           aggregator,
           granularity,
           convertPairsListToMap(tag),
