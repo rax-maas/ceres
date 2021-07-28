@@ -369,21 +369,17 @@ class DownsampleTrackingServiceTest {
     return pending.getTenant() + "|" + pending.getSeriesSetHash();
   }
 
-  private String isoTimeUtcPlusMilliSeconds(long milliSeconds) {
+  private String isoTimeUtcPlusSeconds(long seconds) {
     DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     Date now = new Date();
-    now.setTime(now.getTime() + milliSeconds);
+    now.setTime(now.getTime() + seconds * 1000);
     return df.format(now);
   }
 
-  private String isoTimeUtcPlusSeconds(long seconds) {
-    return isoTimeUtcPlusMilliSeconds(seconds * 1000);
-  }
-
   private void setJobValue(int jobKey, String jobValue) {
-    downsampleTrackingService.setJobValue(1, jobValue).block();
-    downsampleTrackingService.getJobValue(1).flatMap(
+    downsampleTrackingService.setJobValue(jobKey, jobValue).block();
+    downsampleTrackingService.getJobValue(jobKey).flatMap(
         result -> {
           assertThat(result).isEqualTo(jobValue);
           return Mono.empty();
