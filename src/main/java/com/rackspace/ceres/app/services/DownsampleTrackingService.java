@@ -66,16 +66,16 @@ public class DownsampleTrackingService {
     hashFunction = Hashing.murmur3_32();
   }
 
-  public Flux<Boolean> checkPartitionJobs(String jobKey, String now, String newTime) {
-    return redisTemplate.execute(redisScript, List.of(jobKey), List.of(now, newTime));
+  public Flux<Boolean> checkPartitionJobs(Integer jobKey, String now, String newTime) {
+    return redisTemplate.execute(redisScript, List.of(jobKey.toString()), List.of(now, newTime));
   }
 
-  public Mono<String> getJobValue(int job) {
-    return redisTemplate.opsForValue().get(Integer.toString(job));
+  public Mono<String> getJobValue(Integer jobKey) {
+    return redisTemplate.opsForValue().get(jobKey.toString());
   }
 
-  public Mono<Boolean> setJobValue(int job, String isoTime) {
-    return redisTemplate.opsForValue().set(Integer.toString(job), isoTime);
+  public Mono<Boolean> setJobValue(Integer jobKey, String isoTime) {
+    return redisTemplate.opsForValue().set(jobKey.toString(), isoTime);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
