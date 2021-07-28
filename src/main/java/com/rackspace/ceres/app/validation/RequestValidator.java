@@ -26,12 +26,12 @@ public class RequestValidator {
   public void validate(String metricName, String metricGroup, String device) {
     if(!StringUtils.hasText(metricGroup) && !StringUtils.hasText(metricName) &&
         !StringUtils.hasText(device)) {
-      throw new IllegalArgumentException("metricGroup, metricName and device all cannot be empty");
+      throw new IllegalArgumentException("metricGroup, metricName and deviceNumber all cannot be empty");
     }
 
     if(StringUtils.hasText(metricGroup) && StringUtils.hasText(metricName) &&
         StringUtils.hasText(device)) {
-      throw new IllegalArgumentException("metricGroup, metricName and device all cannot be non-empty");
+      throw new IllegalArgumentException("metricGroup, metricName and deviceNumber all cannot be non-empty");
     }
   }
 
