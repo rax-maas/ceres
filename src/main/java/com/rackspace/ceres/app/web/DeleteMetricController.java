@@ -34,11 +34,14 @@ public class DeleteMetricController {
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @RequestParam(required = false) List<String> tag,
-      @RequestParam String start,
+      @RequestParam(required = false) String start,
       @RequestParam(required = false) String end) {
-    Instant startTime = DateTimeUtils.parseInstant(start);
+    Instant startTime = null;
+    if(start != null) {
+      startTime = DateTimeUtils.parseInstant(start);
+    }
     Instant endTime = DateTimeUtils.parseInstant(end);
     RequestValidator.validateMetricGroupAndTags(metricGroup, tag);
-    return metricDeletionService.deleteMetrics(tenantHeader, metricName, tag, startTime, endTime, metricGroup);
+    return metricDeletionService.deleteMetrics(tenantHeader, metricName, metricGroup, tag, startTime, endTime);
   }
 }

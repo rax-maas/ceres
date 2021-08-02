@@ -104,15 +104,19 @@ class DataWriteServiceTest {
       final String tenantId = RandomStringUtils.randomAlphanumeric(10);
       final String metricName = RandomStringUtils.randomAlphabetic(5);
       final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+      final String resource = RandomStringUtils.randomAlphabetic(5);
       final Map<String, String> tags = Map.of(
           "os", "linux",
           "host", "h-1",
           "deployment", "prod",
-          "metricGroup", metricGroup
+          "metricGroup", metricGroup,
+          "resource", resource
       );
       final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
       when(metadataService.updateMetricGroupAddMetricName(any(), any(), any(), any()))
+          .thenReturn(Mono.empty());
+      when(metadataService.updateDeviceAddMetricName(any(), any(), any(), any()))
           .thenReturn(Mono.empty());
       when(metadataService.storeMetadata(any(), any(), any(), any())).thenReturn(Mono.empty());
 
@@ -137,6 +141,8 @@ class DataWriteServiceTest {
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
       verify(metadataService).updateMetricGroupAddMetricName(
           tenantId, metricGroup, metric.getMetric(), metric.getTimestamp().toString());
+      verify(metadataService).updateDeviceAddMetricName(
+          tenantId, resource, metric.getMetric(), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
     }
@@ -148,16 +154,20 @@ class DataWriteServiceTest {
       final String metricName1 = RandomStringUtils.randomAlphabetic(5);
       final String metricName2 = RandomStringUtils.randomAlphabetic(5);
       final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+      final String resource = RandomStringUtils.randomAlphabetic(5);
       final Map<String, String> tags = Map.of(
           "os", "linux",
           "host", "h-1",
           "deployment", "prod",
-          "metricGroup", metricGroup
+          "metricGroup", metricGroup,
+          "resource", resource
       );
       final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
       final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
 
       when(metadataService.updateMetricGroupAddMetricName(any(), any(), any(), any()))
+          .thenReturn(Mono.empty());
+      when(metadataService.updateDeviceAddMetricName(any(), any(), any(), any()))
           .thenReturn(Mono.empty());
       when(metadataService.storeMetadata(any(), any(), any(), any()))
           .thenReturn(Mono.empty());
@@ -193,6 +203,10 @@ class DataWriteServiceTest {
           tenant1, metricGroup, metric1.getMetric(), metric1.getTimestamp().toString());
       verify(metadataService).updateMetricGroupAddMetricName(
           tenant2, metricGroup, metric2.getMetric(), metric2.getTimestamp().toString());
+      verify(metadataService).updateDeviceAddMetricName(
+          tenant1, resource, metric1.getMetric(), metric1.getTimestamp().toString());
+      verify(metadataService).updateDeviceAddMetricName(
+          tenant2, resource, metric2.getMetric(), metric2.getTimestamp().toString());
       verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
@@ -200,7 +214,7 @@ class DataWriteServiceTest {
     }
 
     @Test
-    void metricGroupMissing() {
+    void testMetricGroupAndResourceMissing() {
       final String tenantId = RandomStringUtils.randomAlphanumeric(10);
       final String metricName = RandomStringUtils.randomAlphabetic(5);
       final Map<String, String> tags = Map.of(
@@ -218,7 +232,53 @@ class DataWriteServiceTest {
               .setTags(tags));
 
       StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
-              throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag must be present\"")).verify();
+              throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag and resource tag must be present\"")).verify();
+    }
+
+    @Test
+    void testMetricGroupMissing() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+          "os", "linux",
+          "host", "h-1",
+          "deployment", "prod",
+          "resource", "resource"
+      );
+
+      Mono<?> result = dataWriteService.ingest(
+          tenantId,
+          new Metric()
+              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setValue(Math.random())
+              .setMetric(metricName)
+              .setTags(tags));
+
+      StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
+          throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag and resource tag must be present\"")).verify();
+    }
+
+    @Test
+    void testResourceMissing() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+          "os", "linux",
+          "host", "h-1",
+          "deployment", "prod",
+          "metricGroup", "group"
+      );
+
+      Mono<?> result = dataWriteService.ingest(
+          tenantId,
+          new Metric()
+              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setValue(Math.random())
+              .setMetric(metricName)
+              .setTags(tags));
+
+      StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
+          throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag and resource tag must be present\"")).verify();
     }
 
     private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,

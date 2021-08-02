@@ -20,9 +20,13 @@ package com.rackspace.ceres.app.services;
 
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -44,22 +48,24 @@ public class MetricDeletionService {
   private final MetadataService metadataService;
   private TimeSlotPartitioner timeSlotPartitioner;
   private DownsampleProperties downsampleProperties;
+  private AppProperties appProperties;
   private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public MetricDeletionService(DataTablesStatements dataTablesStatements,
       TimeSlotPartitioner timeSlotPartitioner, MetadataService metadataService,
-      DownsampleProperties downsampleProperties,
+      DownsampleProperties downsampleProperties, AppProperties appProperties,
       MetricDeletionHelper metricDeletionHelper) {
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;
+    this.appProperties = appProperties;
     this.metadataService = metadataService;
     this.metricDeletionHelper = metricDeletionHelper;
   }
 
-  public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
-      Instant start, Instant end, String metricGroup) {
+  public Mono<Empty> deleteMetrics(String tenant, String metricName, String metricGroup, List<String> tag,
+      Instant start, Instant end) {
     if(StringUtils.isNotBlank(metricGroup)) {
       return deleteMetricsByMetricGroup(tenant, metricGroup, start, end);
     }
@@ -85,7 +91,9 @@ public class MetricDeletionService {
       Instant end) {
     return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
         .flatMap(metricName -> deleteMetricsByMetricName(tenant, metricName, start, end))
-        .then(metricDeletionHelper.deleteMetricGroupByTenantAndMetricGroup(tenant, metricGroup))
+        .then(start == null ? metricDeletionHelper
+            .deleteMetricGroupByTenantAndMetricGroup(tenant, metricGroup).then(Mono.empty())
+            : Mono.empty())
         .then(Mono.empty());
   }
 
@@ -99,12 +107,23 @@ public class MetricDeletionService {
    */
   private Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
     log.debug("Deleting metrics for tenant: {}", tenant);
-    Flux<String> seriesSetHashes = metricDeletionHelper
-        .getSeriesSetHashFromRawOrDownsampled(tenant, start, end);
-    return deleteMetadataByTenantId(tenant, seriesSetHashes)
-        .then(deleteMetricsFromDownsampled(tenant, start, end))
-        .then(deleteMetricsFromRaw(tenant, start, end))
-        .then(Mono.empty());
+    Flux<String> seriesSetHashes = null;
+    if (start != null) {
+      return deleteMetricsFromDownsampled(tenant, start, end)
+          .then(deleteMetricsFromRaw(tenant, start, end))
+          .then(Mono.empty());
+    } else {
+      start = Instant.now().minus(
+          getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
+              .toHours(),
+          ChronoUnit.HOURS);
+      seriesSetHashes = metricDeletionHelper
+          .getSeriesSetHashFromRawOrDownsampled(tenant, start, end);
+      return deleteMetadataByTenantId(tenant, seriesSetHashes)
+          .then(deleteMetricsFromDownsampled(tenant, start, end))
+          .then(deleteMetricsFromRaw(tenant, start, end))
+          .then(Mono.empty());
+    }
   }
 
   /**
@@ -122,9 +141,21 @@ public class MetricDeletionService {
         tenant);
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromSeriesSets(tenant,
         metricName);
-    return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
-        .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
-        .then(Mono.empty());
+    if (start != null) {
+      final Instant startDateTime = start;
+      return seriesSetHashes.flatMap(seriesSetHash ->
+          deleteMetricsFromDownsampledWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)
+              .then(deleteMetricsFromRawWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)))
+              .then(Mono.empty());
+    } else  {
+      start = Instant.now().minus(
+          getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
+              .toHours(),
+          ChronoUnit.HOURS);
+      return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
+          .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
+          .then(Mono.empty());
+    }
   }
 
   /**
@@ -145,8 +176,20 @@ public class MetricDeletionService {
     Map<String, String> queryTags = convertPairsListToMap(tag);
     Flux<String> seriesSetHashes =
         metadataService.locateSeriesSetHashes(tenant, metricName, queryTags);
-    return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
-        .then(Mono.empty());
+    if (start != null) {
+      final Instant startDateTime = start;
+      return seriesSetHashes.flatMap(seriesSetHash ->
+          deleteMetricsFromDownsampledWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)
+              .then(deleteMetricsFromRawWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)))
+          .then(Mono.empty());
+    } else  {
+      start = Instant.now().minus(
+          getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
+              .toHours(),
+          ChronoUnit.HOURS);
+      return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
+          .then(Mono.empty());
+    }
   }
 
   /**
@@ -291,5 +334,10 @@ public class MetricDeletionService {
                 .deleteRawOrDownsampledEntries(dataTablesStatements.getRawDeleteWithSeriesSetHash()
                     , tenant, timeSlot, seriesSetHash))
         .then(Mono.just(true));
+  }
+
+  private Granularity getHighestTTLGranularity()  {
+    return downsampleProperties.getGranularities()
+        .stream().max(Comparator.comparing(e -> e.getTtl())).get();
   }
 }

@@ -26,6 +26,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpStatus;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -62,8 +63,26 @@ public class MetadataController {
   @GetMapping("/metricNames")
   @ApiOperation(value = "This api is used to get metric names for the given tenant")
   public Mono<List<String>> getMetricNames(
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String device) {
+    if (StringUtils.hasText(device)) {
+      return metadataService.getMetricNamesFromDevice(tenantHeader, device);
+    }
     return metadataService.getMetricNames(tenantHeader);
+  }
+
+  @GetMapping("/metricGroups")
+  @ApiOperation(value = "This api is used to get metric groups for the given tenant")
+  public Mono<List<String>> getMetricGroups(
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+    return metadataService.getMetricGroups(tenantHeader);
+  }
+
+  @GetMapping("/devices")
+  @ApiOperation(value = "This api is used to get metric groups for the given tenant")
+  public Mono<List<String>> getDevices(
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+    return metadataService.getDevices(tenantHeader);
   }
 
   @GetMapping("/tagKeys")

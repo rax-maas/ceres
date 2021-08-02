@@ -8,9 +8,12 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
+
 import java.util.List;
 import java.util.Map;
+
 import org.apache.commons.lang3.RandomStringUtils;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebFlux;
@@ -69,6 +72,23 @@ public class MetadataControllerTest {
   }
 
   @Test
+  public void testGetMetricGroups() {
+    when(metadataService.getMetricGroups("t-1"))
+        .thenReturn(Mono.just(List.of("group-1", "group-2")));
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/metricGroups")
+            .build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(List.class)
+        .isEqualTo(List.of("group-1", "group-2"));
+
+    verify(metadataService).getMetricGroups("t-1");
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
   public void testGetTagKeys() {
 
     when(metadataService.getTagKeys("t-1", "metric-1"))
@@ -106,7 +126,7 @@ public class MetadataControllerTest {
 
   @Test
   public void testGetTagWithMetricName() {
-    Map<String, String> tags = Map.of("os","linux","host","h1");
+    Map<String, String> tags = Map.of("os", "linux", "host", "h1");
     when(metadataService.getTags("t-1", "metric-1", null))
         .thenReturn(Mono.just(new TagsResponse().setMetric("metric-1").setTenantId("t-1")
             .setTags(tags)));
@@ -128,7 +148,7 @@ public class MetadataControllerTest {
   @Test
   public void testGetTagWithMetricGroup() {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-    Map<String, String> tags = Map.of("os","linux","host","h1");
+    Map<String, String> tags = Map.of("os", "linux", "host", "h1");
     when(metadataService.getTags("t-1", null, metricGroup))
         .thenReturn(Mono.just(new TagsResponse().setMetricGroup(metricGroup).setTenantId("t-1")
             .setTags(tags)));
@@ -144,6 +164,40 @@ public class MetadataControllerTest {
         .isEqualTo(tagsResponse);
 
     verify(metadataService).getTags("t-1", null, metricGroup);
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetDevices() {
+    when(metadataService.getDevices("t-1"))
+        .thenReturn(Mono.just(List.of("device1", "device2")));
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/devices").build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(List.class)
+        .value(val -> Assertions.assertThat(val).contains("device1", "device2"));
+
+    verify(metadataService).getDevices("t-1");
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetMetricNamesWithDeviceId() {
+
+    when(metadataService.getMetricNamesFromDevice("t-1", "device-1"))
+        .thenReturn(Mono.just(List.of("metric-1", "metric-2")));
+
+    webTestClient.get().uri(
+        uriBuilder -> uriBuilder.path("/api/metadata/metricNames")
+            .queryParam("device", "device-1").build())
+        .header("X-Tenant", "t-1")
+        .exchange().expectStatus().isOk()
+        .expectBody(List.class)
+        .isEqualTo(List.of("metric-1", "metric-2"));
+
+    verify(metadataService).getMetricNamesFromDevice("t-1", "device-1");
     verifyNoMoreInteractions(metadataService);
   }
 }

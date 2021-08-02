@@ -20,7 +20,6 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
@@ -67,6 +66,8 @@ public class MetadataService {
   private static final String GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
   private static final String GET_METRIC_NAMES_QUERY =
       "SELECT metric_name FROM metric_names WHERE tenant = ?";
+  private static final String GET_METRIC_GROUPS_QUERY =
+      "SELECT metric_group FROM metric_groups WHERE tenant = ?";
   private static final String GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
       + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
   private static final String GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
@@ -78,6 +79,13 @@ public class MetadataService {
   private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
       "UPDATE metric_groups SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
           + "tenant = '%s' AND metric_group = '%s'";
+  private static final String UPDATE_DEVICE_ADD_METRIC_NAME =
+      "UPDATE devices SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
+          + "tenant = '%s' AND device = '%s'";
+  private static final String GET_DEVICES_PER_TENANT_QUERY =
+      "SELECT device FROM devices WHERE tenant = ?";
+  private static final String GET_METRIC_NAMES_FROM_DEVICE_QUERY =
+      "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -182,6 +190,13 @@ public class MetadataService {
 
   public Mono<List<String>> getMetricNames(String tenant) {
     return cqlTemplate.queryForFlux(GET_METRIC_NAMES_QUERY,
+        String.class,
+        tenant
+    ).collectList();
+  }
+
+  public Mono<List<String>> getMetricGroups(String tenant) {
+    return cqlTemplate.queryForFlux(GET_METRIC_GROUPS_QUERY,
         String.class,
         tenant
     ).collectList();
@@ -376,5 +391,23 @@ public class MetadataService {
   private TagsResponse buildTagsResponse(String tenantHeader, HashMap<String, String> tags) {
     return new TagsResponse().setTags(tags)
         .setTenantId(tenantHeader);
+  }
+
+  public Mono<Boolean> updateDeviceAddMetricName(
+      String tenant, String device, String metricName, String updatedAt) {
+    return cqlTemplate.execute(String.format(
+        UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device));
+  }
+
+  public Mono<List<String>> getDevices(String tenant) {
+    return cqlTemplate.queryForFlux(GET_DEVICES_PER_TENANT_QUERY,
+        String.class,
+        tenant
+    ).collectList();
+  }
+
+  public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
+    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class))).collectList();
   }
 }
