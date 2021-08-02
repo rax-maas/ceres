@@ -1,0 +1,35 @@
+substitutions:
+  _GCS_CACHE_BUCKET: ceres-cache
+  _CERES_PROJECT: ceres
+
+steps:
+
+  # Pull down settings file for Artifactory settings
+  - id: GET_SETTINGS
+    name: 'gcr.io/cloud-builders/gsutil'
+    waitFor: ['-']
+    args: ['cp', 'gs://salus-mavenrepository/m2-settings.xml', '.mvn/settings.xml']
+
+  # Load the cached files from GCS if they exist.
+  - id: PULL_DOWN_CACHE
+    waitFor: ['-']
+    name: gcr.io/cloud-builders/gsutil
+    dir: /root
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        (
+          gsutil cp gs://${_GCS_CACHE_BUCKET}/${_CERES_PROJECT}-m2-cache.tar.gz /tmp/m2-cache.tar.gz &&
+          tar -xzf /tmp/m2-cache.tar.gz
+        ) || echo 'Cache not found'
+    volumes:
+      - name: user.home
+        path: /root
+
+  - id: VERIFY
+    name: 'maven:3.6-jdk-14'
+    args: ['mvn', '-B', 'verify', '-s', '.mvn/settings.xml']
+    volumes:
+      - name: user.home
+        path: /root
