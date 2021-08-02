@@ -33,16 +33,17 @@ import com.rackspace.ceres.app.downsample.ValueSetCollectors;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +71,7 @@ public class DownsampleProcessor {
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private List<ScheduledFuture<?>> scheduled;
+  private List<ScheduledFuture<?>> partitionJobsScheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -119,7 +121,43 @@ public class DownsampleProcessor {
         )
         .collect(Collectors.toList());
 
+    // We set up the job queue here
+    setupJobSchedulers();
+
     log.debug("Downsample processing is scheduled");
+  }
+
+  private void setupJobSchedulers() {
+    partitionJobsScheduled = Arrays.stream(new Integer[]{1, 2, 3, 4})
+        .map(job -> {
+          setJobInitialTime(job);
+          return taskScheduler.scheduleAtFixedRate(
+              () -> processJob(job),
+              Instant.now().plus(randomizeMilliSecondsDelay(500)),
+              Duration.ofSeconds(1)
+          );
+        }).collect(Collectors.toList());
+  }
+
+  @SneakyThrows
+  private void processJob(Integer job) {
+    // Increase randomization to distribute load better between pods
+    Thread.sleep(new Random().nextInt(300));
+    // long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
+    // We set deltaSeconds to a short value for testing purpose
+    long deltaSeconds = 10;
+    downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
+        .flatMap(result -> {
+          if (result) {
+            log.info("######### Processing partition job: " + job + " at: " + isoTimeUtcPlusSeconds(0) + "...");
+          }
+          return Mono.empty();
+        }).subscribe(o -> {}, throwable -> {});
+  }
+
+  private void setJobInitialTime(Integer job) {
+    downsampleTrackingService.setJobValue(job, isoTimeUtcPlusSeconds(new Random().nextInt(5)))
+        .flatMap(result -> Mono.empty()).subscribe(o -> {}, throwable -> {});
   }
 
   private IntegerSet getPartitionsToProcess() {
@@ -297,5 +335,21 @@ public class DownsampleProcessor {
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
         .setSeriesSetHash(seriesSet);
+  }
+
+  private Duration randomizeMilliSecondsDelay(int upper) {
+    return Duration.ofMillis(new Random().nextInt(upper));
+  }
+
+  private String isoTimeUtcPlusMilliSeconds(long milliSeconds) {
+    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+    df.setTimeZone(TimeZone.getTimeZone("UTC"));
+    Date now = new Date();
+    now.setTime(now.getTime() + milliSeconds);
+    return df.format(now);
+  }
+
+  private String isoTimeUtcPlusSeconds(long seconds) {
+    return isoTimeUtcPlusMilliSeconds(seconds * 1000);
   }
 }
