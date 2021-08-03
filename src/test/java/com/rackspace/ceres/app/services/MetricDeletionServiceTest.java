@@ -534,7 +534,7 @@ public class MetricDeletionServiceTest {
     Metric metric1 = dataWriteService.ingest(
         tenantId,
         new Metric()
-            .setTimestamp(currentTime.minus(10, ChronoUnit.MINUTES))
+            .setTimestamp(currentTime.minus(10, ChronoUnit.SECONDS))
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
@@ -552,7 +552,7 @@ public class MetricDeletionServiceTest {
     Metric metric3 = dataWriteService.ingest(
         tenantId,
         new Metric()
-            .setTimestamp(currentTime.plus(10, ChronoUnit.MINUTES))
+            .setTimestamp(currentTime.plus(10, ChronoUnit.SECONDS))
             .setValue(Math.random())
             .setMetric(metricName)
             .setTags(tags)
