@@ -22,14 +22,18 @@ import com.google.common.hash.Hashing;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
+
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -45,18 +49,33 @@ public class DownsampleTrackingService {
   private static final String PREFIX_PENDING = "pending";
 
   private final ReactiveStringRedisTemplate redisTemplate;
+  private final RedisScript<Boolean> redisScript;
   private final DownsampleProperties properties;
   private final TemporalNormalizer timeSlotNormalizer;
   private final HashFunction hashFunction;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
+                                   RedisScript<Boolean> redisScript,
                                    DownsampleProperties properties) {
     this.redisTemplate = redisTemplate;
+    this.redisScript = redisScript;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
     hashFunction = Hashing.murmur3_32();
+  }
+
+  public Flux<Boolean> checkPartitionJobs(Integer jobKey, String now, String newTime) {
+    return redisTemplate.execute(redisScript, List.of(jobKey.toString()), List.of(now, newTime));
+  }
+
+  public Mono<String> getJobValue(Integer jobKey) {
+    return redisTemplate.opsForValue().get(jobKey.toString());
+  }
+
+  public Mono<Boolean> setJobValue(Integer jobKey, String isoTime) {
+    return redisTemplate.opsForValue().set(jobKey.toString(), isoTime);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -80,7 +99,7 @@ public class DownsampleTrackingService {
         .set(ingestingKey, "", properties.getLastTouchDelay())
         .and(
             redisTemplate.opsForSet()
-            .add(pendingKey, pendingValue)
+                .add(pendingKey, pendingValue)
         );
   }
 
@@ -131,7 +150,7 @@ public class DownsampleTrackingService {
     return new PendingDownsampleSet()
         .setPartition(partition)
         .setTenant(pendingValue.substring(0, splitValueAt))
-        .setSeriesSetHash(pendingValue.substring(1+splitValueAt))
+        .setSeriesSetHash(pendingValue.substring(1 + splitValueAt))
         .setTimeSlot(Instant.ofEpochSecond(
             Long.parseLong(pendingKey.substring(1 + pendingKey.lastIndexOf(DELIM)))
         ));
