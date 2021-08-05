@@ -139,16 +139,18 @@ public class DownsampleProcessor {
         }).collect(Collectors.toList());
   }
 
-  @SneakyThrows
+  @SneakyThrows // mute IDE warning for Thread.sleep
   private void processJob(Integer job) {
     // Increase randomization to distribute load better between pods
     Thread.sleep(new Random().nextInt(300));
     // long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
     // We set deltaSeconds to a short value for testing purpose
+    // TODO: Set deltaSeconds from configuration file
     long deltaSeconds = 10;
     downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
         .flatMap(result -> {
           if (result) {
+            // log for testing purpose
             log.info("######### Processing partition job: " + job + " at: " + isoTimeUtcPlusSeconds(0) + "...");
           }
           return Mono.empty();
