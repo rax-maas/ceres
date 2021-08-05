@@ -130,7 +130,6 @@ public class DownsampleProcessor {
   private void setupJobSchedulers() {
     partitionJobsScheduled = Arrays.stream(new Integer[]{1, 2, 3, 4})
         .map(job -> {
-          setJobInitialTime(job);
           return taskScheduler.scheduleAtFixedRate(
               () -> processJob(job),
               Instant.now().plus(randomizeMilliSecondsDelay(500)),
@@ -155,11 +154,6 @@ public class DownsampleProcessor {
           }
           return Mono.empty();
         }).subscribe(o -> {}, throwable -> {});
-  }
-
-  private void setJobInitialTime(Integer job) {
-    downsampleTrackingService.setJobValue(job, isoTimeUtcPlusSeconds(new Random().nextInt(5)))
-        .flatMap(result -> Mono.empty()).subscribe(o -> {}, throwable -> {});
   }
 
   private IntegerSet getPartitionsToProcess() {
