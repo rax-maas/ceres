@@ -40,6 +40,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -128,8 +129,8 @@ public class DownsampleProcessor {
   }
 
   private void setupJobSchedulers() {
-    partitionJobsScheduled = Stream.of(1, 2, 3, 4)
-        .map(job -> taskScheduler.scheduleAtFixedRate(
+    partitionJobsScheduled = IntStream.rangeClosed(1, 4)
+        .mapToObj(job -> taskScheduler.scheduleAtFixedRate(
             () -> processJob(job),
             Instant.now().plus(randomizeMilliSecondsDelay(500)),
             Duration.ofSeconds(1)
@@ -137,12 +138,6 @@ public class DownsampleProcessor {
   }
 
   private void processJob(Integer job) {
-    try {
-      // Increase randomization to distribute load better between pods
-      Thread.sleep(new Random().nextInt(300));
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
     // TODO: long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
     // We set deltaSeconds to a short value for testing purpose
     long deltaSeconds = 10;
