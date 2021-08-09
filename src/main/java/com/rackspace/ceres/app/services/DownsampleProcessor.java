@@ -40,10 +40,10 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,23 +128,23 @@ public class DownsampleProcessor {
   }
 
   private void setupJobSchedulers() {
-    partitionJobsScheduled = Arrays.stream(new Integer[]{1, 2, 3, 4})
-        .map(job -> {
-          return taskScheduler.scheduleAtFixedRate(
-              () -> processJob(job),
-              Instant.now().plus(randomizeMilliSecondsDelay(500)),
-              Duration.ofSeconds(1)
-          );
-        }).collect(Collectors.toList());
+    partitionJobsScheduled = Stream.of(1, 2, 3, 4)
+        .map(job -> taskScheduler.scheduleAtFixedRate(
+            () -> processJob(job),
+            Instant.now().plus(randomizeMilliSecondsDelay(500)),
+            Duration.ofSeconds(1)
+        )).collect(Collectors.toList());
   }
 
-  @SneakyThrows // mute IDE warning for Thread.sleep
   private void processJob(Integer job) {
-    // Increase randomization to distribute load better between pods
-    Thread.sleep(new Random().nextInt(300));
-    // long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
+    try {
+      // Increase randomization to distribute load better between pods
+      Thread.sleep(new Random().nextInt(300));
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    // TODO: long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
     // We set deltaSeconds to a short value for testing purpose
-    // TODO: Set deltaSeconds from configuration file
     long deltaSeconds = 10;
     downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
         .flatMap(result -> {
