@@ -123,8 +123,9 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, "", null,null,
-        Instant.now().minusSeconds(60), Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByTenantId(tenantId, Instant.now().minusSeconds(60), Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -168,8 +169,7 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, "", null,null,
-        null, Instant.now()).then().block();
+    metricDeletionService.deleteMetricsByTenantId(tenantId, null, Instant.now()).block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -205,8 +205,9 @@ public class MetricDeletionServiceTest {
 
     Instant currentTime = Instant.now();
 
-    metricDeletionService.deleteMetrics(tenantId, "", null,null,
-        Instant.now().minusSeconds(60), Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByTenantId(tenantId, Instant.now().minusSeconds(60), Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -250,8 +251,8 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, "", "",null,
-        Instant.now(), Instant.now()).then().block();
+    metricDeletionService.deleteMetricsByTenantId(tenantId, Instant.now(), Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -295,8 +296,10 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, metricName, "",null,
-        Instant.now().minusSeconds(60), Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByMetricName(tenantId, metricName, Instant.now().minusSeconds(60),
+            Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime), 0);
@@ -339,8 +342,9 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, metricName, "",null,
-        null, Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByMetricName(tenantId, metricName, null, Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -384,8 +388,10 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, metricName, "", List.of("host=h-1"),
-        Instant.now().minusSeconds(60), Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByMetricNameAndTag(tenantId, metricName, List.of("host=h-1"),
+            Instant.now().minusSeconds(60), Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -429,8 +435,10 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, metricName, "", List.of("host=h-1"),
-        null, Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByMetricNameAndTag(tenantId, metricName, List.of("host=h-1"),
+            null, Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -494,9 +502,10 @@ public class MetricDeletionServiceTest {
     //delete its entry from data raw table
     deleteDataFromRawTable(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime));
 
-    metricDeletionService.deleteMetrics(tenantId, "", null,null,
-        Instant.now().minus(5, ChronoUnit.MINUTES),
-        Instant.now().plus(5, ChronoUnit.MINUTES)).then().block();
+    metricDeletionService
+        .deleteMetricsByTenantId(tenantId, Instant.now().minus(5, ChronoUnit.MINUTES),
+            Instant.now().plus(5, ChronoUnit.MINUTES))
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -571,8 +580,7 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
-    metricDeletionService.deleteMetrics(tenantId, "", null,null,
-        null, Instant.now()).then().block();
+    metricDeletionService.deleteMetricsByTenantId(tenantId, null, Instant.now()).block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -677,8 +685,9 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
-    metricDeletionService.deleteMetrics(tenantId, "", "",null,
-        Instant.now().minus(3, ChronoUnit.HOURS), Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByTenantId(tenantId, Instant.now().minus(3, ChronoUnit.HOURS), Instant.now())
+        .block();
 
     //validate data raw
     //it must not delete metrics which are older than 3 hours
@@ -792,9 +801,10 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
-    metricDeletionService.deleteMetrics(tenantId, "", null,null,
-        Instant.now().minus(4, ChronoUnit.HOURS),
-        Instant.now().minus(2, ChronoUnit.HOURS)).then().block();
+    metricDeletionService
+        .deleteMetricsByTenantId(tenantId, Instant.now().minus(4, ChronoUnit.HOURS),
+            Instant.now().minus(2, ChronoUnit.HOURS))
+        .block();
 
     //validate data raw
     //it must not delete metrics which are in range of 4 to 2 hours back from current time
@@ -858,8 +868,10 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, null, metricGroup, null,
-        Instant.now().minusSeconds(60), Instant.now()).then().block();
+    metricDeletionService
+        .deleteMetricsByMetricGroup(tenantId, metricGroup, Instant.now().minusSeconds(60),
+            Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
@@ -920,8 +932,8 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    metricDeletionService.deleteMetrics(tenantId, null, metricGroup, null,
-        null, Instant.now()).then().block();
+    metricDeletionService.deleteMetricsByMetricGroup(tenantId, metricGroup, null, Instant.now())
+        .block();
 
     //validate data raw
     assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),

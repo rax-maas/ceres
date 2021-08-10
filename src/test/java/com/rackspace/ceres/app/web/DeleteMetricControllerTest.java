@@ -33,7 +33,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByTenantId() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetricsByTenantId(anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -46,7 +46,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByTenantIdAndWithoutStartTime() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetricsByTenantId(anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -58,7 +58,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByMetricName() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetricsByMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -72,7 +72,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByMetricNameAndTag() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetricsByMetricNameAndTag(anyString(), anyString(), any(), any(), any()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -87,7 +87,7 @@ public class DeleteMetricControllerTest {
 
   @Test
   public void testDeleteMetricByMetricGroup() {
-    when(metricDeletionService.deleteMetrics(anyString(), anyString(), anyString(), any(), any(), any()))
+    when(metricDeletionService.deleteMetricsByMetricGroup(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
     webTestClient.delete()
@@ -97,22 +97,5 @@ public class DeleteMetricControllerTest {
             .build())
         .header("X-Tenant", "t-1")
         .exchange().expectStatus().isOk();
-  }
-
-  @Test
-  public void testDeleteMetricByMetricGroup_tagAndMetricGroupBothPresent() {
-    when(metricDeletionService
-        .deleteMetrics(anyString(), anyString(), anyString(), any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    webTestClient.delete()
-        .uri(uriBuilder -> uriBuilder.path("/api/metric")
-            .queryParam("metricGroup", "cpu")
-            .queryParam("tag", "os=linux")
-            .queryParam("start", "1d-ago")
-            .build())
-        .header("X-Tenant", "t-1")
-        .exchange().expectStatus().isBadRequest().expectBody()
-        .jsonPath("$.message", "Tags are not required when passing metric group");
   }
 }

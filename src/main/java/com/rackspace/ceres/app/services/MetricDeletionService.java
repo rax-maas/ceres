@@ -64,20 +64,6 @@ public class MetricDeletionService {
     this.metricDeletionHelper = metricDeletionHelper;
   }
 
-  public Mono<Empty> deleteMetrics(String tenant, String metricName, String metricGroup, List<String> tag,
-      Instant start, Instant end) {
-    if(StringUtils.isNotBlank(metricGroup)) {
-      return deleteMetricsByMetricGroup(tenant, metricGroup, start, end);
-    }
-    else if (StringUtils.isBlank(metricName)) {
-      return deleteMetricsByTenantId(tenant, start, end);
-    } else if (CollectionUtils.isEmpty(tag)) {
-      return deleteMetricsByMetricName(tenant, metricName, start, end);
-    } else {
-      return deleteMetricsByMetricNameAndTag(tenant, metricName, tag, start, end);
-    }
-  }
-
   /**
    * Deletes a metric by metric group.
    *
@@ -87,7 +73,7 @@ public class MetricDeletionService {
    * @param end
    * @return
    */
-  private Mono<Empty> deleteMetricsByMetricGroup(String tenant, String metricGroup, Instant start,
+  public Mono<Empty> deleteMetricsByMetricGroup(String tenant, String metricGroup, Instant start,
       Instant end) {
     return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
         .flatMap(metricName -> deleteMetricsByMetricName(tenant, metricName, start, end))
@@ -105,7 +91,7 @@ public class MetricDeletionService {
    * @param end    the end
    * @return the mono
    */
-  private Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
+  public Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
     log.debug("Deleting metrics for tenant: {}", tenant);
     Flux<String> seriesSetHashes = null;
     if (start != null) {
@@ -135,7 +121,7 @@ public class MetricDeletionService {
    * @param end        the end
    * @return the mono
    */
-  private Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
+  public Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
       Instant end) {
     log.debug("Deleting metrics {} for tenant: {} ", metricName,
         tenant);
@@ -168,7 +154,7 @@ public class MetricDeletionService {
    * @param end        the end
    * @return the mono
    */
-  private Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
+  public Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
       List<String> tag, Instant start, Instant end) {
     log.debug(
         "Deleting metrics {} with tag {} for tenant: {}  ",
