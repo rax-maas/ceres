@@ -101,8 +101,7 @@ public class MetricDeletionService {
     } else {
       start = Instant.now().minus(
           getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
-              .toHours(),
-          ChronoUnit.HOURS);
+              .toHours(), ChronoUnit.HOURS);
       seriesSetHashes = metricDeletionHelper
           .getSeriesSetHashFromRawOrDownsampled(tenant, start, end);
       return deleteMetadataByTenantId(tenant, seriesSetHashes)
@@ -123,8 +122,7 @@ public class MetricDeletionService {
    */
   public Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
       Instant end) {
-    log.debug("Deleting metrics {} for tenant: {} ", metricName,
-        tenant);
+    log.debug("Deleting metrics {} for tenant: {} ", metricName, tenant);
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromSeriesSets(tenant,
         metricName);
     if (start != null) {
@@ -136,8 +134,7 @@ public class MetricDeletionService {
     } else  {
       start = Instant.now().minus(
           getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
-              .toHours(),
-          ChronoUnit.HOURS);
+              .toHours(), ChronoUnit.HOURS);
       return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
           .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
           .then(Mono.empty());
@@ -156,9 +153,7 @@ public class MetricDeletionService {
    */
   public Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
       List<String> tag, Instant start, Instant end) {
-    log.debug(
-        "Deleting metrics {} with tag {} for tenant: {}  ",
-        metricName, tag, tenant);
+    log.debug("Deleting metrics {} with tag {} for tenant: {}  ", metricName, tag, tenant);
     Map<String, String> queryTags = convertPairsListToMap(tag);
     Flux<String> seriesSetHashes =
         metadataService.locateSeriesSetHashes(tenant, metricName, queryTags);
@@ -171,8 +166,7 @@ public class MetricDeletionService {
     } else  {
       start = Instant.now().minus(
           getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
-              .toHours(),
-          ChronoUnit.HOURS);
+              .toHours(), ChronoUnit.HOURS);
       return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
           .then(Mono.empty());
     }
