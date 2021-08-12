@@ -17,6 +17,7 @@
 
 package com.rackspace.ceres.app.validation;
 
+import java.util.List;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -84,5 +85,19 @@ public class RequestValidatorTest {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     Assertions.assertDoesNotThrow(() -> requestValidator
         .validateMetricNameAndGroup(metricName, null));
+  }
+
+  @Test
+  public void validateMetricGroupAndTags_WithMetricGroupPresentAndTagsNull() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Assertions.assertDoesNotThrow(() -> RequestValidator
+        .validateMetricGroupAndTags(metricGroup, null));
+  }
+
+  @Test
+  public void validateMetricGroupAndTags_WithMetricGroupPresentAndTagsPresent() {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RequestValidator
+        .validateMetricGroupAndTags(metricGroup, List.of("os=linux")));
   }
 }

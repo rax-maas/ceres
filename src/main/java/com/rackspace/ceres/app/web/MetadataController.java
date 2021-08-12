@@ -42,15 +42,12 @@ import springfox.documentation.annotations.ApiIgnore;
 public class MetadataController {
 
   private final MetadataService metadataService;
-  private final RequestValidator validator;
 
   private final Environment environment;
 
   @Autowired
-  public MetadataController(MetadataService metadataService, RequestValidator validator,
-      Environment environment) {
+  public MetadataController(MetadataService metadataService, Environment environment) {
     this.metadataService = metadataService;
-    this.validator = validator;
     this.environment = environment;
   }
 
@@ -112,7 +109,7 @@ public class MetadataController {
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
-    validator.validateMetricNameAndGroup(metricName, metricGroup);
+    RequestValidator.validateMetricNameAndGroup(metricName, metricGroup);
 
     return metadataService
         .getTags(tenantHeader, metricName, metricGroup);

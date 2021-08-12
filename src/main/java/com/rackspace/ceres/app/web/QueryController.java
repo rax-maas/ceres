@@ -28,8 +28,6 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import com.rackspace.ceres.app.validation.RequestValidator;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,16 +54,14 @@ import springfox.documentation.annotations.ApiIgnore;
 public class QueryController {
 
   private final QueryService queryService;
-  private final RequestValidator validator;
   private final DownsampleProperties downsampleProperties;
   private final Counter rawQueryCounter;
   private final Counter downSampleQueryCounter;
 
   @Autowired
-  public QueryController(QueryService queryService, RequestValidator validator,
-      DownsampleProperties downsampleProperties, MeterRegistry meterRegistry) {
+  public QueryController(QueryService queryService, DownsampleProperties downsampleProperties,
+      MeterRegistry meterRegistry) {
     this.queryService = queryService;
-    this.validator = validator;
     this.downsampleProperties = downsampleProperties;
     rawQueryCounter = meterRegistry.counter("ceres.query", "type", "raw");
     downSampleQueryCounter = meterRegistry.counter("ceres.query", "type", "downsample");
@@ -93,7 +89,7 @@ public class QueryController {
       @RequestParam List<String> tag,
       @RequestParam String start,
       @RequestParam(required = false) String end) {
-    validator.validateMetricNameAndGroup(metricName, metricGroup);
+    RequestValidator.validateMetricNameAndGroup(metricName, metricGroup);
 
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);

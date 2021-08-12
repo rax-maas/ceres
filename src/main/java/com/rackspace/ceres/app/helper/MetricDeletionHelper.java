@@ -43,6 +43,8 @@ public class MetricDeletionHelper {
       + "WHERE tenant = ? AND series_set_hash = ?";
   private final String SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets "
       + "WHERE tenant = ? AND metric_name = ?";
+  private final String DELETE_METRIC_GROUP_QUERY = "DELETE from metric_groups WHERE tenant = ? "
+      + "AND metric_group = ?";
 
   private AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -213,5 +215,18 @@ public class MetricDeletionHelper {
       String metricName) {
     return cqlTemplate.queryForFlux(SELECT_SERIES_SET_HASHES_QUERY, String.class,
         tenant, metricName).distinct();
+  }
+
+  /**
+   * Delete metric_groups by tenant and metric group.
+   *
+   * @param tenant     the tenant
+   * @param metricGroup the metric name
+   * @return the mono
+   */
+  public Mono<Boolean> deleteMetricGroupByTenantAndMetricGroup(String tenant, String metricGroup) {
+    return cqlTemplate
+        .execute(DELETE_METRIC_GROUP_QUERY, tenant, metricGroup)
+        .retryWhen(appProperties.getRetryDelete().build());
   }
 }

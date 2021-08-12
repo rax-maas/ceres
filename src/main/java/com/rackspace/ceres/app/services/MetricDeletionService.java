@@ -20,10 +20,12 @@ package com.rackspace.ceres.app.services;
 
 import static com.rackspace.ceres.app.web.TagListConverter.convertPairsListToMap;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -46,29 +48,39 @@ public class MetricDeletionService {
   private final MetadataService metadataService;
   private TimeSlotPartitioner timeSlotPartitioner;
   private DownsampleProperties downsampleProperties;
+  private AppProperties appProperties;
   private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public MetricDeletionService(DataTablesStatements dataTablesStatements,
       TimeSlotPartitioner timeSlotPartitioner, MetadataService metadataService,
-      DownsampleProperties downsampleProperties,
+      DownsampleProperties downsampleProperties, AppProperties appProperties,
       MetricDeletionHelper metricDeletionHelper) {
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;
+    this.appProperties = appProperties;
     this.metadataService = metadataService;
     this.metricDeletionHelper = metricDeletionHelper;
   }
 
-  public Mono<Empty> deleteMetrics(String tenant, String metricName, List<String> tag,
-      Instant start, Instant end) {
-    if (StringUtils.isBlank(metricName)) {
-      return deleteMetricsByTenantId(tenant, start, end);
-    } else if (CollectionUtils.isEmpty(tag)) {
-      return deleteMetricsByMetricName(tenant, metricName, start, end);
-    } else {
-      return deleteMetricsByMetricNameAndTag(tenant, metricName, tag, start, end);
-    }
+  /**
+   * Deletes a metric by metric group.
+   *
+   * @param tenant
+   * @param metricGroup
+   * @param start
+   * @param end
+   * @return
+   */
+  public Mono<Empty> deleteMetricsByMetricGroup(String tenant, String metricGroup, Instant start,
+      Instant end) {
+    return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
+        .flatMap(metricName -> deleteMetricsByMetricName(tenant, metricName, start, end))
+        .then(start == null ? metricDeletionHelper
+            .deleteMetricGroupByTenantAndMetricGroup(tenant, metricGroup).then(Mono.empty())
+            : Mono.empty())
+        .then(Mono.empty());
   }
 
   /**
@@ -79,7 +91,7 @@ public class MetricDeletionService {
    * @param end    the end
    * @return the mono
    */
-  private Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
+  public Mono<Empty> deleteMetricsByTenantId(String tenant, Instant start, Instant end) {
     log.debug("Deleting metrics for tenant: {}", tenant);
     Flux<String> seriesSetHashes = null;
     if (start != null) {
@@ -87,7 +99,9 @@ public class MetricDeletionService {
           .then(deleteMetricsFromRaw(tenant, start, end))
           .then(Mono.empty());
     } else {
-      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
+      start = Instant.now().minus(
+          getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
+              .toHours(), ChronoUnit.HOURS);
       seriesSetHashes = metricDeletionHelper
           .getSeriesSetHashFromRawOrDownsampled(tenant, start, end);
       return deleteMetadataByTenantId(tenant, seriesSetHashes)
@@ -106,10 +120,9 @@ public class MetricDeletionService {
    * @param end        the end
    * @return the mono
    */
-  private Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
+  public Mono<Empty> deleteMetricsByMetricName(String tenant, String metricName, Instant start,
       Instant end) {
-    log.debug("Deleting metrics {} for tenant: {} ", metricName,
-        tenant);
+    log.debug("Deleting metrics {} for tenant: {} ", metricName, tenant);
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromSeriesSets(tenant,
         metricName);
     if (start != null) {
@@ -119,7 +132,9 @@ public class MetricDeletionService {
               .then(deleteMetricsFromRawWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)))
               .then(Mono.empty());
     } else  {
-      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
+      start = Instant.now().minus(
+          getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
+              .toHours(), ChronoUnit.HOURS);
       return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
           .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName))
           .then(Mono.empty());
@@ -136,11 +151,9 @@ public class MetricDeletionService {
    * @param end        the end
    * @return the mono
    */
-  private Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
+  public Mono<Empty> deleteMetricsByMetricNameAndTag(String tenant, String metricName,
       List<String> tag, Instant start, Instant end) {
-    log.debug(
-        "Deleting metrics {} with tag {} for tenant: {}  ",
-        metricName, tag, tenant);
+    log.debug("Deleting metrics {} with tag {} for tenant: {}  ", metricName, tag, tenant);
     Map<String, String> queryTags = convertPairsListToMap(tag);
     Flux<String> seriesSetHashes =
         metadataService.locateSeriesSetHashes(tenant, metricName, queryTags);
@@ -151,7 +164,9 @@ public class MetricDeletionService {
               .then(deleteMetricsFromRawWithSeriesSetHash(tenant, startDateTime, end, seriesSetHash)))
           .then(Mono.empty());
     } else  {
-      start = Instant.now().minus(getHighestTTLGranularity().getTtl());
+      start = Instant.now().minus(
+          getHighestTTLGranularity().getTtl().toHours() + appProperties.getIngestStartTime()
+              .toHours(), ChronoUnit.HOURS);
       return deleteMetrics(tenant, start, end, metricName, seriesSetHashes)
           .then(Mono.empty());
     }
