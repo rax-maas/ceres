@@ -73,6 +73,7 @@ public class DownsampleProcessor {
   private final DataWriteService dataWriteService;
   private List<ScheduledFuture<?>> scheduled;
   private List<ScheduledFuture<?>> partitionJobsScheduled;
+  private ScheduledFuture<?> jobsScheduled;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -122,19 +123,26 @@ public class DownsampleProcessor {
         )
         .collect(Collectors.toList());
 
-    // We set up the job queue here
-    setupJobSchedulers();
+    // We initialize the job queue here
+    setupJobScheduler();
 
     log.debug("Downsample processing is scheduled");
   }
 
-  private void setupJobSchedulers() {
+  private void setupJobScheduler() {
+    log.info("######### setupJobScheduler " + isoTimeUtcPlusSeconds(0) + "...");
+    jobsScheduled = taskScheduler.schedule(this::processJobs, Instant.now()
+        .plusMillis(750)
+        .plusMillis(new Random().nextInt(500)));
+  }
+
+  private void processJobs() {
+    log.info("######### processJobs " + isoTimeUtcPlusSeconds(0) + "...");
     partitionJobsScheduled = IntStream.rangeClosed(1, 4)
-        .mapToObj(job -> taskScheduler.scheduleAtFixedRate(
-            () -> processJob(job),
-            Instant.now().plus(randomizeMilliSecondsDelay(500)),
-            Duration.ofSeconds(1)
+        .mapToObj(job -> taskScheduler.schedule(
+            () -> processJob(job), Instant.now().plusMillis(new Random().nextInt(500))
         )).collect(Collectors.toList());
+    setupJobScheduler(); // Schedule the next time
   }
 
   private void processJob(Integer job) {

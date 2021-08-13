@@ -2,6 +2,25 @@
 
 * Modify src/main/java/resources/application.yml to look like this:
 ```yaml
+ceres:
+  downsample:
+    granularities:
+      - width: 1m
+        ttl: 12h
+        partitionWidth: 2h
+      - width: 2m
+        ttl: 1d
+        partitionWidth: 4h
+    time-slot-width: 2m
+    last-touch-delay: 1m
+    downsample-process-period: 10s
+    partitions: 4
+    partitions-to-process: 0-3
+  tag-filter: truncate
+  tag-value-limit: 50
+  excluded-tag-keys: ["ip_address"]
+  ingest-start-time: 7d
+  ingest-end-time: 1d
 spring:
   redis:
     database: 0
