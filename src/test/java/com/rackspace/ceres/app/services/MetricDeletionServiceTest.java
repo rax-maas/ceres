@@ -94,6 +94,8 @@ public class MetricDeletionServiceTest {
       + " WHERE tenant = ? AND metric_name = ?";
   private static final String QUERY_METRIC_GROUPS = "SELECT * FROM metric_groups"
       + " WHERE tenant = ? AND metric_group = ?";
+  private static final String QUERY_DEVICES = "SELECT * FROM devices"
+      + " WHERE tenant = ? AND device = ?";
 
   @Test
   public void testDeleteMetricsByTenantId() {
@@ -891,6 +893,9 @@ public class MetricDeletionServiceTest {
 
     //validate metric_groups
     assertMetricGroupViaQuery(tenantId, metricGroup, 1);
+
+    //validate devices
+    assertDevicesViaQuery(tenantId, resource, 1);
   }
 
   @Test
@@ -997,6 +1002,13 @@ public class MetricDeletionServiceTest {
         tenant, metricGroup
     ).collectList().block();
     assertThat(metricNamesResult).hasSize(expectedRowNum);
+  }
+
+  private void assertDevicesViaQuery(String tenant, String device, int expectedRowNum)  {
+    final List<Row> devicesResult = cqlTemplate.queryForRows(QUERY_DEVICES,
+        tenant, device
+    ).collectList().block();
+    assertThat(devicesResult).hasSize(expectedRowNum);
   }
 
   private void assertQueryRawViaQuery(String tenant, Instant timeSlot, int expectedRowNum) {
