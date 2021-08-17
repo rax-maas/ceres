@@ -132,23 +132,24 @@ public class DownsampleProcessor {
   private void setupJobScheduler() {
     log.info("######### setupJobScheduler " + isoTimeUtcPlusSeconds(0) + "...");
     jobsScheduled = taskScheduler.schedule(this::processJobs, Instant.now()
-        .plusMillis(750)
-        .plusMillis(new Random().nextInt(500)));
+        .plusSeconds(10)
+        .plusSeconds(new Random().nextInt(5)));
   }
 
   private void processJobs() {
     log.info("######### processJobs " + isoTimeUtcPlusSeconds(0) + "...");
     partitionJobsScheduled = IntStream.rangeClosed(1, 4)
         .mapToObj(job -> taskScheduler.schedule(
-            () -> processJob(job), Instant.now().plusMillis(new Random().nextInt(500))
+            // TODO: Calibrate how far apart these should be spaced
+            () -> processJob(job), Instant.now().plusSeconds(new Random().nextInt(10))
         )).collect(Collectors.toList());
     setupJobScheduler(); // Schedule the next time
   }
 
   private void processJob(Integer job) {
-    // TODO: long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    // We set deltaSeconds to a short value for testing purpose
-    long deltaSeconds = 10;
+    // long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
+    // Set to 1 minute for testing
+    long deltaSeconds = 60;
     downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
         .flatMap(result -> {
           if (result) {
