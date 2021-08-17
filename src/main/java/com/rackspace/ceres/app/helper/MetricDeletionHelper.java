@@ -47,9 +47,9 @@ public class MetricDeletionHelper {
       + "AND metric_group = ?";
   private final String GET_TAG_VALUE_QUERY = "select tag_value from series_sets where "
       + "tenant=? AND metric_name=? AND tag_key=?";
-  private final String UPDATE_METRIC_GROUP_QUERY = "UPDATE metric_groups SET metric_names = "
+  private final String UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY = "UPDATE metric_groups SET metric_names = "
       + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND metric_group = '%s'";
-  private final String UPDATE_DEVICES_QUERY = "UPDATE devices SET metric_names = "
+  private final String UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY = "UPDATE devices SET metric_names = "
       + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND device = '%s'";
   private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
   private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
@@ -242,7 +242,8 @@ public class MetricDeletionHelper {
     Flux<String> deviceFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
         tenant, metricNamesToBeDeleted, "resource");
 
-    return deviceFlux.flatMap(device -> cqlTemplate.execute(String.format(UPDATE_DEVICES_QUERY,
+    return deviceFlux.flatMap(device -> cqlTemplate.execute(
+        String.format(UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY,
         metricNamesToBeDeleted, Instant.now().toString(), tenant, device)))
         .then(Mono.just(true));
   }
@@ -256,8 +257,8 @@ public class MetricDeletionHelper {
         tenant, metricNamesToBeDeleted, "metricGroup");
 
     return metricGroupFlux.flatMap(metricGroup -> cqlTemplate.execute(
-        String.format(UPDATE_METRIC_GROUP_QUERY, metricNamesToBeDeleted, Instant.now().toString(),
-            tenant, metricGroup)))
+        String.format(UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY, metricNamesToBeDeleted,
+            Instant.now().toString(), tenant, metricGroup)))
         .then(Mono.just(true));
   }
 
