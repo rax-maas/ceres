@@ -206,7 +206,9 @@ public class MetricDeletionService {
     return seriesSetHashes.flatMap(seriesSetHash ->
         deleteSeriesSetHashesAndCache(tenant, seriesSetHash))
         .then(metricNames.flatMap(metricName -> deleteSeriesSetAndMetricName(tenant, metricName))
-            .then(Mono.just(true)));
+            .then(Mono.just(true)))
+        .then(metricDeletionHelper.deleteMetricGroups(tenant))
+        .then(metricDeletionHelper.deleteDevices(tenant));
   }
 
   /**
@@ -220,6 +222,8 @@ public class MetricDeletionService {
   private Mono<Boolean> deleteMetadataByTenantIdAndSeriesSet(String seriesSetHash, String tenant,
       String metricName) {
     return deleteSeriesSetHashesAndCache(tenant, seriesSetHash)
+        .then(metricDeletionHelper.deleteMetricNamesFromDevices(tenant, metricName))
+        .then(metricDeletionHelper.deleteMetricNamesFromMetricGroups(tenant, metricName))
         .then(metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName));
   }
 

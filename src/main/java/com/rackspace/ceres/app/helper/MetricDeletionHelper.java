@@ -45,6 +45,14 @@ public class MetricDeletionHelper {
       + "WHERE tenant = ? AND metric_name = ?";
   private final String DELETE_METRIC_GROUP_QUERY = "DELETE from metric_groups WHERE tenant = ? "
       + "AND metric_group = ?";
+  private final String GET_TAG_VALUE_QUERY = "select tag_value from series_sets where "
+      + "tenant=? AND metric_name=? AND tag_key=?";
+  private final String UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY = "UPDATE metric_groups SET metric_names = "
+      + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND metric_group = '%s'";
+  private final String UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY = "UPDATE devices SET metric_names = "
+      + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND device = '%s'";
+  private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
+  private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
 
   private AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -228,5 +236,33 @@ public class MetricDeletionHelper {
     return cqlTemplate
         .execute(DELETE_METRIC_GROUP_QUERY, tenant, metricGroup)
         .retryWhen(appProperties.getRetryDelete().build());
+  }
+
+  public Mono<Boolean> deleteMetricNamesFromDevices(String tenant, String metricNamesToBeDeleted)  {
+    Flux<String> deviceFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
+        tenant, metricNamesToBeDeleted, "resource");
+
+    return deviceFlux.flatMap(device -> cqlTemplate.execute(
+        String.format(UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY,
+        metricNamesToBeDeleted, Instant.now().toString(), tenant, device)))
+        .then(Mono.just(true));
+  }
+
+  public Mono<Boolean> deleteDevices(String tenant)  {
+    return cqlTemplate.execute(DELETE_ALL_DEVICES_QUERY, tenant);
+  }
+
+  public Mono<Boolean> deleteMetricNamesFromMetricGroups(String tenant, String metricNamesToBeDeleted)  {
+    Flux<String> metricGroupFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
+        tenant, metricNamesToBeDeleted, "metricGroup");
+
+    return metricGroupFlux.flatMap(metricGroup -> cqlTemplate.execute(
+        String.format(UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY, metricNamesToBeDeleted,
+            Instant.now().toString(), tenant, metricGroup)))
+        .then(Mono.just(true));
+  }
+
+  public Mono<Boolean> deleteMetricGroups(String tenant)  {
+    return cqlTemplate.execute(DELETE_ALL_METRIC_GROUP_QUERY, tenant);
   }
 }
