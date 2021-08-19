@@ -147,9 +147,8 @@ public class DownsampleProcessor {
   }
 
   private void processJob(Integer job) {
-    // long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    // Set to 1 minute for testing
-    long deltaSeconds = 60;
+    long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
+    log.info("deltaSeconds: " + deltaSeconds);
     downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
         .flatMap(result -> {
           if (result) {
