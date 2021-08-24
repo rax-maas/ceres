@@ -84,6 +84,7 @@ public class QueryController {
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
+      @RequestParam(required = false) String maskTenantId,
       @RequestParam(defaultValue = "raw") Aggregator aggregator,
       @RequestParam(required = false) Duration granularity,
       @RequestParam List<String> tag,
@@ -94,6 +95,10 @@ public class QueryController {
     Instant startTime = DateTimeUtils.parseInstant(start);
     Instant endTime = DateTimeUtils.parseInstant(end);
 
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId != null) {
+      tenantHeader = maskTenantId;
+    }
     if (aggregator == null || Objects.equals(aggregator, Aggregator.raw)) {
         rawQueryCounter.increment();
         return queryService.queryRaw(tenantHeader, metricName, metricGroup,
