@@ -142,22 +142,8 @@ public class DownsampleProcessor {
   }
 
   private IntStream partitionsToProcess(int job) {
-    IntStream range = null;
-    switch (job) {
-      case 1:
-        range = IntStream.rangeClosed(0, 15);
-        break;
-      case 2:
-        range = IntStream.rangeClosed(16, 31);
-        break;
-      case 3:
-        range = IntStream.rangeClosed(32, 47);
-        break;
-      case 4:
-        range = IntStream.rangeClosed(48, 63);
-        break;
-    }
-    return range;
+    int numPartitions = 16;
+    return IntStream.rangeClosed(numPartitions * (job - 1), numPartitions * job - 1);
   }
 
   private Duration randomizeDelay() {
