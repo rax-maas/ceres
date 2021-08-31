@@ -109,27 +109,6 @@ class DownsampleProcessorTest {
   }
 
   @Test
-  void setupSchedulers() {
-    when(downsampleTrackingService.retrieveReadyOnes(anyInt()))
-        .thenReturn(Flux.empty());
-
-    Awaitility.await().atMost(downsampleProperties.getInitialProcessingDelay().plus(randomizeInitialDelay()))
-        .untilAsserted(() -> verify(downsampleTrackingService, atLeast(1))
-            .retrieveReadyOnes(anyInt()));
-    assertThat(downsampleProperties.getPartitionsToProcess())
-        .containsExactly(0, 1,3,4,5);
-  }
-
-  private Duration randomizeInitialDelay() {
-    return downsampleProperties.getInitialProcessingDelay()
-        .plus(
-            downsampleProperties.getDownsampleProcessPeriod().dividedBy(
-                2 + new Random().nextInt(8)
-            )
-        );
-  }
-
-  @Test
   void aggregateSomeRawData() {
     when(dataWriteService.storeDownsampledData(any()))
         .thenReturn(Mono.empty());

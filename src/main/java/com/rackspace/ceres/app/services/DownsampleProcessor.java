@@ -96,110 +96,58 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    final IntegerSet partitionsToProcess = getPartitionsToProcess();
-    if (partitionsToProcess == null) {
-      // just info level since this is the normal way to disable downsampling
-      log.info("Downsample processing is disabled due to no partitions to process");
-      return;
-    }
-
     if (downsampleProperties.getGranularities() == null ||
         downsampleProperties.getGranularities().isEmpty()) {
-      throw new IllegalStateException("Downsample partitions to process are configured, but not granularities");
+      throw new IllegalStateException("Granularities are not configured!");
     }
 
-    scheduled = partitionsToProcess.stream()
-        .map(partition -> {
-          final Duration initialDelay = randomizeInitialDelay();
-          log.debug("Scheduling partition={} after={} every={}",
-              partition, initialDelay, downsampleProperties.getDownsampleProcessPeriod());
-          return taskScheduler.scheduleAtFixedRate(
-                  () -> processPartition(partition),
-                  Instant.now()
-                      .plus(initialDelay),
-                  downsampleProperties.getDownsampleProcessPeriod()
-              );
-            }
-        )
-        .collect(Collectors.toList());
-
     // We initialize the job queue here
-    setupJobScheduler();
+    setupJobScheduler(Instant.now().plus(downsampleProperties.getInitialProcessingDelay()));
 
     log.debug("Downsample processing is scheduled");
   }
 
-  private void setupJobScheduler() {
-    log.info("######### setupJobScheduler " + isoTimeUtcPlusSeconds(0) + "...");
-    jobsScheduled = taskScheduler.schedule(this::processJobs, Instant.now()
-        .plusSeconds(10)
-        .plusSeconds(new Random().nextInt(5)));
+  private void setupJobScheduler(Instant when) {
+    log.info("setupJobScheduler {}...", isoTimeUtcPlusSeconds(0));
+    jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
   }
 
   private void processJobs() {
-    log.info("######### processJobs " + isoTimeUtcPlusSeconds(0) + "...");
+    log.info("processJobs {}...", isoTimeUtcPlusSeconds(0));
     partitionJobsScheduled = IntStream.rangeClosed(1, 4)
         .mapToObj(job -> taskScheduler.schedule(
-            // TODO: Calibrate how far apart these should be spaced
             () -> processJob(job), Instant.now().plusSeconds(new Random().nextInt(10))
         )).collect(Collectors.toList());
-    setupJobScheduler(); // Schedule the next time
+    setupJobScheduler(Instant.now().plusSeconds(10)); // Schedule the next time
   }
 
   private void processJob(Integer job) {
     long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    log.info("deltaSeconds: " + deltaSeconds);
     downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
         .flatMap(result -> {
           if (result) {
-            // log for testing purpose
-            log.info("######### Processing partition job: " + job + " at: " + isoTimeUtcPlusSeconds(0) + "...");
+            log.info("Processing partition job: {} at: {}...", job, isoTimeUtcPlusSeconds(0));
+            processPartitions(job);
           }
           return Mono.empty();
         }).subscribe(o -> {}, throwable -> {});
   }
 
-  private IntegerSet getPartitionsToProcess() {
-    if (downsampleProperties.getPartitionsToProcess() != null &&
-        !downsampleProperties.getPartitionsToProcess().isEmpty()) {
-      return downsampleProperties.getPartitionsToProcess();
-    }
-
-    if (downsampleProperties.getPartitionsMappingFile() != null) {
-      try {
-        final Map<String, String> mappings = objectMapper.readValue(
-            downsampleProperties.getPartitionsMappingFile().toFile(),
-            new TypeReference<>() {}
-        );
-
-        final String ourHostname = InetAddress.getLocalHost().getHostName();
-        final String entry = mappings.get(ourHostname);
-
-        if (entry != null) {
-          log.debug("Loaded partitions to process for {} from {}",
-              ourHostname, downsampleProperties.getPartitionsMappingFile());
-          return new StringToIntegerSetConverter().convert(entry);
-        } else {
-          throw new IllegalStateException(String.format(
-              "Unable to locate partitions to process for %s in %s",
-                  ourHostname, downsampleProperties.getPartitionsMappingFile()
-              ));
-        }
-      } catch (IOException e) {
-        throw new IllegalStateException("Unable to read partitions mapping file", e);
-      }
-    }
-
-    return null;
+  private void processPartitions(int job) {
+    scheduled = partitionsToProcess(job)
+        .mapToObj(partition -> taskScheduler.schedule(
+            () -> processPartition(partition),
+            Instant.now().plus(randomizeDelay())
+        )).collect(Collectors.toList());
   }
 
-  private Duration randomizeInitialDelay() {
-    return downsampleProperties.getInitialProcessingDelay()
-        .plus(
-            downsampleProperties.getDownsampleProcessPeriod().dividedBy(
-                2 + new Random().nextInt(8)
-            )
-        );
+  private IntStream partitionsToProcess(int job) {
+    int numPartitions = 16;
+    return IntStream.rangeClosed(numPartitions * (job - 1), numPartitions * job - 1);
+  }
+
+  private Duration randomizeDelay() {
+    return downsampleProperties.getDownsampleProcessPeriod().dividedBy(2 + new Random().nextInt(8));
   }
 
   @PreDestroy
@@ -210,7 +158,7 @@ public class DownsampleProcessor {
   }
 
   private void processPartition(int partition) {
-    log.trace("Downsampling partition {}", partition);
+    log.info("Downsampling partition {}", partition);
 
     downsampleTrackingService
         .retrieveReadyOnes(partition)
