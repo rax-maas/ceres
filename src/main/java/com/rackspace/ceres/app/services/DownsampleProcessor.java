@@ -122,8 +122,9 @@ public class DownsampleProcessor {
   }
 
   private void processJob(Integer job) {
-    long deltaSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    downsampleTrackingService.checkPartitionJobs(job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(deltaSeconds))
+    long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
+    downsampleTrackingService.checkPartitionJobs(
+        job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(processPeriodSeconds))
         .flatMap(result -> {
           if (result) {
             log.info("Processing partition job: {} at: {}...", job, isoTimeUtcPlusSeconds(0));
@@ -137,17 +138,20 @@ public class DownsampleProcessor {
     scheduled = partitionsToProcess(job)
         .mapToObj(partition -> taskScheduler.schedule(
             () -> processPartition(partition),
-            Instant.now().plus(randomizeDelay())
+            Instant.now().plusSeconds(deltaSeconds(job, partition))
         )).collect(Collectors.toList());
+  }
+
+  private long deltaSeconds(int job, int partition) {
+    // We want to space out all the partitions evenly in time between jobs
+    long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
+    long deltaSeconds = processPeriodSeconds/16;
+    return (partition - ((job - 1) * 16L)) * deltaSeconds;
   }
 
   private IntStream partitionsToProcess(int job) {
     int numPartitions = 16;
     return IntStream.rangeClosed(numPartitions * (job - 1), numPartitions * job - 1);
-  }
-
-  private Duration randomizeDelay() {
-    return downsampleProperties.getDownsampleProcessPeriod().dividedBy(2 + new Random().nextInt(8));
   }
 
   @PreDestroy

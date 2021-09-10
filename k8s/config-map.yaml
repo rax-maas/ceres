@@ -13,7 +13,7 @@ data:
   application.yml: |-
     ceres:
       downsample:
-        downsample-process-period: 15m
+        downsample-process-period: 896s # must be multiple of 16!
         granularities:
           - width: 5m
             ttl: 14d
