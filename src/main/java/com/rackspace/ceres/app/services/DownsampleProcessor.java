@@ -187,7 +187,7 @@ public class DownsampleProcessor {
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
-    log.trace("Processing downsample set {}", pendingDownsampleSet);
+    log.info("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -209,7 +209,7 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o -> log.info("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
