@@ -30,6 +30,7 @@ import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
+import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
 
@@ -163,12 +164,28 @@ class MetadataServiceTest {
             seriesSet(tenantId, metricName, "os", "linux", seriesSet1),
             seriesSet(tenantId, metricName, "os", "windows", seriesSet2)
         );
+
     assertThat(cassandraTemplate.count(SeriesSet.class).block()).isEqualTo(9);
 
     assertThat(
         cassandraTemplate.select("SELECT metric_name FROM metric_names", String.class).collectList()
             .block()
     ).containsExactly(metricName);
+
+    assertThat(cassandraTemplate.select(Query.query(), TagsData.class).collectList().block())
+        .containsExactlyInAnyOrder(
+            tagsData(tenantId, SuggestType.TAGK, "host"),
+            tagsData(tenantId, SuggestType.TAGK, "os"),
+            tagsData(tenantId, SuggestType.TAGK, "deployment"),
+            tagsData(tenantId, SuggestType.TAGV, "h-1"),
+            tagsData(tenantId, SuggestType.TAGV, "h-2"),
+            tagsData(tenantId, SuggestType.TAGV, "h-3"),
+            tagsData(tenantId, SuggestType.TAGV, "linux"),
+            tagsData(tenantId, SuggestType.TAGV, "windows"),
+            tagsData(tenantId, SuggestType.TAGV, "prod"),
+            tagsData(tenantId, SuggestType.TAGV, "dev")
+        );
+    assertThat(cassandraTemplate.count(TagsData.class).block()).isEqualTo(10);
   }
 
   private void store(String tenantId, String metricName,
@@ -593,5 +610,9 @@ class MetadataServiceTest {
   private Devices insertDeviceData(String tenantId, String device, Set<String> metricNames) {
     return new Devices().setTenant(tenantId).setDevice(device).setMetricNames(metricNames)
         .setUpdatedAt(Instant.now().toString());
+  }
+
+  private TagsData tagsData(String tenantId, SuggestType type, String data) {
+    return new TagsData().setTenant(tenantId).setType(type).setData(data);
   }
 }

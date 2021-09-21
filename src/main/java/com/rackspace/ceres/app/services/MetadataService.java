@@ -23,6 +23,7 @@ import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
+import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
@@ -172,6 +173,26 @@ public class MetadataService {
                                         .setTagKey(tagsEntry.getKey())
                                         .setTagValue(tagsEntry.getValue())
                                         .setSeriesSetHash(seriesSetHash)
+                                )
+                                    .retryWhen(
+                                        appProperties.getRetryInsertMetadata().build()
+                                    ),
+                                //Insert tenant-tagKeys mapping in TagsData table.
+                                cassandraTemplate.insert(
+                                    new TagsData()
+                                          .setTenant(tenant)
+                                          .setType(SuggestType.TAGK)
+                                          .setData(tagsEntry.getKey())
+                                )
+                                    .retryWhen(
+                                        appProperties.getRetryInsertMetadata().build()
+                                    ),
+                                //Insert tenant-tagValues mapping in TagsData table.
+                                cassandraTemplate.insert(
+                                    new TagsData()
+                                        .setTenant(tenant)
+                                        .setType(SuggestType.TAGV)
+                                        .setData(tagsEntry.getValue())
                                 )
                                     .retryWhen(
                                         appProperties.getRetryInsertMetadata().build()
