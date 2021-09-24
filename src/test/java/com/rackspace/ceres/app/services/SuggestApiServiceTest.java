@@ -2,6 +2,7 @@ package com.rackspace.ceres.app.services;
 
 import static org.mockito.Mockito.when;
 
+import com.rackspace.ceres.app.model.SuggestType;
 import java.util.List;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -53,10 +54,8 @@ public class SuggestApiServiceTest {
   @Test
   public void testSuggestTagKeys() {
 
-    List<String> metricNames = List.of("cpu_idle");
     List<String> tagKeys = List.of("os", "osx");
-    when(metadataService.getMetricNames("t-1")).thenReturn(Mono.just(metricNames));
-    when(metadataService.getTagKeys("t-1", "cpu_idle")).thenReturn(Mono.just(tagKeys));
+    when(metadataService.getTagKeysOrValuesForTenant("t-1", SuggestType.TAGK)).thenReturn(Mono.just(tagKeys));
 
     StepVerifier.create(suggestApiService.suggestTagKeys("t-1", "o", 10))
         .assertNext(tagKeysList -> {
@@ -71,7 +70,7 @@ public class SuggestApiServiceTest {
         }).verifyComplete();
 
     //Test when metric doesn't match with any tag keys
-    StepVerifier.create(suggestApiService.suggestMetricNames("t-1", "invalid", 10))
+    StepVerifier.create(suggestApiService.suggestTagKeys("t-1", "invalid", 10))
         .assertNext(tagKeysList -> {
           Assertions.assertThat(tagKeysList).isEmpty();
         }).verifyComplete();
@@ -80,15 +79,9 @@ public class SuggestApiServiceTest {
   @Test
   public void testSuggestTagValues() {
 
-    List<String> metricNames = List.of("cpu_idle");
-    List<String> tagKeys = List.of("os", "osx");
-    List<String> tagValues1 = List.of("windows" , "linux", "linA");
-    List<String> tagValues2 = List.of("macos" , "linux", "linB");
+    List<String> tagValues1 = List.of("windows" , "linux", "linA", "linB");
 
-    when(metadataService.getMetricNames("t-1")).thenReturn(Mono.just(metricNames));
-    when(metadataService.getTagKeys("t-1", "cpu_idle")).thenReturn(Mono.just(tagKeys));
-    when(metadataService.getTagValues("t-1", "cpu_idle", "os")).thenReturn(Mono.just(tagValues1));
-    when(metadataService.getTagValues("t-1", "cpu_idle", "osx")).thenReturn(Mono.just(tagValues2));
+    when(metadataService.getTagKeysOrValuesForTenant("t-1", SuggestType.TAGV)).thenReturn(Mono.just(tagValues1));
 
     StepVerifier.create(suggestApiService.suggestTagValues("t-1", "lin", 10))
         .assertNext(tagValuesList -> {
