@@ -21,7 +21,10 @@ import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.model.TagFilter;
 import com.rackspace.ceres.app.services.DataWriteService;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -112,15 +115,27 @@ public class WriteController {
   }
 
   private void filterMetricTags(Metric metric) {
-    if(!ObjectUtils.isEmpty(appProperties.getExcludedTagKeys())) {
-      metric.getTags().entrySet().removeIf(entry -> appProperties.getExcludedTagKeys().contains(entry.getKey()));
+    Set<String> excludedTags = new HashSet<>();
+    if (!ObjectUtils.isEmpty(appProperties.getExcludedTagKeys())) {
+       excludedTags = metric.getTags().entrySet().stream()
+          .filter(entry -> appProperties.getExcludedTagKeys().contains(entry.getKey()))
+          .map(en -> en.getKey()).collect(Collectors.toSet());
     }
     if (appProperties.getTagFilter() == TagFilter.EXCLUDE) {
-      metric.getTags().entrySet()
-          .removeIf(entry -> entry.getValue().length() >= appProperties.getTagValueLimit());
-    } else if (appProperties.getTagFilter() == TagFilter.TRUNCATE) {
+      excludedTags.addAll(metric.getTags().entrySet()
+          .stream().filter(entry -> entry.getValue().length() >= appProperties.getTagValueLimit())
+          .map(en -> en.getKey()).collect(
+              Collectors.toSet()));
+    }
+    if(!excludedTags.isEmpty()) {
+      log.warn("Excluding tags with keys {} ", excludedTags);
+      metric.getTags().keySet().removeAll(excludedTags);
+    }
+    if (appProperties.getTagFilter() == TagFilter.TRUNCATE) {
       metric.getTags().replaceAll((key, value) -> {
         if (value.length() >= appProperties.getTagValueLimit()) {
+          log.warn("Truncating tag key {} as it exceeds the length limit {}", key,
+              appProperties.getTagValueLimit());
           return value.substring(0, appProperties.getTagValueLimit());
         } else {
           return value;
