@@ -64,7 +64,12 @@ public class MetadataController {
   @ApiOperation(value = "This api is used to get metric names for the given tenant")
   public Mono<List<String>> getMetricNames(
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
-      @RequestParam(required = false) String device) {
+      @RequestParam(required = false) String device,
+      @RequestParam(required = false) String maskTenantId) {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
     if (StringUtils.hasText(device)) {
       return metadataService.getMetricNamesFromDevice(tenantHeader, device);
     }
@@ -74,14 +79,23 @@ public class MetadataController {
   @GetMapping("/metricGroups")
   @ApiOperation(value = "This api is used to get metric groups for the given tenant")
   public Mono<List<String>> getMetricGroups(
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId) {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
     return metadataService.getMetricGroups(tenantHeader);
   }
 
   @GetMapping("/devices")
   @ApiOperation(value = "This api is used to get metric groups for the given tenant")
   public Mono<List<String>> getDevices(
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId) {
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
     return metadataService.getDevices(tenantHeader);
   }
 
@@ -89,7 +103,12 @@ public class MetadataController {
   @ApiOperation(value = "This api is used to get metric tag keys for the given tenant and metric name")
   public Mono<List<String>> getTagKeys(
       @RequestParam String metricName,
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId) {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
     return metadataService
         .getTagKeys(tenantHeader, metricName);
   }
@@ -99,7 +118,12 @@ public class MetadataController {
   public Mono<List<String>> getTagValues(
       @RequestParam String metricName,
       @RequestParam String tagKey,
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId) {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
     return metadataService
         .getTagValues(tenantHeader, metricName, tagKey);
   }
@@ -108,7 +132,12 @@ public class MetadataController {
   public Mono<TagsResponse> getTags(
       @RequestParam(required = false) String metricName,
       @RequestParam(required = false) String metricGroup,
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader) {
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId) {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
     RequestValidator.validateMetricNameAndGroup(metricName, metricGroup);
 
     return metadataService
