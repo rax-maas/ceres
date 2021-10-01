@@ -57,7 +57,12 @@ public class SuggestApiController {
   public Mono<List<String>> getSuggestions(
       @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam SuggestType type, @RequestParam(required = false) String q,
-      @RequestParam(required = false, defaultValue = "25") int max) {
+      @RequestParam(required = false, defaultValue = "25") int max,
+      @RequestParam(required = false) String maskTenantId) {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
 
     return switch (type) {
       case TAGK ->  suggestApiService.suggestTagKeys(tenantHeader, q, max);
