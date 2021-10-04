@@ -1,5 +1,6 @@
 package com.rackspace.ceres.app.services;
 
+import com.rackspace.ceres.app.model.SuggestType;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,9 +28,8 @@ public class SuggestApiService {
    * @return
    */
   public Mono<List<String>> suggestTagKeys(String tenant, String tagK, int max) {
-    return metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable)
-        .flatMap(metric -> metadataService.getTagKeys(tenant, metric).flatMapMany(Flux::fromIterable)
-        .filter(tagKey -> !StringUtils.hasText(tagK) || tagKey.startsWith(tagK)))
+    return metadataService.getTagKeysOrValuesForTenant(tenant, SuggestType.TAGK).flatMapMany(Flux::fromIterable)
+        .filter(tagValue -> !StringUtils.hasText(tagK) || tagValue.startsWith(tagK))
         .distinct()
         .take(max)
         .collectList();
@@ -61,9 +61,7 @@ public class SuggestApiService {
    * @return
    */
   public Mono<List<String>> suggestTagValues(String tenant, String tagV, int max) {
-    return metadataService.getMetricNames(tenant).flatMapMany(Flux::fromIterable)
-        .flatMap(metric -> metadataService.getTagKeys(tenant, metric).flatMapMany(Flux::fromIterable)
-        .flatMap(tagK -> metadataService.getTagValues(tenant, metric, tagK).flatMapMany(Flux::fromIterable)))
+    return metadataService.getTagKeysOrValuesForTenant(tenant, SuggestType.TAGV).flatMapMany(Flux::fromIterable)
         .filter(tagValue -> !StringUtils.hasText(tagV) || tagValue.startsWith(tagV))
         .distinct()
         .take(max)

@@ -87,6 +87,7 @@ public class MetadataService {
       "SELECT device FROM devices WHERE tenant = ?";
   private static final String GET_METRIC_NAMES_FROM_DEVICE_QUERY =
       "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
+  private static final String GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA = "SELECT data from tags_data where tenant = ? AND type = ?";
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -430,5 +431,20 @@ public class MetadataService {
   public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
         .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class))).collectList();
+  }
+
+  /**
+   * This method is used to query data from tags_data table based on the SuggestType TAGK or TAGV.
+   *
+   * @param tenantId
+   * @param type
+   * @return
+   */
+  public Mono<List<String>> getTagKeysOrValuesForTenant(String tenantId, SuggestType type) {
+    return cqlTemplate.queryForFlux(GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA,
+        String.class,
+        tenantId,
+        type.name()
+    ).collectList();
   }
 }
