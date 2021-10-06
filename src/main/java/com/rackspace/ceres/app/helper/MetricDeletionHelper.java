@@ -53,6 +53,7 @@ public class MetricDeletionHelper {
       + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND device = '%s'";
   private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
   private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
+  private final String DELETE_ALL_TAGS_DATA_QUERY = "DELETE FROM tags_data WHERE tenant = ? AND type IN ('TAGK', 'TAGV')";
 
   private AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -264,5 +265,9 @@ public class MetricDeletionHelper {
 
   public Mono<Boolean> deleteMetricGroups(String tenant)  {
     return cqlTemplate.execute(DELETE_ALL_METRIC_GROUP_QUERY, tenant);
+  }
+
+  public Mono<Boolean> deleteTagsData(String tenant) {
+    return cqlTemplate.execute(DELETE_ALL_TAGS_DATA_QUERY, tenant);
   }
 }
