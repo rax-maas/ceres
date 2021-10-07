@@ -96,6 +96,7 @@ public class MetricDeletionServiceTest {
       + " WHERE tenant = ? AND metric_group = ?";
   private static final String QUERY_DEVICES = "SELECT * FROM devices"
       + " WHERE tenant = ? AND device = ?";
+  private static final String QUERY_TAGS_DATA = "SELECT * from tags_data where tenant = ? AND type IN ('TAGK', 'TAGV')";
 
   @Test
   public void testDeleteMetricsByTenantId() {
@@ -116,7 +117,7 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(currentTime)
@@ -141,6 +142,9 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
+
+    //validate tags_data
+    assertTagsDataViaQuery(tenantId, 10);
   }
 
   @Test
@@ -162,7 +166,7 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(currentTime)
@@ -185,6 +189,9 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
+
+    //validate tags_data
+    assertTagsDataViaQuery(tenantId, 0);
   }
 
   @Test
@@ -223,6 +230,9 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
+
+    //validate tags_data
+    assertTagsDataViaQuery(tenantId, 0);
   }
 
   @Test
@@ -268,6 +278,9 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
+
+    //validate tags_data
+    assertTagsDataViaQuery(tenantId, 10);
   }
 
   @Test
@@ -542,7 +555,7 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
-    Metric metric1 = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(currentTime.minus(10, ChronoUnit.SECONDS))
@@ -551,7 +564,7 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    Metric metric2 = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(currentTime)
@@ -560,7 +573,7 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    Metric metric3 = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(currentTime.plus(10, ChronoUnit.SECONDS))
@@ -582,6 +595,9 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
+    //validate tags_data
+    assertTagsDataViaQuery(tenantId, 10);
+
     metricDeletionService.deleteMetricsByTenantId(tenantId, null, Instant.now()).block();
 
     //validate data raw
@@ -596,6 +612,9 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
+
+    //validate tags_data
+    assertTagsDataViaQuery(tenantId, 0);
   }
 
   @Test
@@ -1086,5 +1105,11 @@ public class MetricDeletionServiceTest {
         .collectList().block();
 
     assertThat(queryRawResult).hasSize(expectedRowNum);
+  }
+
+  private void assertTagsDataViaQuery(String tenant, int expectedRowNum) {
+    final List<Row> tagsDataResult = cqlTemplate.queryForRows(QUERY_TAGS_DATA, tenant)
+        .collectList().block();
+    assertThat(tagsDataResult).hasSize(expectedRowNum);
   }
 }

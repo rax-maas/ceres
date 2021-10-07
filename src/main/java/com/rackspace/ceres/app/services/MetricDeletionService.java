@@ -208,7 +208,8 @@ public class MetricDeletionService {
         .then(metricNames.flatMap(metricName -> deleteSeriesSetAndMetricName(tenant, metricName))
             .then(Mono.just(true)))
         .then(metricDeletionHelper.deleteMetricGroups(tenant))
-        .then(metricDeletionHelper.deleteDevices(tenant));
+        .then(metricDeletionHelper.deleteDevices(tenant))
+        .then(metricDeletionHelper.deleteTagsData(tenant));
   }
 
   /**
