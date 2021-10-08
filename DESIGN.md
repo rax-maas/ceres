@@ -42,6 +42,34 @@ CK | tag_key |
 CK | tag_value |
 CK | series_set_hash | 
 
+`metric_groups`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+CK | metric_group | 
+&nbsp;   | metric_names | Set of metric names for a metric_group
+&nbsp;   | updated_at |
+
+
+`devices`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+CK | device | 
+&nbsp;   | metric_names | Set of metric names for a device
+&nbsp;   | updated_at |
+
+
+`tags_data`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+PK | type | Type can be either TAGK or TAGV
+CK | data | value of TAGK or TAGV
+
 #### Raw/Ingested Data
 
 `data_raw_p_{timeSlotWidth}`:
@@ -87,6 +115,9 @@ When ingesting a metric, the following actions occur:
    - The following metadata is also `INSERT`ed:
      - A row for each tag key-value is inserted into `series_sets`
      - A row for the metric name is inserted into `metric_names`
+     - Or updated the set of metric names for a metric_group in `metric_groups` table
+     - Or updated the set of metric names for a device in `devices` table
+     - A row for TAGK and TAGV is inserted into `tags_data`
      
      NOTE: even if cache misses of both in-memory and Redis were false indications, then re-insertion of metadata is harmless since Cassandra will resolve an INSERT into an existing row as if it was an UPDATE
    - The steps above result the tenant + series-set hash entry to be populated in the in-memory cache 
