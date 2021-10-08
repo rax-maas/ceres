@@ -42,6 +42,34 @@ CK | tag_key |
 CK | tag_value |
 CK | series_set_hash | 
 
+`metric_groups`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+CK | metric_group | 
+&nbsp;   | metric_names | Set of metric names for a metric_group
+&nbsp;   | updated_at |
+
+
+`devices`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+CK | device | 
+&nbsp;   | metric_names | Set of metric names for a device
+&nbsp;   | updated_at |
+
+
+`tags_data`:
+
+&nbsp; | Name | Notes
+---|---|---
+PK | tenant |
+PK | type | Type can be either TAGK or TAGV
+CK | data | value of TAGK or TAGV
+
 #### Raw/Ingested Data
 
 `data_raw_p_{timeSlotWidth}`:
