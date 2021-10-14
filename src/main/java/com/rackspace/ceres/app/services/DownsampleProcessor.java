@@ -76,10 +76,6 @@ public class DownsampleProcessor {
   private List<ScheduledFuture<?>> scheduled;
   private List<ScheduledFuture<?>> partitionJobsScheduled;
   private ScheduledFuture<?> jobsScheduled;
-  private final Counter partitionJob1Counter;
-  private final Counter partitionJob2Counter;
-  private final Counter partitionJob3Counter;
-  private final Counter partitionJob4Counter;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -89,8 +85,7 @@ public class DownsampleProcessor {
                              @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
-                             DataWriteService dataWriteService,
-                             MeterRegistry meterRegistry) {
+                             DataWriteService dataWriteService) {
     this.env = env;
     this.objectMapper = objectMapper;
     this.downsampleProperties = downsampleProperties;
@@ -99,10 +94,6 @@ public class DownsampleProcessor {
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
-    this.partitionJob1Counter = meterRegistry.counter("ceres.partition", "job1");
-    this.partitionJob2Counter = meterRegistry.counter("ceres.partition", "job2");
-    this.partitionJob3Counter = meterRegistry.counter("ceres.partition", "job3");
-    this.partitionJob4Counter = meterRegistry.counter("ceres.partition", "job4");
   }
 
   @PostConstruct
@@ -133,7 +124,6 @@ public class DownsampleProcessor {
   }
 
   private void processJob(Integer job) {
-    incrementPartitionJobCounter(job);
     long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
     downsampleTrackingService.checkPartitionJobs(
         job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(processPeriodSeconds))
@@ -143,7 +133,7 @@ public class DownsampleProcessor {
             processPartitions(job);
           }
           return Mono.empty();
-        }).subscribe(o -> {}, throwable -> {});
+        }).name("partition.job." + job).metrics().subscribe(o -> {}, throwable -> {});
   }
 
   private void processPartitions(int job) {
@@ -310,22 +300,5 @@ public class DownsampleProcessor {
 
   private String isoTimeUtcPlusSeconds(long seconds) {
     return isoTimeUtcPlusMilliSeconds(seconds * 1000);
-  }
-
-  private void incrementPartitionJobCounter(Integer job) {
-    switch (job) {
-      case 1:
-        partitionJob1Counter.increment();
-        break;
-      case 2:
-        partitionJob2Counter.increment();
-        break;
-      case 3:
-        partitionJob3Counter.increment();
-        break;
-      case 4:
-        partitionJob4Counter.increment();
-        break;
-    }
   }
 }
