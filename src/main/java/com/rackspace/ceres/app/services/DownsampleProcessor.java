@@ -45,6 +45,8 @@ import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +76,10 @@ public class DownsampleProcessor {
   private List<ScheduledFuture<?>> scheduled;
   private List<ScheduledFuture<?>> partitionJobsScheduled;
   private ScheduledFuture<?> jobsScheduled;
+  private final Counter partitionJob1Counter;
+  private final Counter partitionJob2Counter;
+  private final Counter partitionJob3Counter;
+  private final Counter partitionJob4Counter;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -83,7 +89,8 @@ public class DownsampleProcessor {
                              @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
-                             DataWriteService dataWriteService) {
+                             DataWriteService dataWriteService,
+                             MeterRegistry meterRegistry) {
     this.env = env;
     this.objectMapper = objectMapper;
     this.downsampleProperties = downsampleProperties;
@@ -92,6 +99,10 @@ public class DownsampleProcessor {
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
+    this.partitionJob1Counter = meterRegistry.counter("ceres.partition", "job1");
+    this.partitionJob2Counter = meterRegistry.counter("ceres.partition", "job2");
+    this.partitionJob3Counter = meterRegistry.counter("ceres.partition", "job3");
+    this.partitionJob4Counter = meterRegistry.counter("ceres.partition", "job4");
   }
 
   @PostConstruct
@@ -108,12 +119,12 @@ public class DownsampleProcessor {
   }
 
   private void setupJobScheduler(Instant when) {
-    log.info("setupJobScheduler {}...", isoTimeUtcPlusSeconds(0));
+    log.info("setupJobScheduler...");
     jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
   }
 
   private void processJobs() {
-    log.info("processJobs {}...", isoTimeUtcPlusSeconds(0));
+    log.info("processJobs...");
     partitionJobsScheduled = IntStream.rangeClosed(1, 4)
         .mapToObj(job -> taskScheduler.schedule(
             () -> processJob(job), Instant.now().plusSeconds(new Random().nextInt(10))
@@ -122,12 +133,13 @@ public class DownsampleProcessor {
   }
 
   private void processJob(Integer job) {
+    incrementPartitionJobCounter(job);
     long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
     downsampleTrackingService.checkPartitionJobs(
         job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(processPeriodSeconds))
         .flatMap(result -> {
           if (result) {
-            log.info("Processing partition job: {} at: {}...", job, isoTimeUtcPlusSeconds(0));
+            log.info("Processing partition job: {}...", job);
             processPartitions(job);
           }
           return Mono.empty();
@@ -288,10 +300,6 @@ public class DownsampleProcessor {
         .setSeriesSetHash(seriesSet);
   }
 
-  private Duration randomizeMilliSecondsDelay(int upper) {
-    return Duration.ofMillis(new Random().nextInt(upper));
-  }
-
   private String isoTimeUtcPlusMilliSeconds(long milliSeconds) {
     DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -302,5 +310,22 @@ public class DownsampleProcessor {
 
   private String isoTimeUtcPlusSeconds(long seconds) {
     return isoTimeUtcPlusMilliSeconds(seconds * 1000);
+  }
+
+  private void incrementPartitionJobCounter(Integer job) {
+    switch (job) {
+      case 1:
+        partitionJob1Counter.increment();
+        break;
+      case 2:
+        partitionJob2Counter.increment();
+        break;
+      case 3:
+        partitionJob3Counter.increment();
+        break;
+      case 4:
+        partitionJob4Counter.increment();
+        break;
+    }
   }
 }
