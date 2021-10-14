@@ -17,12 +17,9 @@
 package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.NoNodeAvailableException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import com.rackspace.ceres.app.config.IntegerSet;
-import com.rackspace.ceres.app.config.StringToIntegerSetConverter;
 import com.rackspace.ceres.app.downsample.AggregatedValueSet;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
@@ -31,22 +28,16 @@ import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.downsample.ValueSetCollectors;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import java.io.IOException;
-import java.net.InetAddress;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
