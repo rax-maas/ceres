@@ -2,12 +2,17 @@ package com.rackspace.ceres.app.utils;
 
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.model.RelativeTime;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -119,5 +124,17 @@ public class DateTimeUtils {
         .findFirst()
         .orElse(granularities.get(granularities.size() - 1));
     return granularity.getWidth();
+  }
+
+  public static String isoTimeUtcPlusSeconds(long seconds) {
+    return isoTimeUtcPlusMilliSeconds(seconds * 1000);
+  }
+
+  public static String isoTimeUtcPlusMilliSeconds(long milliSeconds) {
+    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+    df.setTimeZone(TimeZone.getTimeZone("UTC"));
+    Date now = new Date();
+    now.setTime(now.getTime() + milliSeconds);
+    return df.format(now);
   }
 }

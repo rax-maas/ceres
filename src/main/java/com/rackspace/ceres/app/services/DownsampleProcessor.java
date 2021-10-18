@@ -20,24 +20,9 @@ import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import com.rackspace.ceres.app.downsample.AggregatedValueSet;
-import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.downsample.DataDownsampled;
-import com.rackspace.ceres.app.downsample.SingleValueSet;
-import com.rackspace.ceres.app.downsample.TemporalNormalizer;
-import com.rackspace.ceres.app.downsample.ValueSet;
-import com.rackspace.ceres.app.downsample.ValueSetCollectors;
+import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.ScheduledFuture;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +35,16 @@ import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import java.time.Instant;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ScheduledFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @Slf4j
@@ -96,12 +91,9 @@ public class DownsampleProcessor {
 
     // We initialize the job queue here
     setupJobScheduler(Instant.now().plus(downsampleProperties.getInitialProcessingDelay()));
-
-    log.debug("Downsample processing is scheduled");
   }
 
   private void setupJobScheduler(Instant when) {
-    log.info("setupJobScheduler...");
     jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
   }
 
@@ -117,7 +109,8 @@ public class DownsampleProcessor {
   private void processJob(Integer job) {
     long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
     downsampleTrackingService.checkPartitionJobs(
-        job, isoTimeUtcPlusSeconds(0), isoTimeUtcPlusSeconds(processPeriodSeconds))
+        job, DateTimeUtils.isoTimeUtcPlusSeconds(0),
+                    DateTimeUtils.isoTimeUtcPlusSeconds(processPeriodSeconds))
         .flatMap(result -> {
           if (result) {
             log.info("Processing partition job: {}...", job);
@@ -279,17 +272,5 @@ public class DownsampleProcessor {
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
         .setSeriesSetHash(seriesSet);
-  }
-
-  private String isoTimeUtcPlusMilliSeconds(long milliSeconds) {
-    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-    df.setTimeZone(TimeZone.getTimeZone("UTC"));
-    Date now = new Date();
-    now.setTime(now.getTime() + milliSeconds);
-    return df.format(now);
-  }
-
-  private String isoTimeUtcPlusSeconds(long seconds) {
-    return isoTimeUtcPlusMilliSeconds(seconds * 1000);
   }
 }
