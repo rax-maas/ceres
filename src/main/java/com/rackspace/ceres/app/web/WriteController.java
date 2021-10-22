@@ -128,7 +128,7 @@ public class WriteController {
               Collectors.toSet()));
     }
     if(!excludedTags.isEmpty()) {
-      log.warn("Excluding tags with keys {} ", excludedTags);
+      log.trace("Excluding tags with keys {} ", excludedTags);
       metric.getTags().keySet().removeAll(excludedTags);
     }
     if (appProperties.getTagFilter() == TagFilter.TRUNCATE) {
