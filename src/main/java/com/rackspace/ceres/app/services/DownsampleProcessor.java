@@ -117,7 +117,7 @@ public class DownsampleProcessor {
             processPartitions(job);
           }
           return Mono.empty();
-        }).name("partition.job." + job).metrics().subscribe(o -> {}, throwable -> {});
+        }).name("partition.job").metrics().subscribe(o -> {}, throwable -> {});
   }
 
   private void processPartitions(int job) {
@@ -153,6 +153,7 @@ public class DownsampleProcessor {
     downsampleTrackingService
         .retrieveReadyOnes(partition)
         .flatMap(this::processDownsampleSet)
+        .name("downsample.partition").metrics()
         .subscribe(o -> {}, throwable -> {
           if (Exceptions.isRetryExhausted(throwable)) {
             throwable = throwable.getCause();
@@ -190,7 +191,7 @@ public class DownsampleProcessor {
             pendingDownsampleSet.getSeriesSetHash(),
             downsampleProperties.getGranularities().iterator(), isCounter
         )
-            .name("downsample")
+            .name("downsample.set")
             .metrics()
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
