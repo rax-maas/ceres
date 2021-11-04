@@ -314,6 +314,8 @@ Late arrivals of metrics into `data_row` are an interesting case to confirm are 
 
 #### Scheduling downsampling jobs
 
+![](docs/downsampling-sequence.png)
+
 * The partition space is subdivided into 4 jobs: 1,2,3,4.
 * Each job consists of 16 partitions.
 * Each job is scheduled to run every `downsample-process-period` apart.
@@ -322,9 +324,11 @@ Late arrivals of metrics into `data_row` are an interesting case to confirm are 
 
 #### Ceres pods and the competing consumer pattern
 
+![](docs/consumers.png)
+
 * Each ceres pod is constantly polling the Redis database to see if a downsampling job is available to run based on the
 timestamps.
-* Since each kubernetes pod is competing for each job on a first-come-first-served basis it will provide the randomness
+* Since each ceres kubernetes pod is competing for each job on a first-come-first-served basis it will provide the randomness
 required to equally distribute the work load over all the ceres pods.
 * Since the work load is equally distributed over all the pods, it will still distribute the load even if a pod is taken
 down or added i.e. in the auto-scaling scenario.
