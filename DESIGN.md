@@ -312,6 +312,27 @@ Late arrivals of metrics into `data_row` are an interesting case to confirm are 
     - Once the readiness of the downsample set is satisfied the downsample processor will pick up on the redis entries at the next scheduled time, the re-query of that time slot's raw data will now retrieve all expected metrics entries. _This assumes the raw data for that queried time slot has not been TTL'ed away._
     - The downsample processor will aggregate the granularities entries as described above and again upsert/UPDATE the resulting update-batches as usual. With the UPDATE the "partial" aggregation values will be replaced by the "complete" aggregation values
 
+#### Scheduling downsampling jobs
+
+![](docs/downsampling-sequence.png)
+
+* The partition space is subdivided into 4 jobs: 1,2,3,4.
+* Each job consists of 16 partitions.
+* Each job is scheduled to run every `downsample-process-period` apart.
+* Every time a job is run, a new timestamp is saved in Redis for next future job.
+* The job is then scheduling each partition to run at equal distances apart during the length of the process period.
+
+#### Ceres pods and the competing consumer pattern
+
+![](docs/consumers.png)
+
+* Each ceres pod is constantly polling the Redis database to see if a downsampling job is available to run based on the
+timestamps.
+* Since each ceres kubernetes pod is competing for each job on a first-come-first-served basis it will provide the randomness
+required to equally distribute the work load over all the ceres pods.
+* Since the work load is equally distributed over all the pods, it will still distribute the load even if a pod is taken
+down or added i.e. in the auto-scaling scenario.
+
 ## Spring Webflux / Project Reactor Overview
 
 The Ceres application makes heavy use of Reactive Spring features including:
