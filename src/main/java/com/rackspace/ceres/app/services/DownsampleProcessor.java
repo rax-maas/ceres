@@ -23,6 +23,8 @@ import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,11 +40,13 @@ import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -62,6 +66,7 @@ public class DownsampleProcessor {
   private List<ScheduledFuture<?>> scheduled;
   private List<ScheduledFuture<?>> partitionJobsScheduled;
   private ScheduledFuture<?> jobsScheduled;
+  private final Timer meterTimer;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -71,7 +76,8 @@ public class DownsampleProcessor {
                              @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
-                             DataWriteService dataWriteService) {
+                             DataWriteService dataWriteService,
+                             MeterRegistry meterRegistry) {
     this.env = env;
     this.objectMapper = objectMapper;
     this.downsampleProperties = downsampleProperties;
@@ -80,6 +86,7 @@ public class DownsampleProcessor {
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
+    this.meterTimer = meterRegistry.timer("downsampling.delay");
   }
 
   @PostConstruct
@@ -117,7 +124,7 @@ public class DownsampleProcessor {
             processPartitions(job);
           }
           return Mono.empty();
-        }).name("partition.job").metrics().subscribe(o -> {}, throwable -> {});
+        }).subscribe(o -> {}, throwable -> {});
   }
 
   private void processPartitions(int job) {
@@ -153,7 +160,6 @@ public class DownsampleProcessor {
     downsampleTrackingService
         .retrieveReadyOnes(partition)
         .flatMap(this::processDownsampleSet)
-        .name("downsample.partition").metrics()
         .subscribe(o -> {}, throwable -> {
           if (Exceptions.isRetryExhausted(throwable)) {
             throwable = throwable.getCause();
@@ -174,6 +180,9 @@ public class DownsampleProcessor {
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
+    Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
+    this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
+
     log.info("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());

@@ -16,31 +16,12 @@
 
 package com.rackspace.ceres.app.services;
 
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.config.StringToIntegerSetConverter;
-import com.rackspace.ceres.app.downsample.AggregatedValueSet;
-import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.downsample.DataDownsampled;
-import com.rackspace.ceres.app.downsample.SingleValueSet;
-import com.rackspace.ceres.app.downsample.ValueSet;
+import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Random;
-import org.awaitility.Awaitility;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -57,6 +38,15 @@ import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = {
     TestConfig.class,
@@ -92,6 +82,9 @@ class DownsampleProcessorTest {
 
   @MockBean
   MetadataService metadataService;
+
+  @MockBean
+  MeterRegistry meterRegistry;
 
   @Autowired
   DownsampleProcessor downsampleProcessor;
