@@ -22,6 +22,9 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -31,8 +34,6 @@ import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
-
-import java.util.Map;
 
 @Service
 @Slf4j
@@ -47,6 +48,8 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
+  private final Counter dbOperationErrorsCounter;
+
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -55,7 +58,7 @@ public class DataWriteService {
                           DataTablesStatements dataTablesStatements,
                           TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties) {
+                          AppProperties appProperties, MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -63,6 +66,8 @@ public class DataWriteService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
+    dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+        "type", "write");
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
@@ -109,6 +114,7 @@ public class DataWriteService {
         metric.getValue().doubleValue()
     )
         .retryWhen(appProperties.getRetryInsertRaw().build())
+        .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();
   }
 
@@ -146,6 +152,7 @@ public class DataWriteService {
         // ...and execute the batch
         .flatMap(cqlTemplate::execute)
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
+        .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();
   }
 
@@ -153,13 +160,15 @@ public class DataWriteService {
     String updatedAt = metric.getTimestamp().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
-    return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt);
+    return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
+        .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 
   private Mono<?> storeDeviceData(String tenant, Metric metric) {
     String updatedAt = metric.getTimestamp().toString();
     String device = metric.getTags().get(LABEL_RESOURCE);
     String metricName = metric.getMetric();
-    return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt);
+    return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt)
+        .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 }

@@ -16,6 +16,11 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
+
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -24,11 +29,24 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import com.rackspace.ceres.app.model.SuggestType;
+import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -38,16 +56,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
 
 @Service
 public class MetadataService {
@@ -61,6 +69,8 @@ public class MetadataService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final Counter redisHit;
   private final Counter redisMiss;
+  private final Counter writeDbOperationErrorsCounter;
+  private final Counter readDbOperationErrorsCounter;
   private final AppProperties appProperties;
 
   // use GROUP BY since unable to SELECT DISTINCT on primary key column
@@ -103,6 +113,10 @@ public class MetadataService {
 
     redisHit = meterRegistry.counter("seriesSetHash.redisCache", "result", "hit");
     redisMiss = meterRegistry.counter("seriesSetHash.redisCache", "result", "miss");
+    writeDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+        "type", "write");
+    readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+        "type", "read");
     this.appProperties = appProperties;
   }
 
@@ -140,7 +154,8 @@ public class MetadataService {
   public Mono<?> updateMetricGroupAddMetricName(
       String tenant, String metricGroup, String metricName, String updatedAt) {
     return cqlTemplate.execute(String.format(
-        UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, updatedAt, tenant, metricGroup));
+        UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, updatedAt, tenant, metricGroup))
+        .doOnError(e -> writeDbOperationErrorsCounter.increment());
   }
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,
@@ -201,32 +216,40 @@ public class MetadataService {
                             )
                         )
                 )
-        );
+        )
+        .doOnError(e -> writeDbOperationErrorsCounter.increment());
   }
 
   public Mono<List<String>> getTenants() {
     return cqlTemplate.queryForFlux(GET_TENANT_QUERY,
         String.class
-    ).collectList();
+    )
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .collectList();
   }
 
   public Mono<List<String>> getMetricNames(String tenant) {
     return cqlTemplate.queryForFlux(GET_METRIC_NAMES_QUERY,
         String.class,
         tenant
-    ).collectList();
+    )
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .collectList();
   }
 
   public Mono<List<String>> getMetricGroups(String tenant) {
     return cqlTemplate.queryForFlux(GET_METRIC_GROUPS_QUERY,
         String.class,
         tenant
-    ).collectList();
+    )
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .collectList();
   }
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY, tenant, metricGroup)
-        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)));
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)))
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment());
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {
@@ -250,7 +273,7 @@ public class MetadataService {
     return cqlTemplate.queryForFlux(GET_TAG_KEY_QUERY,
             String.class,
             tenant, metricName
-    );
+    ).doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment());
   }
 
   private Mono<List<Map<String, String>>> getTagValueMaps(String tagKey, String tenantHeader, String metricName) {
@@ -262,7 +285,7 @@ public class MetadataService {
     return cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY,
             String.class,
             tenant, metricName, tagKey
-    );
+    ).doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment());
   }
 
   /**
@@ -282,6 +305,7 @@ public class MetadataService {
                 String.class,
                 tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
             )
+                .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
                 .collect(Collectors.toSet())
         )
         // and reduce to the intersection of those
@@ -373,6 +397,7 @@ public class MetadataService {
         ),
         SeriesSetHash.class
     )
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
         .switchIfEmpty(Mono.error(
             new IllegalStateException("Unable to resolve series-set from hash \""+seriesSetHash+"\"")
         ))
@@ -418,19 +443,24 @@ public class MetadataService {
   public Mono<Boolean> updateDeviceAddMetricName(
       String tenant, String device, String metricName, String updatedAt) {
     return cqlTemplate.execute(String.format(
-        UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device));
+        UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device))
+        .doOnError(Exception.class, e -> writeDbOperationErrorsCounter.increment());
   }
 
   public Mono<List<String>> getDevices(String tenant) {
     return cqlTemplate.queryForFlux(GET_DEVICES_PER_TENANT_QUERY,
         String.class,
         tenant
-    ).collectList();
+    )
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .collectList();
   }
 
   public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
-        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class))).collectList();
+        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)))
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .collectList();
   }
 
   /**
@@ -445,6 +475,8 @@ public class MetadataService {
         String.class,
         tenantId,
         type.name()
-    ).collectList();
+    )
+        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .collectList();
   }
 }

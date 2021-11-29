@@ -24,14 +24,13 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.helper.MetricDeletionHelper;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -55,7 +54,7 @@ public class MetricDeletionService {
   public MetricDeletionService(DataTablesStatements dataTablesStatements,
       TimeSlotPartitioner timeSlotPartitioner, MetadataService metadataService,
       DownsampleProperties downsampleProperties, AppProperties appProperties,
-      MetricDeletionHelper metricDeletionHelper) {
+      MetricDeletionHelper metricDeletionHelper, MeterRegistry meterRegistry) {
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;

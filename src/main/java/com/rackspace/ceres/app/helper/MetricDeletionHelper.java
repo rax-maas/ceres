@@ -23,6 +23,8 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.services.DataTablesStatements;
 import com.rackspace.ceres.app.services.TimeSlotPartitioner;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -62,12 +64,15 @@ public class MetricDeletionHelper {
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final DownsampleProperties downsampleProperties;
+  private final Counter deleteDbOperationErrorsCounter;
+  private final Counter readDbOperationErrorsCounter;
 
   public MetricDeletionHelper(AppProperties appProperties,
       DataTablesStatements dataTablesStatements,
       ReactiveCqlTemplate cqlTemplate, ReactiveStringRedisTemplate redisTemplate,
       AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
-      TimeSlotPartitioner timeSlotPartitioner, DownsampleProperties downsampleProperties) {
+      TimeSlotPartitioner timeSlotPartitioner, DownsampleProperties downsampleProperties,
+      MeterRegistry meterRegistry) {
     this.appProperties = appProperties;
     this.dataTablesStatements = dataTablesStatements;
     this.cqlTemplate = cqlTemplate;
@@ -75,6 +80,10 @@ public class MetricDeletionHelper {
     this.redisTemplate = redisTemplate;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;
+    deleteDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+        "type", "delete");
+    readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+        "type", "read");
   }
 
   /**
@@ -87,7 +96,9 @@ public class MetricDeletionHelper {
   public Mono<Boolean> deleteMetricNamesByTenantAndMetricName(String tenant, String metricName) {
     return cqlTemplate
         .execute(DELETE_METRIC_NAMES_QUERY, tenant, metricName)
-        .retryWhen(appProperties.getRetryDelete().build());
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
+        .retryWhen(appProperties.getRetryDelete()
+            .build());
   }
 
   /**
@@ -101,6 +112,7 @@ public class MetricDeletionHelper {
       String metricName) {
     return cqlTemplate
         .execute(DELETE_SERIES_SET_QUERY, tenant, metricName)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -114,6 +126,7 @@ public class MetricDeletionHelper {
   public Mono<Boolean> deleteSeriesSetHashes(String tenant, String seriesSetHash) {
     return cqlTemplate
         .execute(DELETE_SERIES_SET_HASHES_QUERY, tenant, seriesSetHash)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -131,6 +144,7 @@ public class MetricDeletionHelper {
     return cqlTemplate
         .execute(query, tenant, timeSlot,
             seriesSetHash)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -146,6 +160,7 @@ public class MetricDeletionHelper {
       Instant timeSlot) {
     return cqlTemplate
         .execute(query, tenant, timeSlot)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
@@ -194,7 +209,9 @@ public class MetricDeletionHelper {
   private Flux<String> getSeriesSetHashFromRaw(String tenant, Instant start, Instant end) {
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .flatMap(timeSlot -> cqlTemplate
-            .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(), String.class, tenant, timeSlot));
+            .queryForFlux(dataTablesStatements.getRawGetHashSeriesSetHashQuery(),
+                String.class, tenant, timeSlot))
+        .doOnError(e -> readDbOperationErrorsCounter.increment());
   }
 
   /**
@@ -210,7 +227,7 @@ public class MetricDeletionHelper {
         timeSlotPartitioner.partitionsOverRange(start, end, granularity.getWidth()))
         .flatMap(timeSlot -> cqlTemplate
             .queryForFlux(dataTablesStatements.getDownsampledGetHashQuery(), String.class,
-                tenant, timeSlot)));
+                tenant, timeSlot).doOnError(e -> readDbOperationErrorsCounter.increment())));
   }
 
   /**
@@ -223,7 +240,7 @@ public class MetricDeletionHelper {
   public Flux<String> getSeriesSetHashFromSeriesSets(String tenant,
       String metricName) {
     return cqlTemplate.queryForFlux(SELECT_SERIES_SET_HASHES_QUERY, String.class,
-        tenant, metricName).distinct();
+        tenant, metricName).distinct().doOnError(e -> readDbOperationErrorsCounter.increment());
   }
 
   /**
@@ -236,38 +253,46 @@ public class MetricDeletionHelper {
   public Mono<Boolean> deleteMetricGroupByTenantAndMetricGroup(String tenant, String metricGroup) {
     return cqlTemplate
         .execute(DELETE_METRIC_GROUP_QUERY, tenant, metricGroup)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
   public Mono<Boolean> deleteMetricNamesFromDevices(String tenant, String metricNamesToBeDeleted)  {
     Flux<String> deviceFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
-        tenant, metricNamesToBeDeleted, "resource");
+        tenant, metricNamesToBeDeleted, "resource")
+        .doOnError(e -> readDbOperationErrorsCounter.increment());
 
     return deviceFlux.flatMap(device -> cqlTemplate.execute(
         String.format(UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY,
-        metricNamesToBeDeleted, Instant.now().toString(), tenant, device)))
+        metricNamesToBeDeleted, Instant.now().toString(), tenant, device))
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment()))
         .then(Mono.just(true));
   }
 
   public Mono<Boolean> deleteDevices(String tenant)  {
-    return cqlTemplate.execute(DELETE_ALL_DEVICES_QUERY, tenant);
+    return cqlTemplate.execute(DELETE_ALL_DEVICES_QUERY, tenant)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment());
   }
 
   public Mono<Boolean> deleteMetricNamesFromMetricGroups(String tenant, String metricNamesToBeDeleted)  {
     Flux<String> metricGroupFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
-        tenant, metricNamesToBeDeleted, "metricGroup");
+        tenant, metricNamesToBeDeleted, "metricGroup")
+        .doOnError(e -> readDbOperationErrorsCounter.increment());
 
     return metricGroupFlux.flatMap(metricGroup -> cqlTemplate.execute(
         String.format(UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY, metricNamesToBeDeleted,
-            Instant.now().toString(), tenant, metricGroup)))
+            Instant.now().toString(), tenant, metricGroup))
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment()))
         .then(Mono.just(true));
   }
 
   public Mono<Boolean> deleteMetricGroups(String tenant)  {
-    return cqlTemplate.execute(DELETE_ALL_METRIC_GROUP_QUERY, tenant);
+    return cqlTemplate.execute(DELETE_ALL_METRIC_GROUP_QUERY, tenant)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment());
   }
 
   public Mono<Boolean> deleteTagsData(String tenant) {
-    return cqlTemplate.execute(DELETE_ALL_TAGS_DATA_QUERY, tenant);
+    return cqlTemplate.execute(DELETE_ALL_TAGS_DATA_QUERY, tenant)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment());
   }
 }
