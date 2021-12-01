@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.services;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -31,9 +32,18 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.FilterType;
+import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.SuggestType;
+import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
-
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -109,6 +119,9 @@ class MetadataServiceTest {
 
   @Autowired
   MetadataService metadataService;
+
+  @Autowired
+  MeterRegistry meterRegistry;
 
   @AfterEach
   void tearDown() {
@@ -273,6 +286,24 @@ class MetadataServiceTest {
       )
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining(seriesSetHash);
+    }
+
+    @Test
+    void failed() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String seriesSetHash = randomAlphabetic(22);
+
+      metadataService.resolveSeriesSetHash(tenantId, null)
+          .block();
+
+      try {
+        final double value = meterRegistry.get("ceres.db.operation.errors")
+            .tags("type", "read")
+            .counter().count();
+        assertThat(value).isEqualTo(1); //Asserted to 1 because the next metric will be rejected by RateLimiter
+      } catch (MeterNotFoundException ignored) {
+        fail("metric not found yet");
+      }
     }
   }
 
