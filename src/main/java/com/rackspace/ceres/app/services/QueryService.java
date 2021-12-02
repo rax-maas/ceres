@@ -123,7 +123,7 @@ public class QueryService {
                                         new SingleValueSet()
                                                 .setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
                                 )
-                            .doOnError(Exception.class, e -> dbOperationErrorsCounter.increment())
+                            .doOnError(e -> dbOperationErrorsCounter.increment())
                 )
                 .checkpoint();
     }
@@ -165,7 +165,7 @@ public class QueryService {
                                                 dataTablesStatements.downsampleQuery(granularity),
                                                 tenant, timeSlot, seriesSet, aggregator.name(), start, end
                                         )
-                                                .doOnError(Exception.class, e ->
+                                                .doOnError(e ->
                                                     dbOperationErrorsCounter.increment())
                                                 .name("queryDownsampled")
                                                 .metrics()
@@ -206,7 +206,7 @@ public class QueryService {
                     seriesSet,
                     start,
                     end)
-                .doOnError(Exception.class, e -> dbOperationErrorsCounter.increment())
+                .doOnError(e -> dbOperationErrorsCounter.increment())
                 .name("queryRawWithSeriesSet").metrics();
         } else {
             return cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
@@ -216,7 +216,7 @@ public class QueryService {
                     aggregator.name(),
                     start,
                     end)
-                .doOnError(Exception.class, e -> dbOperationErrorsCounter.increment())
+                .doOnError(e -> dbOperationErrorsCounter.increment())
                 .name("queryTsdb").metrics();
         }
     }

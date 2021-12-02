@@ -224,7 +224,7 @@ public class MetadataService {
     return cqlTemplate.queryForFlux(GET_TENANT_QUERY,
         String.class
     )
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 
@@ -233,7 +233,7 @@ public class MetadataService {
         String.class,
         tenant
     )
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 
@@ -242,14 +242,14 @@ public class MetadataService {
         String.class,
         tenant
     )
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY, tenant, metricGroup)
         .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)))
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment());
+        .doOnError(e -> readDbOperationErrorsCounter.increment());
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {
@@ -273,7 +273,7 @@ public class MetadataService {
     return cqlTemplate.queryForFlux(GET_TAG_KEY_QUERY,
             String.class,
             tenant, metricName
-    ).doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment());
+    ).doOnError(e -> readDbOperationErrorsCounter.increment());
   }
 
   private Mono<List<Map<String, String>>> getTagValueMaps(String tagKey, String tenantHeader, String metricName) {
@@ -285,7 +285,7 @@ public class MetadataService {
     return cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY,
             String.class,
             tenant, metricName, tagKey
-    ).doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment());
+    ).doOnError(e -> readDbOperationErrorsCounter.increment());
   }
 
   /**
@@ -305,7 +305,7 @@ public class MetadataService {
                 String.class,
                 tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
             )
-                .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+                .doOnError(e -> readDbOperationErrorsCounter.increment())
                 .collect(Collectors.toSet())
         )
         // and reduce to the intersection of those
@@ -397,7 +397,7 @@ public class MetadataService {
         ),
         SeriesSetHash.class
     )
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .switchIfEmpty(Mono.error(
             new IllegalStateException("Unable to resolve series-set from hash \""+seriesSetHash+"\"")
         ))
@@ -444,7 +444,7 @@ public class MetadataService {
       String tenant, String device, String metricName, String updatedAt) {
     return cqlTemplate.execute(String.format(
         UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device))
-        .doOnError(Exception.class, e -> writeDbOperationErrorsCounter.increment());
+        .doOnError(e -> writeDbOperationErrorsCounter.increment());
   }
 
   public Mono<List<String>> getDevices(String tenant) {
@@ -452,14 +452,14 @@ public class MetadataService {
         String.class,
         tenant
     )
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 
   public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
     return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
         .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)))
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 
@@ -476,7 +476,7 @@ public class MetadataService {
         tenantId,
         type.name()
     )
-        .doOnError(Exception.class, e -> readDbOperationErrorsCounter.increment())
+        .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 }

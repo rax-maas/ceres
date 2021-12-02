@@ -24,7 +24,6 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.helper.MetricDeletionHelper;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -54,7 +53,7 @@ public class MetricDeletionService {
   public MetricDeletionService(DataTablesStatements dataTablesStatements,
       TimeSlotPartitioner timeSlotPartitioner, MetadataService metadataService,
       DownsampleProperties downsampleProperties, AppProperties appProperties,
-      MetricDeletionHelper metricDeletionHelper, MeterRegistry meterRegistry) {
+      MetricDeletionHelper metricDeletionHelper) {
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;
