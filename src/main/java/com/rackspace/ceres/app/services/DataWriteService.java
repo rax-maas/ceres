@@ -22,6 +22,8 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -32,7 +34,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -47,6 +52,7 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
+  private final Timer latencyTimer;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -55,7 +61,8 @@ public class DataWriteService {
                           DataTablesStatements dataTablesStatements,
                           TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties) {
+                          AppProperties appProperties,
+                          MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -63,6 +70,7 @@ public class DataWriteService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
+    this.latencyTimer = meterRegistry.timer("ingest.latency");
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
@@ -83,13 +91,18 @@ public class DataWriteService {
     final String seriesSetHash = seriesSetService.hash(metric.getMetric(), metric.getTags());
 
     return storeRawData(tenant, metric, seriesSetHash)
-        .name("ingest")
-        .metrics()
-        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
-        .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-        .and(storeMetricGroup(tenant, metric))
-        .and(storeDeviceData(tenant, metric))
-        .then(Mono.just(metric));
+            .name("ingest")
+            .metrics()
+            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
+            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+            .and(storeMetricGroup(tenant, metric))
+            .and(storeDeviceData(tenant, metric))
+            .then(Mono.just(metric))
+            .doOnNext(_metric -> recordIngestionLatency(_metric));
+  }
+
+  private void recordIngestionLatency(Metric metric) {
+    latencyTimer.record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(), TimeUnit.SECONDS);
   }
 
   private void cleanTags(Map<String, String> tags) {
