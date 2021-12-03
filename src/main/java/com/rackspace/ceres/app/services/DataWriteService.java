@@ -22,6 +22,7 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +53,8 @@ public class DataWriteService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final DownsampleTrackingService downsampleTrackingService;
   private final AppProperties appProperties;
+  private final Counter dbOperationErrorsCounter;
+
   private final Timer latencyTimer;
 
   @Autowired
@@ -61,8 +64,7 @@ public class DataWriteService {
                           DataTablesStatements dataTablesStatements,
                           TimeSlotPartitioner timeSlotPartitioner,
                           DownsampleTrackingService downsampleTrackingService,
-                          AppProperties appProperties,
-                          MeterRegistry meterRegistry) {
+                          AppProperties appProperties, MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
@@ -70,6 +72,8 @@ public class DataWriteService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleTrackingService = downsampleTrackingService;
     this.appProperties = appProperties;
+    dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+        "type", "write");
     this.latencyTimer = meterRegistry.timer("ingest.latency");
   }
 
@@ -122,6 +126,7 @@ public class DataWriteService {
         metric.getValue().doubleValue()
     )
         .retryWhen(appProperties.getRetryInsertRaw().build())
+        .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();
   }
 
@@ -159,6 +164,7 @@ public class DataWriteService {
         // ...and execute the batch
         .flatMap(cqlTemplate::execute)
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
+        .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();
   }
 
@@ -166,13 +172,15 @@ public class DataWriteService {
     String updatedAt = metric.getTimestamp().toString();
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
-    return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt);
+    return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
+        .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 
   private Mono<?> storeDeviceData(String tenant, Metric metric) {
     String updatedAt = metric.getTimestamp().toString();
     String device = metric.getTags().get(LABEL_RESOURCE);
     String metricName = metric.getMetric();
-    return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt);
+    return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt)
+        .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 }

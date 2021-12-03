@@ -16,21 +16,21 @@
 
 package com.rackspace.ceres.app.services;
 
+import static java.util.Objects.requireNonNull;
+
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
-import com.rackspace.ceres.app.model.*;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
+import com.rackspace.ceres.app.model.Metadata;
+import com.rackspace.ceres.app.model.QueryData;
+import com.rackspace.ceres.app.model.QueryResult;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.TsdbQueryResult;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -38,8 +38,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import static java.util.Objects.requireNonNull;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
@@ -50,18 +55,21 @@ public class QueryService {
     private final DataTablesStatements dataTablesStatements;
     private final TimeSlotPartitioner timeSlotPartitioner;
     private final AppProperties appProperties;
+    private final Counter dbOperationErrorsCounter;
 
     @Autowired
     public QueryService(ReactiveCqlTemplate cqlTemplate,
                         MetadataService metadataService,
                         DataTablesStatements dataTablesStatements,
                         TimeSlotPartitioner timeSlotPartitioner,
-                        AppProperties appProperties) {
+                        AppProperties appProperties, MeterRegistry meterRegistry) {
         this.cqlTemplate = cqlTemplate;
         this.metadataService = metadataService;
         this.dataTablesStatements = dataTablesStatements;
         this.timeSlotPartitioner = timeSlotPartitioner;
         this.appProperties = appProperties;
+        dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
+          "type", "read");
     }
 
     public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
@@ -115,6 +123,7 @@ public class QueryService {
                                         new SingleValueSet()
                                                 .setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
                                 )
+                            .doOnError(e -> dbOperationErrorsCounter.increment())
                 )
                 .checkpoint();
     }
@@ -156,6 +165,8 @@ public class QueryService {
                                                 dataTablesStatements.downsampleQuery(granularity),
                                                 tenant, timeSlot, seriesSet, aggregator.name(), start, end
                                         )
+                                                .doOnError(e ->
+                                                    dbOperationErrorsCounter.increment())
                                                 .name("queryDownsampled")
                                                 .metrics()
                                 ), buildMetaData(aggregator, start, end, granularity)
@@ -194,7 +205,9 @@ public class QueryService {
                     timeSlot,
                     seriesSet,
                     start,
-                    end).name("queryRawWithSeriesSet").metrics();
+                    end)
+                .doOnError(e -> dbOperationErrorsCounter.increment())
+                .name("queryRawWithSeriesSet").metrics();
         } else {
             return cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
                     tenant,
@@ -202,7 +215,9 @@ public class QueryService {
                     seriesSet,
                     aggregator.name(),
                     start,
-                    end).name("queryTsdb").metrics();
+                    end)
+                .doOnError(e -> dbOperationErrorsCounter.increment())
+                .name("queryTsdb").metrics();
         }
     }
 

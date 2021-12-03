@@ -31,9 +31,17 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.FilterType;
+import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.SuggestType;
+import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
-
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -109,6 +117,9 @@ class MetadataServiceTest {
 
   @Autowired
   MetadataService metadataService;
+
+  @Autowired
+  MeterRegistry meterRegistry;
 
   @AfterEach
   void tearDown() {
@@ -304,6 +315,18 @@ class MetadataServiceTest {
         .block();
 
     assertThat(results).containsExactlyInAnyOrderElementsOf(metricNames);
+  }
+
+  @Test
+  void getMetricNamesFailed() {
+    try {
+      metadataService.getMetricNames("").block();
+    } catch (Exception ignored) {
+      final double value = meterRegistry.get("ceres.db.operation.errors")
+          .tags("type", "read")
+          .counter().count();
+      assertThat(value).isEqualTo(1);
+    }
   }
 
   @Test
