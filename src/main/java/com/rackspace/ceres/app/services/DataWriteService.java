@@ -24,7 +24,7 @@ import com.rackspace.ceres.app.downsample.DataDownsampled;
 import com.rackspace.ceres.app.model.Metric;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Map;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -34,6 +34,11 @@ import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -50,6 +55,7 @@ public class DataWriteService {
   private final AppProperties appProperties;
   private final Counter dbOperationErrorsCounter;
 
+  private final Timer latencyTimer;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -68,6 +74,7 @@ public class DataWriteService {
     this.appProperties = appProperties;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "write");
+    this.latencyTimer = meterRegistry.timer("ingest.latency");
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
@@ -88,13 +95,18 @@ public class DataWriteService {
     final String seriesSetHash = seriesSetService.hash(metric.getMetric(), metric.getTags());
 
     return storeRawData(tenant, metric, seriesSetHash)
-        .name("ingest")
-        .metrics()
-        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
-        .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-        .and(storeMetricGroup(tenant, metric))
-        .and(storeDeviceData(tenant, metric))
-        .then(Mono.just(metric));
+            .name("ingest")
+            .metrics()
+            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
+            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+            .and(storeMetricGroup(tenant, metric))
+            .and(storeDeviceData(tenant, metric))
+            .then(Mono.just(metric))
+            .doOnNext(_metric -> recordIngestionLatency(_metric));
+  }
+
+  private void recordIngestionLatency(Metric metric) {
+    latencyTimer.record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(), TimeUnit.SECONDS);
   }
 
   private void cleanTags(Map<String, String> tags) {

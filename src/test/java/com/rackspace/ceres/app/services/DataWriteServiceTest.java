@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,11 @@ class DataWriteServiceTest {
     CassandraContainer<?> cassandraContainer() {
       return cassandraContainer;
     }
+
+    @Bean
+    MeterRegistry meterRegistry() {
+      return new SimpleMeterRegistry();
+    }
   }
 
   static {
@@ -95,6 +102,9 @@ class DataWriteServiceTest {
 
   @Autowired
   ReactiveCqlTemplate cqlTemplate;
+
+  @Autowired
+  MeterRegistry meterRegistry;
 
   @Nested
   @NestedTestConfiguration(value = EnclosingConfiguration.OVERRIDE)
@@ -145,6 +155,7 @@ class DataWriteServiceTest {
           tenantId, resource, metric.getMetric(), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+      assertThat(meterRegistry.get("ingest.latency").timer().count()).isGreaterThanOrEqualTo(1L);
     }
 
     @Test
@@ -211,6 +222,7 @@ class DataWriteServiceTest {
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+      assertThat(meterRegistry.get("ingest.latency").timer().count()).isGreaterThanOrEqualTo(2);
     }
 
     @Test
