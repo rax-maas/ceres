@@ -12,6 +12,8 @@ spring:
     group:
       dev:
         - debug
+  application:
+    name: ceres
 server:
   error:
     include-message: always
@@ -32,3 +34,6 @@ management:
       show-components: always
   server:
     port: ${MANAGEMENT_SERVER_PORT}
+logging:
+  pattern:
+    level: "%5p %mdc"
