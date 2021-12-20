@@ -105,7 +105,6 @@ public class DownsampleProcessor {
   }
 
   private void processJobs() {
-    log.info("processJobs...");
     partitionJobsScheduled = IntStream.rangeClosed(1, 4)
         .mapToObj(job -> taskScheduler.schedule(
             () -> processJob(job), Instant.now().plusSeconds(new Random().nextInt(10))
@@ -120,7 +119,7 @@ public class DownsampleProcessor {
                     DateTimeUtils.isoTimeUtcPlusSeconds(processPeriodSeconds))
         .flatMap(result -> {
           if (result) {
-            log.info("Processing partition job: {}...", job);
+            log.trace("Processing partition job: {}...", job);
             processPartitions(job);
           }
           return Mono.empty();
@@ -155,7 +154,7 @@ public class DownsampleProcessor {
   }
 
   private void processPartition(int partition) {
-    log.info("Downsampling partition {}", partition);
+    log.trace("Downsampling partition {}", partition);
 
     downsampleTrackingService
         .retrieveReadyOnes(partition)
@@ -183,7 +182,7 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    log.info("Processing downsample set {}", pendingDownsampleSet);
+    log.trace("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -205,7 +204,7 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-            .doOnSuccess(o -> log.info("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
