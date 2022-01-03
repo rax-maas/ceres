@@ -3,7 +3,7 @@ import redis
 import sys
 from datetime import datetime, timedelta, timezone
 
-redisClient = redis.StrictRedis(host=str(sys.argv[1]), port=sys.argv[2], db=0)
+redisClient = redis.StrictRedis(host=str(sys.argv[1]), port=sys.argv[2], db=0, password=sys.argv[3])
 
 ts1 = datetime.now().astimezone().isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 ts2 = (datetime.today() - timedelta(hours=0, minutes=1)).astimezone().isoformat(timespec='milliseconds').replace('+00:00', 'Z')
