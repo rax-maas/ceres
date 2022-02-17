@@ -27,6 +27,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.model.Metric;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
@@ -154,7 +155,9 @@ class DataWriteServiceTest {
           tenantId, resource, metric.getMetric(), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
-      assertThat(meterRegistry.get("ingest.latency").timer().count()).isGreaterThanOrEqualTo(1L);
+      Timer timer = meterRegistry.get("ingest.latency").timer();
+      assertThat(timer.count()).isGreaterThanOrEqualTo(1L);
+      assertThat(timer.getId().getTag("sensor_name")).isEqualTo(monitoring_system);
     }
 
     @Test
