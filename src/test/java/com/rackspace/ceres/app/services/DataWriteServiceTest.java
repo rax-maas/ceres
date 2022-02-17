@@ -26,14 +26,11 @@ import static org.mockito.Mockito.when;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.model.Metric;
-
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -115,12 +112,14 @@ class DataWriteServiceTest {
       final String metricName = RandomStringUtils.randomAlphabetic(5);
       final String metricGroup = RandomStringUtils.randomAlphabetic(5);
       final String resource = RandomStringUtils.randomAlphabetic(5);
+      final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
       final Map<String, String> tags = Map.of(
           "os", "linux",
           "host", "h-1",
           "deployment", "prod",
           "metricGroup", metricGroup,
-          "resource", resource
+          "resource", resource,
+          "monitoring_system", monitoring_system
       );
       final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
@@ -166,12 +165,15 @@ class DataWriteServiceTest {
       final String metricName2 = RandomStringUtils.randomAlphabetic(5);
       final String metricGroup = RandomStringUtils.randomAlphabetic(5);
       final String resource = RandomStringUtils.randomAlphabetic(5);
+      final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
+
       final Map<String, String> tags = Map.of(
           "os", "linux",
           "host", "h-1",
           "deployment", "prod",
           "metricGroup", metricGroup,
-          "resource", resource
+          "resource", resource,
+          "monitoring_system", monitoring_system
       );
       final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
       final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
