@@ -55,7 +55,8 @@ public class DataWriteService {
   private final AppProperties appProperties;
   private final Counter dbOperationErrorsCounter;
 
-  private final Timer latencyTimer;
+  private final Timer.Builder latencyTimerBuilder;
+  private final MeterRegistry meterRegistry;
 
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
@@ -74,7 +75,9 @@ public class DataWriteService {
     this.appProperties = appProperties;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "write");
-    this.latencyTimer = meterRegistry.timer("ingest.latency");
+
+    this.meterRegistry = meterRegistry;
+    this.latencyTimerBuilder = Timer.builder("ingest.latency");
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
@@ -106,7 +109,8 @@ public class DataWriteService {
   }
 
   private void recordIngestionLatency(Metric metric) {
-    latencyTimer.record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(), TimeUnit.SECONDS);
+    latencyTimerBuilder.tag("sensor_name", metric.getTags().get("monitoring_system"))
+        .register(meterRegistry).record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(), TimeUnit.SECONDS);
   }
 
   private void cleanTags(Map<String, String> tags) {
