@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,9 +105,15 @@ class DataWriteServiceTest {
   @Autowired
   MeterRegistry meterRegistry;
 
+  @AfterEach
+  void resetMeterRegistry()  {
+    meterRegistry.clear();
+  }
+
   @Nested
   @NestedTestConfiguration(value = EnclosingConfiguration.OVERRIDE)
   class ingest {
+
     @Test
     void testSingle() {
       final String tenantId = RandomStringUtils.randomAlphanumeric(10);
