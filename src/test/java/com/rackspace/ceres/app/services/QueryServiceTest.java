@@ -127,13 +127,15 @@ class QueryServiceTest {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String resource = RandomStringUtils.randomAlphabetic(5);
+    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
 
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
         "metricGroup", metricGroup,
-        "resource", resource
+        "resource", resource,
+        "monitoring_system", monitoring_system
     );
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
@@ -181,13 +183,15 @@ class QueryServiceTest {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String resource = RandomStringUtils.randomAlphabetic(5);
+    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
 
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
         "metricGroup", metricGroup,
-        "resource", resource
+        "resource", resource,
+        "monitoring_system", monitoring_system
     );
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
@@ -234,12 +238,14 @@ class QueryServiceTest {
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String resource = RandomStringUtils.randomAlphabetic(5);
+    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
         "metricGroup", metricGroup,
-        "resource", resource
+        "resource", resource,
+        "monitoring_system", monitoring_system
     );
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
@@ -342,13 +348,15 @@ class QueryServiceTest {
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
     final String resource = RandomStringUtils.randomAlphabetic(5);
+    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
 
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
         "metricGroup", metricGroup,
-        "resource", resource
+        "resource", resource,
+        "monitoring_system", monitoring_system
     );
 
     final String seriesSetHash = seriesSetService
