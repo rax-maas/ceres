@@ -109,8 +109,12 @@ public class DataWriteService {
   }
 
   private void recordIngestionLatency(Metric metric) {
-    latencyTimerBuilder.tag("sensor_name", metric.getTags().get("monitoring_system"))
-        .register(meterRegistry).record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(), TimeUnit.SECONDS);
+    if(metric.getTags().containsKey("monitoring_system")) {
+      latencyTimerBuilder.tag("sensor_name", metric.getTags().get("monitoring_system"))
+          .register(meterRegistry)
+          .record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(),
+              TimeUnit.SECONDS);
+    }
   }
 
   private void cleanTags(Map<String, String> tags) {
