@@ -114,6 +114,10 @@ public class DataWriteService {
           .register(meterRegistry)
           .record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(),
               TimeUnit.SECONDS);
+    } else  {
+      latencyTimerBuilder.register(meterRegistry)
+          .record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(),
+              TimeUnit.SECONDS);
     }
   }
 
