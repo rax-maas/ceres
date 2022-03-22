@@ -131,6 +131,7 @@ public class MetadataService {
                         .getSeriesSetHash(),
                     ""
                 )
+                    .name("storeMetadataRedis").metrics()
                 .doOnNext(inserted -> {
                   if (inserted) {
                     redisMiss.increment();

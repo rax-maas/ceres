@@ -97,9 +97,13 @@ public class DownsampleTrackingService {
 
     return redisTemplate.opsForValue()
         .set(ingestingKey, "", properties.getLastTouchDelay())
+        .name("trackmetrics")
+        .metrics()
         .and(
             redisTemplate.opsForSet()
                 .add(pendingKey, pendingValue)
+                    .name("trackOpsForSet")
+                    .metrics()
         );
   }
 
