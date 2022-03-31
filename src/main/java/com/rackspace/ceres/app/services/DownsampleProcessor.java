@@ -23,6 +23,7 @@ import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +68,8 @@ public class DownsampleProcessor {
   private List<ScheduledFuture<?>> partitionJobsScheduled;
   private ScheduledFuture<?> jobsScheduled;
   private final Timer meterTimer;
+  private final Counter.Builder partitionCounter;
+  private final MeterRegistry meterRegistry;
 
   @Autowired
   public DownsampleProcessor(Environment env,
@@ -86,7 +89,9 @@ public class DownsampleProcessor {
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
+    this.meterRegistry = meterRegistry;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
+    this.partitionCounter = Counter.builder("downsampling.partition");
   }
 
   @PostConstruct
@@ -155,9 +160,12 @@ public class DownsampleProcessor {
 
   private void processPartition(int partition) {
     log.trace("Downsampling partition {}", partition);
+    this.partitionCounter.tag("partition", String.valueOf(partition)).register(this.meterRegistry).increment();
 
     downsampleTrackingService
         .retrieveReadyOnes(partition)
+            .name("processPartition")
+            .metrics()
         .flatMap(this::processDownsampleSet)
         .subscribe(o -> {}, throwable -> {
           if (Exceptions.isRetryExhausted(throwable)) {
@@ -182,7 +190,7 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    log.trace("Processing downsample set {}", pendingDownsampleSet);
+//    log.trace("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -204,7 +212,7 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
+//            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
@@ -234,7 +242,7 @@ public class DownsampleProcessor {
 
     final Flux<AggregatedValueSet> aggregated =
         data
-            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
+//            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
             // group the incoming data by granularity-time-window
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)

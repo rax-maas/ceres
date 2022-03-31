@@ -185,6 +185,8 @@ public class DataWriteService {
     String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
     String metricName = metric.getMetric();
     return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
+            .name("storeMetricGroup")
+            .metrics()
         .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 
@@ -193,6 +195,8 @@ public class DataWriteService {
     String device = metric.getTags().get(LABEL_RESOURCE);
     String metricName = metric.getMetric();
     return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt)
+            .name("storeDeviceData")
+            .metrics()
         .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 }
