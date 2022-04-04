@@ -106,6 +106,10 @@ public class DownsampleProcessor {
   }
 
   private void setupJobScheduler(Instant when) {
+    if(log.isTraceEnabled()) {
+      // hack to stop downsampling at runtime without JVM restart
+      return ;
+    }
     jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
   }
 
