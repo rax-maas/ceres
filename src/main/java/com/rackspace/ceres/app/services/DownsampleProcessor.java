@@ -69,6 +69,7 @@ public class DownsampleProcessor {
   private ScheduledFuture<?> jobsScheduled;
   private final Timer meterTimer;
   private final Counter.Builder partitionCounter;
+  private final Counter.Builder jobCounter;
   private final MeterRegistry meterRegistry;
 
   @Autowired
@@ -92,6 +93,7 @@ public class DownsampleProcessor {
     this.meterRegistry = meterRegistry;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
     this.partitionCounter = Counter.builder("downsampling.partition");
+    this.jobCounter = Counter.builder("downsampling.job");
   }
 
   @PostConstruct
@@ -106,10 +108,6 @@ public class DownsampleProcessor {
   }
 
   private void setupJobScheduler(Instant when) {
-    if(log.isTraceEnabled()) {
-      // hack to stop downsampling at runtime without JVM restart
-      return ;
-    }
     jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
   }
 
@@ -136,6 +134,7 @@ public class DownsampleProcessor {
   }
 
   private void processPartitions(int job) {
+    jobCounter.tag("job", String.valueOf(job)).register(meterRegistry).increment();
     scheduled = partitionsToProcess(job)
         .mapToObj(partition -> taskScheduler.schedule(
             () -> processPartition(partition),
@@ -194,7 +193,7 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-//    log.trace("Processing downsample set {}", pendingDownsampleSet);
+    log.trace("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -216,7 +215,7 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-//            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
@@ -246,7 +245,7 @@ public class DownsampleProcessor {
 
     final Flux<AggregatedValueSet> aggregated =
         data
-//            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
+            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
             // group the incoming data by granularity-time-window
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
