@@ -16,13 +16,12 @@
 
 package com.rackspace.ceres.app.model;
 
-import java.time.Instant;
 import lombok.Data;
+
+import java.time.Instant;
 
 @Data
 public class PendingDownsampleSet {
-  int partition;
-
   Instant timeSlot;
 
   String tenant;

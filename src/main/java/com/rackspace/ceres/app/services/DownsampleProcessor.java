@@ -22,7 +22,6 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -44,11 +43,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Service
 @Slf4j
@@ -64,7 +60,6 @@ public class DownsampleProcessor {
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private List<ScheduledFuture<?>> scheduled;
-  private List<ScheduledFuture<?>> partitionJobsScheduled;
   private ScheduledFuture<?> jobsScheduled;
   private final Timer meterTimer;
 
@@ -101,49 +96,13 @@ public class DownsampleProcessor {
   }
 
   private void setupJobScheduler(Instant when) {
-    jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
+    jobsScheduled = taskScheduler.schedule(this::processJobs, when);
   }
 
   private void processJobs() {
-    partitionJobsScheduled = IntStream.rangeClosed(1, 4)
-        .mapToObj(job -> taskScheduler.schedule(
-            () -> processJob(job), Instant.now().plusSeconds(new Random().nextInt(10))
-        )).collect(Collectors.toList());
-    setupJobScheduler(Instant.now().plusSeconds(10)); // Schedule the next time
-  }
-
-  private void processJob(Integer job) {
-    long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    downsampleTrackingService.checkPartitionJobs(
-        job, DateTimeUtils.isoTimeUtcPlusSeconds(0),
-                    DateTimeUtils.isoTimeUtcPlusSeconds(processPeriodSeconds))
-        .flatMap(result -> {
-          if (result) {
-            log.trace("Processing partition job: {}...", job);
-            processPartitions(job);
-          }
-          return Mono.empty();
-        }).subscribe(o -> {}, throwable -> {});
-  }
-
-  private void processPartitions(int job) {
-    scheduled = partitionsToProcess(job)
-        .mapToObj(partition -> taskScheduler.schedule(
-            () -> processPartition(partition),
-            Instant.now().plusSeconds(deltaSeconds(job, partition))
-        )).collect(Collectors.toList());
-  }
-
-  private long deltaSeconds(int job, int partition) {
-    // We want to space out all the partitions evenly in time between jobs
-    long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    long deltaSeconds = processPeriodSeconds/16;
-    return (partition - ((job - 1) * 16L)) * deltaSeconds;
-  }
-
-  private IntStream partitionsToProcess(int job) {
-    int numPartitions = 16;
-    return IntStream.rangeClosed(numPartitions * (job - 1), numPartitions * job - 1);
+//    log.info("processJobs...");
+    processTimeSlots();
+    setupJobScheduler(Instant.now().plusSeconds(1)); // Schedule the next time
   }
 
   @PreDestroy
@@ -153,20 +112,20 @@ public class DownsampleProcessor {
     }
   }
 
-  private void processPartition(int partition) {
-    log.trace("Downsampling partition {}", partition);
+  private void processTimeSlots() {
+    log.trace("processTimeSlots...");
 
     downsampleTrackingService
-        .retrieveReadyOnes(partition)
+        .retrieveTimeSlots()
         .flatMap(this::processDownsampleSet)
         .subscribe(o -> {}, throwable -> {
           if (Exceptions.isRetryExhausted(throwable)) {
             throwable = throwable.getCause();
           }
           if (isNoNodeAvailable(throwable)) {
-            log.warn("Failed to process partition={}: {}", partition, throwable.getMessage());
+            log.warn("Failed to process: {}", throwable.getMessage());
           } else {
-            log.warn("Failed to process partition={}", partition, throwable);
+            log.warn("Failed to process time slots", throwable);
           }
         });
   }
@@ -182,7 +141,7 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    log.trace("Processing downsample set {}", pendingDownsampleSet);
+    log.info("Processing downsample set {}", pendingDownsampleSet);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -204,7 +163,7 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet)
             )
-            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o -> log.info("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
   }
 
@@ -234,7 +193,7 @@ public class DownsampleProcessor {
 
     final Flux<AggregatedValueSet> aggregated =
         data
-            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
+            .doOnNext(valueSet -> log.info("Aggregating {} into granularity={}", valueSet, granularity))
             // group the incoming data by granularity-time-window
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
