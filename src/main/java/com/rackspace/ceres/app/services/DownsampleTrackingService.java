@@ -49,6 +49,7 @@ public class DownsampleTrackingService {
 
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<Boolean> redisScript;
+  private final RedisScript<String> redisGetTimeSlots;
   private final DownsampleProperties properties;
   private final TemporalNormalizer timeSlotNormalizer;
   private final HashFunction hashFunction;
@@ -56,9 +57,11 @@ public class DownsampleTrackingService {
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<Boolean> redisScript,
+                                   RedisScript<String> redisGetTimeSlots,
                                    DownsampleProperties properties) {
     this.redisTemplate = redisTemplate;
     this.redisScript = redisScript;
+    this.redisGetTimeSlots = redisGetTimeSlots;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
@@ -67,6 +70,10 @@ public class DownsampleTrackingService {
 
   public Flux<Boolean> checkPartitionJobs(Integer jobKey, String now, String newTime) {
     return redisTemplate.execute(redisScript, List.of(jobKey.toString()), List.of(now, newTime));
+  }
+
+  public Flux<String> getTimeSlots() {
+    return redisTemplate.execute(this.redisGetTimeSlots);
   }
 
   public Mono<String> getJobValue(Integer jobKey) {
@@ -96,14 +103,18 @@ public class DownsampleTrackingService {
             .and(redisTemplate.opsForSet().add(timeslot, pendingValue));
   }
 
+//  public Flux<PendingDownsampleSet> retrieveTimeSlots() {
+//    return getTimeSlotsredisTemplate.opsForSet()
+//            .scan(PREFIX_PENDING)
+//            .flatMap(timeslot ->
+//                    redisTemplate.hasKey(PREFIX_INGESTING + DELIM + timeslot)
+//                            .filter(stillIngesting -> !stillIngesting) // Filter out if still ingesting
+//                            .flatMapMany(ready -> allocateTimeSlot(timeslot).thenMany(getDownsampleSets(timeslot)))
+//            );
+//  }
+
   public Flux<PendingDownsampleSet> retrieveTimeSlots() {
-    return redisTemplate.opsForSet()
-            .scan(PREFIX_PENDING)
-            .flatMap(timeslot ->
-                    redisTemplate.hasKey(PREFIX_INGESTING + DELIM + timeslot)
-                            .filter(stillIngesting -> !stillIngesting) // Filter out if still ingesting
-                            .flatMapMany(ready -> allocateTimeSlot(timeslot).thenMany(getDownsampleSets(timeslot)))
-            );
+    return getTimeSlots().flatMap(timeslot -> getDownsampleSets(timeslot));
   }
 
   public Mono<?> allocateTimeSlot(String timeslot) {

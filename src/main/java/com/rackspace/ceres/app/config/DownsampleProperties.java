@@ -17,12 +17,6 @@
 package com.rackspace.ceres.app.config;
 
 import com.rackspace.ceres.app.config.configValidator.GranularityValidator;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationFormat;
@@ -30,6 +24,13 @@ import org.springframework.boot.convert.DurationStyle;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @ConfigurationProperties("ceres.downsample")
 @Component
@@ -63,7 +64,7 @@ public class DownsampleProperties {
    * Each partition is staggered by up to an additional 50% of this duration.
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  Duration initialProcessingDelay = Duration.ofMinutes(1);
+  Duration initialProcessingDelay = Duration.ofSeconds(5);
 
   /**
    * The number of threads allocated to process downsampling partitions.
