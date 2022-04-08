@@ -25,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -35,6 +34,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -48,19 +48,16 @@ public class DownsampleTrackingService {
   private static final String PREFIX_DOWNSAMPLE = "downsample";
 
   private final ReactiveStringRedisTemplate redisTemplate;
-  private final RedisScript<Boolean> redisScript;
-  private final RedisScript<String> redisGetTimeSlots;
+  private final RedisScript<List> redisGetTimeSlots;
   private final DownsampleProperties properties;
   private final TemporalNormalizer timeSlotNormalizer;
   private final HashFunction hashFunction;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
-                                   RedisScript<Boolean> redisScript,
-                                   RedisScript<String> redisGetTimeSlots,
+                                   RedisScript<List> redisGetTimeSlots,
                                    DownsampleProperties properties) {
     this.redisTemplate = redisTemplate;
-    this.redisScript = redisScript;
     this.redisGetTimeSlots = redisGetTimeSlots;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
@@ -68,20 +65,8 @@ public class DownsampleTrackingService {
     hashFunction = Hashing.murmur3_32();
   }
 
-  public Flux<Boolean> checkPartitionJobs(Integer jobKey, String now, String newTime) {
-    return redisTemplate.execute(redisScript, List.of(jobKey.toString()), List.of(now, newTime));
-  }
-
   public Flux<String> getTimeSlots() {
-    return redisTemplate.execute(this.redisGetTimeSlots);
-  }
-
-  public Mono<String> getJobValue(Integer jobKey) {
-    return redisTemplate.opsForValue().get(jobKey.toString());
-  }
-
-  public Mono<Boolean> setJobValue(Integer jobKey, String isoTime) {
-    return redisTemplate.opsForValue().set(jobKey.toString(), isoTime);
+    return redisTemplate.execute(this.redisGetTimeSlots).flatMapIterable(list -> list);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -103,23 +88,8 @@ public class DownsampleTrackingService {
             .and(redisTemplate.opsForSet().add(timeslot, pendingValue));
   }
 
-//  public Flux<PendingDownsampleSet> retrieveTimeSlots() {
-//    return getTimeSlotsredisTemplate.opsForSet()
-//            .scan(PREFIX_PENDING)
-//            .flatMap(timeslot ->
-//                    redisTemplate.hasKey(PREFIX_INGESTING + DELIM + timeslot)
-//                            .filter(stillIngesting -> !stillIngesting) // Filter out if still ingesting
-//                            .flatMapMany(ready -> allocateTimeSlot(timeslot).thenMany(getDownsampleSets(timeslot)))
-//            );
-//  }
-
   public Flux<PendingDownsampleSet> retrieveTimeSlots() {
     return getTimeSlots().flatMap(timeslot -> getDownsampleSets(timeslot));
-  }
-
-  public Mono<?> allocateTimeSlot(String timeslot) {
-    log.info("allocateTimeSlot: {}", timeslot);
-    return redisTemplate.opsForSet().remove(PREFIX_PENDING, timeslot);
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot) {

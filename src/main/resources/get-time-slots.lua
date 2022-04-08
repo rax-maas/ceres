@@ -9,16 +9,14 @@ local function save_ts(ts)
   ts_list[#ts_list+1] = ts
 end
 
-logit("hej")
-
 local timeslots = redis.call("smembers", "pending")
+logit(#timeslots)
+
 for i=1, #timeslots do
     local ts = timeslots[i]
-    logit(ts)
+    logit("ts: " .. ts)
     local ingest_key = "ingesting|" .. ts
-    logit(ingest_key)
     local val = redis.call("get", ingest_key)
-    logit(val)
     if val == "" then
         logit("val exists")
     else
@@ -29,7 +27,4 @@ for i=1, #timeslots do
         save_ts(ts)
     end
 end
-
-logit("hopp")
-
 return ts_list

@@ -100,7 +100,6 @@ public class DownsampleProcessor {
   }
 
   private void processJobs() {
-//    log.info("processJobs...");
     processTimeSlots();
     setupJobScheduler(Instant.now().plusSeconds(1)); // Schedule the next time
   }
@@ -113,7 +112,7 @@ public class DownsampleProcessor {
   }
 
   private void processTimeSlots() {
-    log.trace("processTimeSlots...");
+    log.info("processTimeSlots...");
 
     downsampleTrackingService
         .retrieveTimeSlots()

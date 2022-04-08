@@ -6,18 +6,13 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.redis.core.script.RedisScript;
 
+import java.util.List;
+
 @Configuration
 public class RedisConfig {
-
   @Bean
-  public RedisScript<Boolean> redisScript() {
-    Resource scriptSource = new ClassPathResource("check-partition-job.lua");
-    return RedisScript.of(scriptSource, Boolean.class);
-  }
-
-  @Bean
-  public RedisScript<String> redisGetTimeSlots() {
+  public RedisScript<List> redisGetTimeSlots() {
     Resource scriptSource = new ClassPathResource("get-time-slots.lua");
-    return RedisScript.of(scriptSource, String.class);
+    return RedisScript.of(scriptSource, List.class);
   }
 }
