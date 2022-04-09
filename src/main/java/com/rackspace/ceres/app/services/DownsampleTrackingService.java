@@ -43,9 +43,7 @@ public class DownsampleTrackingService {
 
   private static final Charset HASHING_CHARSET = StandardCharsets.UTF_8;
   private static final String DELIM = "|";
-  private static final String PREFIX_INGESTING = "ingesting";
   private static final String PREFIX_PENDING = "pending";
-  private static final String PREFIX_DOWNSAMPLE = "downsample";
 
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<List> redisGetTimeSlots;
@@ -66,7 +64,8 @@ public class DownsampleTrackingService {
   }
 
   public Flux<String> getTimeSlots() {
-    return redisTemplate.execute(this.redisGetTimeSlots).flatMapIterable(list -> list);
+    final String now = Long.toString(Instant.now().getEpochSecond());
+    return redisTemplate.execute(this.redisGetTimeSlots, List.of(), List.of(now)).flatMapIterable(list -> list);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -74,17 +73,12 @@ public class DownsampleTrackingService {
       return Mono.empty();
     }
 
-    log.info("track: {}...", timestamp);
-
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
-    final String ingestingKey = encodeKey(PREFIX_INGESTING, normalizedTimeSlot);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
 
-    return redisTemplate.opsForValue()
-            .set(ingestingKey, "", properties.getLastTouchDelay())
-            .and(redisTemplate.opsForSet().add(PREFIX_PENDING, timeslot))
-            .and(redisTemplate.opsForSet().add(PREFIX_DOWNSAMPLE, timeslot))
+    return redisTemplate.opsForSet()
+            .add(PREFIX_PENDING, timeslot)
             .and(redisTemplate.opsForSet().add(timeslot, pendingValue));
   }
 
@@ -103,8 +97,7 @@ public class DownsampleTrackingService {
     log.info("complete: {} {} {}", entry.getTenant(), entry.getTimeSlot(), entry.getSeriesSetHash());
     String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     return redisTemplate.opsForSet()
-            .remove(timeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()))
-            .and(redisTemplate.opsForSet().remove(PREFIX_DOWNSAMPLE, timeslot));
+            .remove(timeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {

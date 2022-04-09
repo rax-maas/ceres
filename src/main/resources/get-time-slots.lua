@@ -9,21 +9,23 @@ local function save_ts(ts)
   ts_list[#ts_list+1] = ts
 end
 
+local function is_ingesting(timeslot)
+    local now = ARGV[1]
+    local now_minus_2_min = tonumber(now) - 120
+
+    if tonumber(timeslot) < now_minus_2_min then
+        return "false"
+    else
+        return "true"
+    end
+end
+
 local timeslots = redis.call("smembers", "pending")
-logit(#timeslots)
 
 for i=1, #timeslots do
     local ts = timeslots[i]
-    logit("ts: " .. ts)
-    local ingest_key = "ingesting|" .. ts
-    local val = redis.call("get", ingest_key)
-    if val == "" then
-        logit("val exists")
-    else
-        logit("val is nil")
-        local remove_result = redis.call("srem", "pending", ts)
-        logit(remove_result)
-        logit("saving ts: " .. ts)
+    if is_ingesting(ts) == "false" then
+        redis.call("srem", "pending", ts)
         save_ts(ts)
     end
 end

@@ -91,7 +91,6 @@ public class DownsampleProcessor {
       throw new IllegalStateException("Granularities are not configured!");
     }
 
-    // We initialize the job queue here
     setupJobScheduler(Instant.now().plus(downsampleProperties.getInitialProcessingDelay()));
   }
 
@@ -112,8 +111,6 @@ public class DownsampleProcessor {
   }
 
   private void processTimeSlots() {
-    log.info("processTimeSlots...");
-
     downsampleTrackingService
         .retrieveTimeSlots()
         .flatMap(this::processDownsampleSet)
