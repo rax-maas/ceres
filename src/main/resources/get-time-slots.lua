@@ -1,9 +1,9 @@
-local logtable = {}
+-- local logtable = {}
 local ts_list = {}
 
-local function logit(msg)
-  logtable[#logtable+1] = msg
-end
+-- local function logit(msg)
+--   logtable[#logtable+1] = msg
+-- end
 
 local function save_ts(ts)
   ts_list[#ts_list+1] = ts
