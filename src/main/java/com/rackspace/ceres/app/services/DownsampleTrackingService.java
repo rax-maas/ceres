@@ -65,7 +65,9 @@ public class DownsampleTrackingService {
 
   public Flux<String> getTimeSlots() {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    return redisTemplate.execute(this.redisGetTimeSlots, List.of(), List.of(now)).flatMapIterable(list -> list);
+    final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
+    return redisTemplate.execute(
+            this.redisGetTimeSlots, List.of(), List.of(now, lastTouchDelay)).flatMapIterable(list -> list);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {

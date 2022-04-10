@@ -7,8 +7,8 @@ ceres:
       - width: 2m
         ttl: 1d
         partitionWidth: 4h
-    time-slot-width: 2m
-    last-touch-delay: 1m
+    time-slot-width: 1m
+    last-touch-delay: 2m # should be time-slot-width < last-touch-delay !!
     downsample-process-period: 32s
     partitions: 4
     partitions-to-process: 0-3

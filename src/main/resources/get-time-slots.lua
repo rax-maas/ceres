@@ -11,9 +11,10 @@ end
 
 local function is_ingesting(timeslot)
     local now = ARGV[1]
-    local now_minus_2_min = tonumber(now) - 120
+    local lastTouchDelay = ARGV[2]
+    local now_minus_last_touch_delay = tonumber(now) - tonumber(lastTouchDelay)
 
-    if tonumber(timeslot) < now_minus_2_min then
+    if tonumber(timeslot) < now_minus_last_touch_delay then
         return "false"
     else
         return "true"
