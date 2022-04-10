@@ -96,7 +96,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> complete(PendingDownsampleSet entry) {
-    log.info("complete: {} {} {}", entry.getTenant(), entry.getTimeSlot(), entry.getSeriesSetHash());
+    log.trace("complete: {} {} {}", entry.getTenant(), entry.getTimeSlot(), entry.getSeriesSetHash());
     String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     return redisTemplate.opsForSet()
             .remove(timeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));
@@ -111,8 +111,6 @@ public class DownsampleTrackingService {
   }
 
   private static PendingDownsampleSet buildPending(String timeslot, String pendingValue) {
-    log.info("buildPending: {} {}...", timeslot, pendingValue);
-
     final int splitValueAt = pendingValue.indexOf(DELIM);
 
     return new PendingDownsampleSet()

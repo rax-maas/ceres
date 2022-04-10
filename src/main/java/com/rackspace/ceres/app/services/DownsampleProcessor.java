@@ -189,7 +189,7 @@ public class DownsampleProcessor {
 
     final Flux<AggregatedValueSet> aggregated =
         data
-            .doOnNext(valueSet -> log.info("Aggregating {} into granularity={}", valueSet, granularity))
+            .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
             // group the incoming data by granularity-time-window
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
