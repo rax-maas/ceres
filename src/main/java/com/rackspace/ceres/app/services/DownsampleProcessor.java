@@ -27,11 +27,9 @@ import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.data.cassandra.CassandraConnectionFailureException;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
@@ -42,9 +40,10 @@ import javax.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.ScheduledFuture;
+import java.util.Random;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 @Service
 @Slf4j
@@ -55,33 +54,31 @@ public class DownsampleProcessor {
   private final ObjectMapper objectMapper;
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
-  private final TaskScheduler taskScheduler;
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
-  private List<ScheduledFuture<?>> scheduled;
-  private ScheduledFuture<?> jobsScheduled;
   private final Timer meterTimer;
+  private final ScheduledExecutorService executor;
 
   @Autowired
   public DownsampleProcessor(Environment env,
                              ObjectMapper objectMapper,
                              DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
-                             @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
                              DataWriteService dataWriteService,
-                             MeterRegistry meterRegistry) {
+                             MeterRegistry meterRegistry,
+                             ScheduledExecutorService executor) {
     this.env = env;
     this.objectMapper = objectMapper;
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
-    this.taskScheduler = taskScheduler;
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
+    this.executor = executor;
   }
 
   @PostConstruct
@@ -90,27 +87,24 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-
-    setupJobScheduler(Instant.now().plus(downsampleProperties.getInitialProcessingDelay()));
+    executor.schedule(
+            this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
-  private void setupJobScheduler(Instant when) {
-    jobsScheduled = taskScheduler.schedule(this::processJobs, when);
-  }
-
-  private void processJobs() {
-    processTimeSlots();
-    setupJobScheduler(Instant.now().plusSeconds(1)); // Schedule the next time
+  private void initializeJobs() {
+    log.info("initializeJobs...");
+    IntStream.rangeClosed(1, 3).forEach((i) ->
+            executor.scheduleAtFixedRate(
+                    this::processTimeSlots, new Random().nextInt(5), 10, TimeUnit.SECONDS));
   }
 
   @PreDestroy
   public void stop() {
-    if (scheduled != null) {
-      scheduled.forEach(scheduledFuture -> scheduledFuture.cancel(false));
-    }
+    executor.shutdown();
   }
 
   private void processTimeSlots() {
+    log.info("processTimeSlots...");
     downsampleTrackingService
         .retrieveTimeSlots()
         .flatMap(this::processDownsampleSet)
