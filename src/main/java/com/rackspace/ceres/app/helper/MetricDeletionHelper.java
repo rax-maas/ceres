@@ -174,15 +174,7 @@ public class MetricDeletionHelper {
   public Mono<Boolean> removeEntryFromCache(String tenant, String seriesSetHash) {
     seriesSetExistenceCache.synchronous()
         .invalidate(new SeriesSetCacheKey(tenant, seriesSetHash));
-
-    return redisTemplate.delete(PREFIX_SERIES_SET_HASHES + DELIM + tenant + DELIM + seriesSetHash)
-        .flatMap(result -> {
-          if (result > 0) {
-            return Mono.just(true);
-          } else {
-            return Mono.just(false);
-          }
-        });
+    return Mono.just(true);
   }
 
   /**

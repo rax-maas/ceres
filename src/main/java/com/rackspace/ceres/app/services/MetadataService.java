@@ -16,11 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
-
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -29,25 +24,10 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.SuggestType;
-import com.rackspace.ceres.app.model.TagsResponse;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -56,6 +36,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
 
 @Service
 public class MetadataService {
@@ -120,35 +109,9 @@ public class MetadataService {
     this.appProperties = appProperties;
   }
 
-  public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
+  public Mono<?> storeMetadata(String tenant, String seriesSetHash,
                                     String metricName, Map<String, String> tags) {
-    final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
-        new SeriesSetCacheKey(tenant, seriesSetHash),
-        (key, executor) ->
-            redisTemplate.opsForValue()
-                .setIfAbsent(
-                    PREFIX_SERIES_SET_HASHES + DELIM + key.getTenant() + DELIM + key
-                        .getSeriesSetHash(),
-                    ""
-                )
-                .doOnNext(inserted -> {
-                  if (inserted) {
-                    redisMiss.increment();
-                  } else {
-                    redisHit.increment();
-                  }
-                })
-                // already cached in redis?
-                .flatMap(inserted -> !inserted ? Mono.just(true) :
-                    // not cached, so store the metadata to be sure
-                    storeMetadataInCassandra(tenant, seriesSetHash, metricName,
-                        tags
-                    )
-                        .map(it -> true))
-                .toFuture()
-    );
-
-    return Mono.fromFuture(result);
+      return storeMetadataInCassandra(tenant, seriesSetHash, metricName, tags);
   }
 
   public Mono<?> updateMetricGroupAddMetricName(
