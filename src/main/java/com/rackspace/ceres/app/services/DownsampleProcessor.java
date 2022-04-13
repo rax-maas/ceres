@@ -17,7 +17,6 @@
 package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.NoNodeAvailableException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
@@ -28,7 +27,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.env.Environment;
 import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
@@ -50,8 +48,6 @@ import java.util.stream.IntStream;
 @Profile("downsample")
 public class DownsampleProcessor {
 
-  private final Environment env;
-  private final ObjectMapper objectMapper;
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
   private final SeriesSetService seriesSetService;
@@ -61,17 +57,13 @@ public class DownsampleProcessor {
   private final ScheduledExecutorService executor;
 
   @Autowired
-  public DownsampleProcessor(Environment env,
-                             ObjectMapper objectMapper,
-                             DownsampleProperties downsampleProperties,
+  public DownsampleProcessor(DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
                              DataWriteService dataWriteService,
                              MeterRegistry meterRegistry,
                              ScheduledExecutorService executor) {
-    this.env = env;
-    this.objectMapper = objectMapper;
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
     this.seriesSetService = seriesSetService;
@@ -104,7 +96,6 @@ public class DownsampleProcessor {
   }
 
   private void processTimeSlots() {
-    log.info("processTimeSlots...");
     downsampleTrackingService
         .retrieveTimeSlots()
         .flatMap(this::processDownsampleSet)
