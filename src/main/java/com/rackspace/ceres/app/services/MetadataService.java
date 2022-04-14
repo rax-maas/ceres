@@ -28,6 +28,7 @@ import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -39,6 +40,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
@@ -109,10 +111,19 @@ public class MetadataService {
     this.appProperties = appProperties;
   }
 
-  public Mono<?> storeMetadata(String tenant, String seriesSetHash,
-                                    String metricName, Map<String, String> tags) {
-      return storeMetadataInCassandra(tenant, seriesSetHash, metricName, tags);
-  }
+    public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
+                                      String metricName, Map<String, String> tags) {
+        final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
+                new SeriesSetCacheKey(tenant, seriesSetHash),
+                (key, executor) ->
+                        storeMetadataInCassandra(tenant, seriesSetHash, metricName,
+                                tags
+                        )
+                                .map(it -> true)
+                                .toFuture()
+        );
+        return Mono.fromFuture(result);
+    }
 
   public Mono<?> updateMetricGroupAddMetricName(
       String tenant, String metricGroup, String metricName, String updatedAt) {
