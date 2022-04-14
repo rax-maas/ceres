@@ -116,10 +116,26 @@ public class MetadataService {
         final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
                 new SeriesSetCacheKey(tenant, seriesSetHash),
                 (key, executor) ->
-                        storeMetadataInCassandra(tenant, seriesSetHash, metricName,
-                                tags
-                        )
-                                .map(it -> true)
+                        redisTemplate.opsForValue()
+                                .setIfAbsent(
+                                        PREFIX_SERIES_SET_HASHES + DELIM + key.getTenant() + DELIM + key
+                                                .getSeriesSetHash(),
+                                        ""
+                                )
+                                .doOnNext(inserted -> {
+                                    if (inserted) {
+                                        redisMiss.increment();
+                                    } else {
+                                        redisHit.increment();
+                                    }
+                                })
+                                // already cached in redis?
+                                .flatMap(inserted -> !inserted ? Mono.just(true) :
+                                        // not cached, so store the metadata to be sure
+                                        storeMetadataInCassandra(tenant, seriesSetHash, metricName,
+                                                tags
+                                        )
+                                                .map(it -> true))
                                 .toFuture()
         );
         return Mono.fromFuture(result);
