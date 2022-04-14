@@ -68,7 +68,6 @@ public class DownsampleTrackingService {
   public Flux<String> getTimeSlots() {
     final String now = Long.toString(Instant.now().getEpochSecond());
     final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
-//    final String lastTouchDelay = Long.toString(Duration.ofMinutes(30).getSeconds());
     log.info("lastTouchDelay: {}", properties.getLastTouchDelay().getSeconds());
     log.info("timeSlotWidth: {}", properties.getTimeSlotWidth().getSeconds());
     return redisTemplate.execute(
