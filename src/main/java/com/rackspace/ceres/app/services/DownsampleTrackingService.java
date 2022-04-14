@@ -75,6 +75,9 @@ public class DownsampleTrackingService {
       return Mono.empty();
     }
 
+    log.info("Timeslot width: {}", properties.getTimeSlotWidth().getSeconds());
+    log.info("LastTouchDelay: {}", properties.getLastTouchDelay().getSeconds());
+
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
