@@ -89,14 +89,13 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot) {
-    log.info("getPendingKeys: {}...", timeslot);
+    log.info("Downsampling timeslot: {}...", timeslot);
     return redisTemplate.opsForSet()
             .scan(timeslot)
             .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
   public Mono<?> complete(PendingDownsampleSet entry) {
-    log.trace("complete: {} {} {}", entry.getTenant(), entry.getTimeSlot(), entry.getSeriesSetHash());
     String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     return redisTemplate.opsForSet()
             .remove(timeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));

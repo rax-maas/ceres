@@ -84,7 +84,7 @@ public class DownsampleProcessor {
   }
 
   private void initializeJobs() {
-    log.info("initializeJobs...");
+    log.info("Initialize downsampling jobs...");
     IntStream.rangeClosed(1, 3).forEach((i) ->
             executor.scheduleAtFixedRate(
                     this::processTimeSlots, new Random().nextInt(5), 10, TimeUnit.SECONDS));
@@ -96,6 +96,7 @@ public class DownsampleProcessor {
   }
 
   private void processTimeSlots() {
+    log.info("Running downsampling job...");
     downsampleTrackingService
         .retrieveTimeSlots()
         .flatMap(this::processDownsampleSet)
