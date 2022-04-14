@@ -35,6 +35,7 @@ management:
   server:
     port: ${MANAGEMENT_SERVER_PORT}
 logging:
-  level: TRACE
+  root:
+    level: TRACE
   pattern:
     level: "%5p %mdc"
