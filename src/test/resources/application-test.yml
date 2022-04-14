@@ -20,3 +20,4 @@ ceres:
 management:
   server:
     port: 8082
+MANAGEMENT_SERVER_PORT: 8082
