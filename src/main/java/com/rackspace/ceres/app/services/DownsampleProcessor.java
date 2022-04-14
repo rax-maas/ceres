@@ -38,6 +38,7 @@ import javax.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -80,14 +81,13 @@ public class DownsampleProcessor {
     }
     executor.schedule(
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
-//    executor.schedule(this::initializeJobs, 12, TimeUnit.HOURS);
   }
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
-    IntStream.rangeClosed(1, 1).forEach((i) ->
+    IntStream.rangeClosed(1, 3).forEach((i) ->
             executor.scheduleAtFixedRate(
-                    this::processTimeSlots, 0, 60, TimeUnit.SECONDS));
+                    this::processTimeSlots, new Random().nextInt(5), 10, TimeUnit.SECONDS));
   }
 
   @PreDestroy
@@ -131,7 +131,6 @@ public class DownsampleProcessor {
         pendingDownsampleSet.getTenant(),
         pendingDownsampleSet.getSeriesSetHash(),
         pendingDownsampleSet.getTimeSlot(),
-//        pendingDownsampleSet.getTimeSlot().plus(Duration.ofMinutes(10))
         pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
     );
 

@@ -61,15 +61,12 @@ public class DownsampleTrackingService {
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
-//    timeSlotNormalizer = new TemporalNormalizer(Duration.ofMinutes(10));
     hashFunction = Hashing.murmur3_32();
   }
 
   public Flux<String> getTimeSlots() {
     final String now = Long.toString(Instant.now().getEpochSecond());
     final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
-    log.info("lastTouchDelay: {}", properties.getLastTouchDelay().getSeconds());
-    log.info("timeSlotWidth: {}", properties.getTimeSlotWidth().getSeconds());
     return redisTemplate.execute(
             this.redisGetTimeSlots, List.of(), List.of(now, lastTouchDelay)).flatMapIterable(list -> list);
   }
