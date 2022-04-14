@@ -131,7 +131,8 @@ public class DownsampleProcessor {
         pendingDownsampleSet.getTenant(),
         pendingDownsampleSet.getSeriesSetHash(),
         pendingDownsampleSet.getTimeSlot(),
-        pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
+        pendingDownsampleSet.getTimeSlot().plus(Duration.ofMinutes(1))
+//            pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
     );
 
     return

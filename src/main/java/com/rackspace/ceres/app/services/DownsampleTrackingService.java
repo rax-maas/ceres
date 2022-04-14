@@ -32,6 +32,7 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -59,13 +60,15 @@ public class DownsampleTrackingService {
     this.redisGetTimeSlots = redisGetTimeSlots;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
-    timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
+//    timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
+    timeSlotNormalizer = new TemporalNormalizer(Duration.ofMinutes(1));
     hashFunction = Hashing.murmur3_32();
   }
 
   public Flux<String> getTimeSlots() {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
+//    final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
+    final String lastTouchDelay = Long.toString(Duration.ofMinutes(2).getSeconds());
     return redisTemplate.execute(
             this.redisGetTimeSlots, List.of(), List.of(now, lastTouchDelay)).flatMapIterable(list -> list);
   }
@@ -74,9 +77,6 @@ public class DownsampleTrackingService {
     if (!properties.isTrackingEnabled()) {
       return Mono.empty();
     }
-
-    log.info("Timeslot width: {}", properties.getTimeSlotWidth().getSeconds());
-    log.info("LastTouchDelay: {}", properties.getLastTouchDelay().getSeconds());
 
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
