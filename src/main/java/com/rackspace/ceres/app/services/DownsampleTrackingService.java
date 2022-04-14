@@ -45,6 +45,7 @@ public class DownsampleTrackingService {
   private static final Charset HASHING_CHARSET = StandardCharsets.UTF_8;
   private static final String DELIM = "|";
   private static final String PREFIX_PENDING = "pending";
+  private static final String PREFIX_DOWNSAMPLING = "downsampling";
 
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<List> redisGetTimeSlots;
@@ -79,10 +80,11 @@ public class DownsampleTrackingService {
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot);
 
     return redisTemplate.opsForSet()
             .add(PREFIX_PENDING, timeslot)
-            .and(redisTemplate.opsForSet().add(timeslot, pendingValue));
+            .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue));
   }
 
   public Flux<PendingDownsampleSet> retrieveTimeSlots() {
@@ -91,15 +93,17 @@ public class DownsampleTrackingService {
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot) {
     log.info("Downsampling timeslot: {}...", timeslot);
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot);
     return redisTemplate.opsForSet()
-            .scan(timeslot)
+            .scan(downsamplingTimeslot)
             .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
   public Mono<?> complete(PendingDownsampleSet entry) {
-    String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
+    final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot);
     return redisTemplate.opsForSet()
-            .remove(timeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));
+            .remove(downsamplingTimeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
@@ -108,6 +112,10 @@ public class DownsampleTrackingService {
 
   private static String encodeKey(String prefix, Instant timeSlot) {
     return prefix + DELIM + timeSlot.getEpochSecond();
+  }
+
+  private static String encodeDownsamplingTimeslot(String timeslot) {
+    return PREFIX_DOWNSAMPLING + DELIM + timeslot;
   }
 
   private static PendingDownsampleSet buildPending(String timeslot, String pendingValue) {
