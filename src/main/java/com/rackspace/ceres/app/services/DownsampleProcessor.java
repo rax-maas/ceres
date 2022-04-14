@@ -79,8 +79,9 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-    executor.schedule(
-            this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
+//    executor.schedule(
+//            this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
+    executor.schedule(this::initializeJobs, 12, TimeUnit.HOURS);
   }
 
   private void initializeJobs() {
