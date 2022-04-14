@@ -104,8 +104,8 @@ public class DataWriteService {
             .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
             .and(storeMetricGroup(tenant, metric))
             .and(storeDeviceData(tenant, metric))
-            .then(Mono.just(metric))
-            .doOnNext(_metric -> recordIngestionLatency(_metric));
+            .then(Mono.just(metric));
+//            .doOnNext(_metric -> recordIngestionLatency(_metric));
   }
 
   private void recordIngestionLatency(Metric metric) {
