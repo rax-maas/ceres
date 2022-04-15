@@ -13,5 +13,6 @@ if is_free == "free" then
     redis.call('set', 'job|'.. partition, pod_name)
     return "free"
 else
+-- Implement fail safe so a job is not locked forever
     return "processing"
 end

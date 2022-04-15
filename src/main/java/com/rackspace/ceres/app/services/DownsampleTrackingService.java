@@ -111,7 +111,7 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition) {
-    log.info("Downsampling timeslot: {} partition: {}", timeslot, partition);
+    // log.info("Downsampling timeslot: {} partition: {}", timeslot, partition);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
     return redisTemplate.opsForSet()
             .scan(downsamplingTimeslot)

@@ -91,7 +91,7 @@ public class DownsampleProcessor {
     log.info("Initialize downsampling jobs...");
     IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> {
       executor.scheduleAtFixedRate(
-              () -> processJob(i), new Random().nextInt(1), 2, TimeUnit.SECONDS);
+              () -> processJob(i), new Random().nextInt(500), 1000, TimeUnit.MILLISECONDS);
     });
   }
 
@@ -123,7 +123,7 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    log.info("Processing downsample set: {} partition: {}", pendingDownsampleSet, partition);
+//    log.info("Processing downsample set: {} partition: {}", pendingDownsampleSet, partition);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -146,7 +146,9 @@ public class DownsampleProcessor {
                 downsampleTrackingService.complete(pendingDownsampleSet, partition)
             )
             .doOnSuccess(o ->
-                    log.info("Completed downsampling of set: {} partition: {}", pendingDownsampleSet, partition))
+                    log.info("Completed downsampling of set: {} timeslot: {} partition: {}",
+                            pendingDownsampleSet.getSeriesSetHash(),
+                            pendingDownsampleSet.getTimeSlot().getEpochSecond(), partition))
             .checkpoint();
   }
 
