@@ -16,8 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hashing;
+import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
@@ -32,10 +31,8 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -51,25 +48,29 @@ public class DownsampleTrackingService {
   private final RedisScript<List> redisGetTimeSlots;
   private final DownsampleProperties properties;
   private final TemporalNormalizer timeSlotNormalizer;
-  private final HashFunction hashFunction;
+  private final HashService hashService;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<List> redisGetTimeSlots,
-                                   DownsampleProperties properties) {
+                                   DownsampleProperties properties,
+                                   HashService hashService) {
     this.redisTemplate = redisTemplate;
     this.redisGetTimeSlots = redisGetTimeSlots;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
-    hashFunction = Hashing.murmur3_32();
+    this.hashService = hashService;
   }
 
-  public Flux<String> getTimeSlots() {
+  public Flux<String> getTimeSlots(int partition) {
     final String now = Long.toString(Instant.now().getEpochSecond());
     final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
     return redisTemplate.execute(
-            this.redisGetTimeSlots, List.of(), List.of(now, lastTouchDelay)).flatMapIterable(list -> list);
+            this.redisGetTimeSlots,
+            List.of(),
+            List.of(now, lastTouchDelay, Integer.toString(partition))
+    ).flatMapIterable(list -> list);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -77,31 +78,35 @@ public class DownsampleTrackingService {
       return Mono.empty();
     }
 
+    final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
+    final int partition = hashService.getPartition(hashCode, properties.getPartitions());
+//    log.info("partition: {}", partition);
+
     final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot);
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
 
     return redisTemplate.opsForSet()
-            .add(PREFIX_PENDING, timeslot)
+            .add(PREFIX_PENDING + DELIM + partition, timeslot)
             .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue));
   }
 
-  public Flux<PendingDownsampleSet> retrieveTimeSlots() {
-    return getTimeSlots().flatMap(timeslot -> getDownsampleSets(timeslot));
+  public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition) {
+    return getTimeSlots(partition).flatMap(timeslot -> getDownsampleSets(timeslot, partition));
   }
 
-  private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot) {
-    log.info("Downsampling timeslot: {}...", timeslot);
-    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot);
+  private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition) {
+    log.info("Downsampling timeslot: {} partition: {}", timeslot, partition);
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
     return redisTemplate.opsForSet()
             .scan(downsamplingTimeslot)
             .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
-  public Mono<?> complete(PendingDownsampleSet entry) {
+  public Mono<?> complete(PendingDownsampleSet entry, int partition) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
-    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot);
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
     return redisTemplate.opsForSet()
             .remove(downsamplingTimeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));
   }
@@ -114,8 +119,8 @@ public class DownsampleTrackingService {
     return prefix + DELIM + timeSlot.getEpochSecond();
   }
 
-  private static String encodeDownsamplingTimeslot(String timeslot) {
-    return PREFIX_DOWNSAMPLING + DELIM + timeslot;
+  private static String encodeDownsamplingTimeslot(String timeslot, int partition) {
+    return PREFIX_DOWNSAMPLING + DELIM + partition + DELIM + timeslot;
   }
 
   private static PendingDownsampleSet buildPending(String timeslot, String pendingValue) {

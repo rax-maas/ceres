@@ -83,23 +83,24 @@ public class DownsampleProcessor {
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
-  private void initializeJobs() {
-    log.info("Initialize downsampling jobs...");
-    IntStream.rangeClosed(1, 3).forEach((i) ->
-            executor.scheduleAtFixedRate(
-                    this::processTimeSlots, new Random().nextInt(5), 10, TimeUnit.SECONDS));
-  }
-
   @PreDestroy
   public void stop() {
     executor.shutdown();
   }
 
-  private void processTimeSlots() {
-    log.info("Running downsampling job...");
+  private void initializeJobs() {
+    log.info("Initialize downsampling jobs...");
+    IntStream.rangeClosed(0, 3).forEach((i) -> {
+            executor.scheduleAtFixedRate(
+                    () -> processTimeSlots(i), new Random().nextInt(1), 2, TimeUnit.SECONDS);
+    });
+  }
+
+  private void processTimeSlots(int partition) {
+    log.info("Running downsampling job partition: {}", partition);
     downsampleTrackingService
-        .retrieveTimeSlots()
-        .flatMap(this::processDownsampleSet)
+        .retrieveTimeSlots(partition)
+        .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition))
         .subscribe(o -> {}, throwable -> {
           if (Exceptions.isRetryExhausted(throwable)) {
             throwable = throwable.getCause();
@@ -119,7 +120,7 @@ public class DownsampleProcessor {
     return false;
   }
 
-  private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
+  private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition) {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
@@ -143,7 +144,7 @@ public class DownsampleProcessor {
             .name("downsample.set")
             .metrics()
             .then(
-                downsampleTrackingService.complete(pendingDownsampleSet)
+                downsampleTrackingService.complete(pendingDownsampleSet, partition)
             )
             .doOnSuccess(o -> log.info("Completed downsampling of {}", pendingDownsampleSet))
             .checkpoint();
