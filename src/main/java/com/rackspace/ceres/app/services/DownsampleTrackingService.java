@@ -46,6 +46,7 @@ public class DownsampleTrackingService {
 
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<List> redisGetTimeSlots;
+  private final RedisScript<String> redisGetJob;
   private final DownsampleProperties properties;
   private final TemporalNormalizer timeSlotNormalizer;
   private final HashService hashService;
@@ -53,10 +54,12 @@ public class DownsampleTrackingService {
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<List> redisGetTimeSlots,
+                                   RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
     this.redisGetTimeSlots = redisGetTimeSlots;
+    this.redisGetJob = redisGetJob;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
@@ -71,6 +74,14 @@ public class DownsampleTrackingService {
             List.of(),
             List.of(now, lastTouchDelay, Integer.toString(partition))
     ).flatMapIterable(list -> list);
+  }
+
+  public Flux<String> checkPartitionJob(Integer partition) {
+    String hostName = System.getenv("HOSTNAME");
+    return redisTemplate.execute(
+            this.redisGetJob,
+            List.of(),
+            List.of(partition.toString(), hostName == null ? "localhost" : hostName));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -104,11 +115,15 @@ public class DownsampleTrackingService {
             .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
+  public void initJob(int partition) {
+    redisTemplate.opsForValue().set("job|" + partition, "free").subscribe();
+  }
+
   public Mono<?> complete(PendingDownsampleSet entry, int partition) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
-    return redisTemplate.opsForSet()
-            .remove(downsamplingTimeslot, encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash()));
+    final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
+    return redisTemplate.opsForSet().remove(downsamplingTimeslot, value);
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {

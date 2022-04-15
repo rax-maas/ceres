@@ -15,4 +15,10 @@ public class RedisConfig {
     Resource scriptSource = new ClassPathResource("get-time-slots.lua");
     return RedisScript.of(scriptSource, List.class);
   }
+
+  @Bean
+  public RedisScript<String> redisGetJob() {
+    Resource scriptSource = new ClassPathResource("check-job.lua");
+    return RedisScript.of(scriptSource, String.class);
+  }
 }

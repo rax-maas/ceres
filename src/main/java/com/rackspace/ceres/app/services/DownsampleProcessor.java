@@ -29,7 +29,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.stereotype.Service;
-import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -90,27 +89,27 @@ public class DownsampleProcessor {
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
-    IntStream.rangeClosed(0, 3).forEach((i) -> {
-            executor.scheduleAtFixedRate(
-                    () -> processTimeSlots(i), new Random().nextInt(1), 2, TimeUnit.SECONDS);
+    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> {
+      executor.scheduleAtFixedRate(
+              () -> processJob(i), new Random().nextInt(1), 2, TimeUnit.SECONDS);
     });
   }
 
+  private void processJob(int partition) {
+    downsampleTrackingService.checkPartitionJob(partition)
+            .flatMap(status -> {
+              if (status.equals("free")) {
+                processTimeSlots(partition);
+              }
+              return Mono.empty();
+            }).subscribe(o -> {}, throwable -> {});
+    }
+
   private void processTimeSlots(int partition) {
-    log.info("Running downsampling job partition: {}", partition);
-    downsampleTrackingService
-        .retrieveTimeSlots(partition)
-        .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition))
-        .subscribe(o -> {}, throwable -> {
-          if (Exceptions.isRetryExhausted(throwable)) {
-            throwable = throwable.getCause();
-          }
-          if (isNoNodeAvailable(throwable)) {
-            log.warn("Failed to process: {}", throwable.getMessage());
-          } else {
-            log.warn("Failed to process time slots", throwable);
-          }
-        });
+    downsampleTrackingService.retrieveTimeSlots(partition)
+            .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition))
+            .subscribe(o -> {}, throwable -> {});
+    downsampleTrackingService.initJob(partition);
   }
 
   private static boolean isNoNodeAvailable(Throwable throwable) {
@@ -124,7 +123,7 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    log.info("Processing downsample set {}", pendingDownsampleSet);
+    log.info("Processing downsample set: {} partition: {}", pendingDownsampleSet, partition);
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
@@ -146,7 +145,8 @@ public class DownsampleProcessor {
             .then(
                 downsampleTrackingService.complete(pendingDownsampleSet, partition)
             )
-            .doOnSuccess(o -> log.info("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o ->
+                    log.info("Completed downsampling of set: {} partition: {}", pendingDownsampleSet, partition))
             .checkpoint();
   }
 
