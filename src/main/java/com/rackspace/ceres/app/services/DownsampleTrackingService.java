@@ -118,8 +118,8 @@ public class DownsampleTrackingService {
             .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
-  public void initJob(int partition) {
-    redisTemplate.opsForValue().set("job|" + partition, "free").subscribe();
+  public Mono<?> initJob(int partition) {
+    return redisTemplate.opsForValue().set("job|" + partition, "free");
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, int partition) {

@@ -22,6 +22,8 @@ local function is_ingesting(timeslot)
     end
 end
 
+-- create a lua script to clean up stragglers
+
 local timeslots = redis.call("smembers", "pending|" .. partition)
 
 for i=1, #timeslots do

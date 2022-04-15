@@ -99,17 +99,17 @@ public class DownsampleProcessor {
     downsampleTrackingService.checkPartitionJob(partition)
             .flatMap(status -> {
               if (status.equals("free")) {
-                processTimeSlots(partition);
+                return processTimeSlots(partition);
+              } else {
+                return Mono.empty();
               }
-              return Mono.empty();
             }).subscribe(o -> {}, throwable -> {});
     }
 
-  private void processTimeSlots(int partition) {
-    downsampleTrackingService.retrieveTimeSlots(partition)
+  private Mono<?> processTimeSlots(int partition) {
+    return downsampleTrackingService.retrieveTimeSlots(partition)
             .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition))
-            .subscribe(o -> {}, throwable -> {});
-    downsampleTrackingService.initJob(partition);
+                    .then(downsampleTrackingService.initJob(partition));
   }
 
   private static boolean isNoNodeAvailable(Throwable throwable) {
