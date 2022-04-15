@@ -39,8 +39,8 @@ import java.util.List;
 @Slf4j
 public class DownsampleTrackingService {
 
-  private static final Charset HASHING_CHARSET = StandardCharsets.UTF_8;
   private static final String DELIM = "|";
+  private static final String PREFIX_INGESTING = "ingesting";
   private static final String PREFIX_PENDING = "pending";
   private static final String PREFIX_DOWNSAMPLING = "downsampling";
 
@@ -68,11 +68,11 @@ public class DownsampleTrackingService {
 
   public Flux<String> getTimeSlots(int partition) {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    final String lastTouchDelay = Long.toString(properties.getLastTouchDelay().getSeconds());
+    final String timeSlotWidth = Long.toString(properties.getTimeSlotWidth().getSeconds());
     return redisTemplate.execute(
             this.redisGetTimeSlots,
             List.of(),
-            List.of(now, lastTouchDelay, Integer.toString(partition))
+            List.of(now, timeSlotWidth, Integer.toString(partition))
     ).flatMapIterable(list -> list);
   }
 
@@ -97,10 +97,13 @@ public class DownsampleTrackingService {
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
+    final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, timeslot);
 
-    return redisTemplate.opsForSet()
-            .add(PREFIX_PENDING + DELIM + partition, timeslot)
-            .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue));
+    return redisTemplate.opsForValue()
+            .set(ingestingKey, "", properties.getLastTouchDelay())
+            .and(redisTemplate.opsForSet()
+                    .add(PREFIX_PENDING + DELIM + partition, timeslot)
+                    .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue)));
   }
 
   public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition) {
@@ -130,8 +133,8 @@ public class DownsampleTrackingService {
     return tenant + DELIM + seriesSet;
   }
 
-  private static String encodeKey(String prefix, Instant timeSlot) {
-    return prefix + DELIM + timeSlot.getEpochSecond();
+  private static String encodeKey(String prefix, int partition, String timeSlot) {
+    return prefix + DELIM + partition + DELIM + timeSlot;
   }
 
   private static String encodeDownsamplingTimeslot(String timeslot, int partition) {

@@ -8,11 +8,15 @@ local partition = ARGV[3]
 
 local function is_ingesting(timeslot)
     local now = ARGV[1]
-    local lastTouchDelay = ARGV[2]
-    local ts_plus_delay = tonumber(timeslot) + tonumber(lastTouchDelay)
+    local time_slot_width = ARGV[2]
+    local ts_plus_width = tonumber(timeslot) + tonumber(time_slot_width)
 
-    if ts_plus_delay < tonumber(now) then
-        return "false"
+    if ts_plus_width < tonumber(now) then
+        if redis.call("get", "ingesting|" .. partition .. "|" .. timeslot) == "" then
+                return "true"
+            else
+                return "false"
+        end
     else
         return "true"
     end
