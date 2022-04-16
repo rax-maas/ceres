@@ -78,6 +78,7 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
+    executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
@@ -87,12 +88,21 @@ public class DownsampleProcessor {
     executor.shutdown();
   }
 
+  private void initializeRedisJobs() {
+    log.info("Initialize redis jobs...");
+    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach(this::initRedisJob);
+  }
+
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
     IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> {
       executor.scheduleAtFixedRate(
               () -> processJob(i), new Random().nextInt(500), 1000, TimeUnit.MILLISECONDS);
     });
+  }
+
+  private void initRedisJob(int partition) {
+    downsampleTrackingService.initJob(partition).subscribe(o -> {}, throwable -> {});
   }
 
   private void processJob(int partition) {
