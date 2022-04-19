@@ -19,7 +19,7 @@ end
 local function is_max_lock_time_exceeded(status)
     local token_list = split(status, '|')
     local timestamp = token_list[#token_list]
-    local timestamp_plus_max_lock_time = tonumber(timestamp) + 3600 -- Job can't be locked for more than 1 hour
+    local timestamp_plus_max_lock_time = tonumber(timestamp) + 600 -- Job can't be locked for more than 10 minutes
 
     if timestamp_plus_max_lock_time < tonumber(now) then
         return "true"

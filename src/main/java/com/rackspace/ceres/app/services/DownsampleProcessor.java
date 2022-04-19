@@ -97,7 +97,7 @@ public class DownsampleProcessor {
     log.info("Initialize downsampling jobs...");
     IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> {
       executor.scheduleAtFixedRate(
-              () -> processJob(i), new Random().nextInt(500), 1000, TimeUnit.MILLISECONDS);
+              () -> processJob(i), new Random().nextInt(1000), 1000, TimeUnit.MILLISECONDS);
     });
   }
 
