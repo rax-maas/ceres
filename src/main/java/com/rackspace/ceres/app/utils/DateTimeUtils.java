@@ -7,6 +7,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -19,6 +21,15 @@ public class DateTimeUtils {
   public static final String RELATIVE_TIME_PATTERN = "([0-9]+)(ms|s|m|h|d|w|n|y)-ago";
   public static final String EPOCH_MILLIS_PATTERN = "\\d{13,}";
   public static final String EPOCH_SECONDS_PATTERN = "\\d{1,12}";
+
+  public static Long delayUntilNextTimeOfDay(int hour, int minutes, int seconds) {
+    ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Chicago"));
+    ZonedDateTime nextRun = now.withHour(hour).withMinute(minutes).withSecond(seconds);
+    if(now.compareTo(nextRun) > 0)
+      nextRun = nextRun.plusDays(1);
+
+    return Duration.between(now, nextRun).getSeconds();
+  }
 
   /**
    * Gets the absolute Instant instance for relativeTime.

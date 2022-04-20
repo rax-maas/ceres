@@ -48,6 +48,7 @@ public class DownsampleTrackingService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<List> redisGetTimeSlots;
   private final RedisScript<String> redisGetJob;
+  private final RedisScript<String> redisCheckOldTimeSlots;
   private final DownsampleProperties properties;
   private final HashService hashService;
 
@@ -55,11 +56,13 @@ public class DownsampleTrackingService {
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<List> redisGetTimeSlots,
                                    RedisScript<String> redisGetJob,
+                                   RedisScript<String> redisCheckOldTimeSlots,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
     this.redisGetTimeSlots = redisGetTimeSlots;
     this.redisGetJob = redisGetJob;
+    this.redisCheckOldTimeSlots = redisCheckOldTimeSlots;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
@@ -82,6 +85,11 @@ public class DownsampleTrackingService {
             this.redisGetJob,
             List.of(),
             List.of(partition.toString(), group, hostName == null ? "localhost" : hostName, now));
+  }
+
+  public Flux<String> checkOldTimeSlots() {
+    final String now = Long.toString(Instant.now().getEpochSecond());
+    return redisTemplate.execute(this.redisCheckOldTimeSlots, List.of(), List.of(now));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {

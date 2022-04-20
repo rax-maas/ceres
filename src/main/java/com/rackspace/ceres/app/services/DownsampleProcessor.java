@@ -81,8 +81,14 @@ public class DownsampleProcessor {
     }
 
     // TODO: Check granularities and consistency check partition time slot widths, only 2 should be allowed at this point
+    long initialDelay = DateTimeUtils.delayUntilNextTimeOfDay(10, 0, 0);
+    log.info("Initial delay for recurring check old time slots: {}", initialDelay);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
+    executor.scheduleAtFixedRate(this::checkOldTimeSlots,
+            initialDelay,
+            TimeUnit.DAYS.toSeconds(1),
+            TimeUnit.SECONDS);
     executor.schedule(
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
@@ -112,6 +118,15 @@ public class DownsampleProcessor {
 
   private void initRedisJob(int partition, String group) {
     downsampleTrackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
+  }
+
+  private void checkOldTimeSlots() {
+    downsampleTrackingService.checkOldTimeSlots()
+            .flatMap(result -> {
+              log.info("Check old time slots result: {}", result);
+              return Mono.empty();
+            })
+            .subscribe(o -> {}, throwable -> {});
   }
 
   private void processJob(int partition, String group) {

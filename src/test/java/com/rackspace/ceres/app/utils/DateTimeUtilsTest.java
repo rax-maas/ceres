@@ -148,4 +148,8 @@ public class DateTimeUtilsTest {
   private boolean containsDuration(final List<Granularity> list, final String width){
     return list.stream().anyMatch(o -> o.getPartitionWidth().compareTo(Duration.parse(width)) == 0);
   }
+
+  public void delayUntilNextTimeOfDayTest() {
+    // TODO:
+  }
 }

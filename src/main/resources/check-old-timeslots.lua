@@ -1,5 +1,5 @@
 local now = ARGV[1]
-local group_list = {"min", "max"}
+local groups = ARGV[2]
 
 local time_delta = 86400 -- 24 hours
 
@@ -16,6 +16,8 @@ local function split(s, delimiter)
     end
     return result;
 end
+
+local group_list = split(groups, "|")
 
 for partition=0, 63 do -- partitions
     for g=1, #group_list do

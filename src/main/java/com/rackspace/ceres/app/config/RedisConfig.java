@@ -21,4 +21,10 @@ public class RedisConfig {
     Resource scriptSource = new ClassPathResource("check-job.lua");
     return RedisScript.of(scriptSource, String.class);
   }
+
+  @Bean
+  public RedisScript<String> redisCheckOldTimeSlots() {
+    Resource scriptSource = new ClassPathResource("check-old-timeslots.lua");
+    return RedisScript.of(scriptSource, String.class);
+  }
 }
