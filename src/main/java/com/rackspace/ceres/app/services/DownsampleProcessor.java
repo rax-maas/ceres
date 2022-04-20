@@ -79,9 +79,8 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-
-    // TODO: Check granularities and consistency check partition time slot widths, only 2 should be allowed at this point
-    long initialDelay = DateTimeUtils.delayUntilNextTimeOfDay(10, 0, 0);
+    
+    long initialDelay = DateTimeUtils.delayUntilNextTimeOfDay(new Random().nextInt(24), 0, 0);
     log.info("Initial delay for recurring check old time slots: {}", initialDelay);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
