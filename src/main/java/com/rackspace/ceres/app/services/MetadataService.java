@@ -16,11 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
-
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -29,35 +24,33 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.SuggestType;
-import com.rackspace.ceres.app.model.TagsResponse;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
+
 @Service
+@Slf4j
 public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
@@ -66,9 +59,8 @@ public class MetadataService {
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
-  private final ReactiveStringRedisTemplate redisTemplate;
-  private final Counter redisHit;
-  private final Counter redisMiss;
+  private final Counter cassandraHit;
+  private final Counter cassandraMiss;
   private final Counter writeDbOperationErrorsCounter;
   private final Counter readDbOperationErrorsCounter;
   private final AppProperties appProperties;
@@ -103,16 +95,14 @@ public class MetadataService {
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
                          ReactiveCassandraTemplate cassandraTemplate,
                          AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
-                         ReactiveStringRedisTemplate redisTemplate,
                          MeterRegistry meterRegistry,
                          AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
-    this.redisTemplate = redisTemplate;
 
-    redisHit = meterRegistry.counter("seriesSetHash.redisCache", "result", "hit");
-    redisMiss = meterRegistry.counter("seriesSetHash.redisCache", "result", "miss");
+    cassandraHit = meterRegistry.counter("seriesSetHash.cassandraCache", "result", "hit");
+    cassandraMiss = meterRegistry.counter("seriesSetHash.cassandraCache", "result", "miss");
     writeDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "write");
     readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
@@ -123,31 +113,32 @@ public class MetadataService {
   public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
                                     String metricName, Map<String, String> tags) {
     final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
-        new SeriesSetCacheKey(tenant, seriesSetHash),
-        (key, executor) ->
-            redisTemplate.opsForValue()
-                .setIfAbsent(
-                    PREFIX_SERIES_SET_HASHES + DELIM + key.getTenant() + DELIM + key
-                        .getSeriesSetHash(),
-                    ""
-                )
-                .doOnNext(inserted -> {
-                  if (inserted) {
-                    redisMiss.increment();
-                  } else {
-                    redisHit.increment();
-                  }
-                })
-                // already cached in redis?
-                .flatMap(inserted -> !inserted ? Mono.just(true) :
-                    // not cached, so store the metadata to be sure
-                    storeMetadataInCassandra(tenant, seriesSetHash, metricName,
-                        tags
-                    )
-                        .map(it -> true))
-                .toFuture()
+            new SeriesSetCacheKey(tenant, seriesSetHash),
+            (key, executor) ->
+                    cassandraTemplate.exists(
+                                    query(
+                                            where(COL_TENANT).is(tenant),
+                                            where(COL_SERIES_SET_HASH).is(seriesSetHash)
+                                    ),
+                                    SeriesSetHash.class
+                            )
+                            .name("metadataExists")
+                            .metrics()
+                            .doOnNext(exists -> {
+                              if (exists) {
+                                cassandraHit.increment();
+                              } else {
+                                cassandraMiss.increment();
+                              }
+                            })
+                            // not cached in cassandra?
+                            .flatMap(exists -> exists ?
+                                    Mono.just(true) :
+                                    // not cached, so store the metadata to be sure
+                                    storeMetadataInCassandra(tenant, seriesSetHash, metricName, tags)
+                                            .map(it -> true))
+                            .toFuture()
     );
-
     return Mono.fromFuture(result);
   }
 
