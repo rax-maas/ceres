@@ -49,7 +49,10 @@ public class DownsampleProperties {
   }
 
   @DurationUnit(ChronoUnit.HOURS)
-  Duration timeSlotWidth = Duration.ofHours(1);
+  Duration timeSlotMaxWidth = Duration.ofHours(1);
+
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration timeSlotMinWidth = Duration.ofMinutes(30);
 
   /**
    * The amount of time to allow for the lastTouch of pending downsample sets to remain stable.

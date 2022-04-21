@@ -48,7 +48,8 @@ public class DownsampleTrackingService {
   private final RedisScript<List> redisGetTimeSlots;
   private final RedisScript<String> redisGetJob;
   private final DownsampleProperties properties;
-  private final TemporalNormalizer timeSlotNormalizer;
+  private final TemporalNormalizer timeSlotMaxNormalizer;
+  private final TemporalNormalizer timeSlotMinNormalizer;
   private final HashService hashService;
 
   @Autowired
@@ -62,17 +63,18 @@ public class DownsampleTrackingService {
     this.redisGetJob = redisGetJob;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
-    timeSlotNormalizer = new TemporalNormalizer(properties.getTimeSlotWidth());
+    this.timeSlotMaxNormalizer = new TemporalNormalizer(properties.getTimeSlotMaxWidth());
+    this.timeSlotMinNormalizer = new TemporalNormalizer(properties.getTimeSlotMinWidth());
     this.hashService = hashService;
   }
 
-  public Flux<String> getTimeSlots(int partition) {
+  public Flux<String> getTimeSlots(Integer partition, String group) {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    final String timeSlotWidth = Long.toString(properties.getTimeSlotWidth().getSeconds());
+    long widthSeconds = group.equals("max") ?
+            properties.getTimeSlotMaxWidth().getSeconds() : properties.getTimeSlotMinWidth().getSeconds();
+    final String timeSlotWidth = Long.toString(widthSeconds);
     return redisTemplate.execute(
-            this.redisGetTimeSlots,
-            List.of(),
-            List.of(now, timeSlotWidth, Integer.toString(partition))
+            this.redisGetTimeSlots, List.of(), List.of(now, timeSlotWidth, partition.toString(), group)
     ).flatMapIterable(list -> list);
   }
 
@@ -94,26 +96,34 @@ public class DownsampleTrackingService {
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
 //    log.info("partition: {}", partition);
 
-    final Instant normalizedTimeSlot = timestamp.with(timeSlotNormalizer);
+    final Instant normalizedMaxTimeSlot = timestamp.with(this.timeSlotMaxNormalizer);
+    final Instant normalizedMinTimeSlot = timestamp.with(this.timeSlotMinNormalizer);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
-    final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
-    final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, timeslot);
+    final String timeslotMax = Long.toString(normalizedMaxTimeSlot.getEpochSecond());
+    final String timeslotMin = Long.toString(normalizedMinTimeSlot.getEpochSecond());
+    final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslotMax, partition, "max");
+    final String downsamplingTimeslotMin = encodeDownsamplingTimeslot(timeslotMin, partition, "min");
+    final String ingestingKeyMax = encodeKey(PREFIX_INGESTING, partition, "max", timeslotMax);
+    final String ingestingKeyMin = encodeKey(PREFIX_INGESTING, partition, "min", timeslotMin);
 
     return redisTemplate.opsForValue()
-            .set(ingestingKey, "", properties.getLastTouchDelay())
+            .set(ingestingKeyMax, "", properties.getLastTouchDelay())
+            .and(redisTemplate.opsForValue().set(ingestingKeyMin, "", properties.getLastTouchDelay()))
             .and(redisTemplate.opsForSet()
-                    .add(PREFIX_PENDING + DELIM + partition, timeslot)
-                    .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue)));
+                    .add(PREFIX_PENDING + DELIM + partition + DELIM + "max", timeslotMax)
+                    .and(redisTemplate.opsForSet().add(downsamplingTimeslotMax, pendingValue)))
+            .and(redisTemplate.opsForSet()
+                    .add(PREFIX_PENDING + DELIM + partition + DELIM + "min", timeslotMin)
+                    .and(redisTemplate.opsForSet().add(downsamplingTimeslotMin, pendingValue)));
   }
 
-  public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition) {
-    return getTimeSlots(partition).flatMap(timeslot -> getDownsampleSets(timeslot, partition));
+  public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition, String group) {
+    return getTimeSlots(partition, group).flatMap(timeslot -> getDownsampleSets(timeslot, partition, group));
   }
 
-  private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition) {
+  private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
     // log.info("Downsampling timeslot: {} partition: {}", timeslot, partition);
-    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     return redisTemplate.opsForSet()
             .scan(downsamplingTimeslot)
             .map(pendingValue -> buildPending(timeslot, pendingValue));
@@ -123,9 +133,9 @@ public class DownsampleTrackingService {
     return redisTemplate.opsForValue().set("job|" + partition, "free");
   }
 
-  public Mono<?> complete(PendingDownsampleSet entry, int partition) {
+  public Mono<?> complete(PendingDownsampleSet entry, int partition, String group) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
-    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition);
+    final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
     return redisTemplate.opsForSet().remove(downsamplingTimeslot, value);
   }
@@ -134,12 +144,12 @@ public class DownsampleTrackingService {
     return tenant + DELIM + seriesSet;
   }
 
-  private static String encodeKey(String prefix, int partition, String timeSlot) {
-    return prefix + DELIM + partition + DELIM + timeSlot;
+  private static String encodeKey(String prefix, int partition, String group, String timeSlot) {
+    return prefix + DELIM + partition + DELIM + group + DELIM + timeSlot;
   }
 
-  private static String encodeDownsamplingTimeslot(String timeslot, int partition) {
-    return PREFIX_DOWNSAMPLING + DELIM + partition + DELIM + timeslot;
+  private static String encodeDownsamplingTimeslot(String timeslot, int partition, String group) {
+    return PREFIX_DOWNSAMPLING + DELIM + partition + DELIM + group + DELIM + timeslot;
   }
 
   private static PendingDownsampleSet buildPending(String timeslot, String pendingValue) {

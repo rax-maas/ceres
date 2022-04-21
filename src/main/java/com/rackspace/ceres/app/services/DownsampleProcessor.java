@@ -16,18 +16,17 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
-import org.springframework.data.cassandra.CassandraConnectionFailureException;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -36,7 +35,9 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -78,6 +79,10 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
+
+    // TODO: Check granularities and consistency check time slot widths
+    // TODO: Implement small time slot width and max time slot width
+
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
@@ -95,41 +100,35 @@ public class DownsampleProcessor {
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
-    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> {
-      executor.scheduleAtFixedRate(
-              () -> processJob(i), new Random().nextInt(1000), 1000, TimeUnit.MILLISECONDS);
-    });
+    Random random = new Random();
+    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> executor.scheduleAtFixedRate(
+            () -> processJob(i, "min"), random.nextInt(2000), 1000, TimeUnit.MILLISECONDS));
+    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> executor.scheduleAtFixedRate(
+            () -> processJob(i, "max"), random.nextInt(2000), 1000, TimeUnit.MILLISECONDS));
   }
 
   private void initRedisJob(int partition) {
     downsampleTrackingService.initJob(partition).subscribe(o -> {}, throwable -> {});
   }
 
-  private void processJob(int partition) {
+  private void processJob(int partition, String group) {
     downsampleTrackingService.checkPartitionJob(partition)
             .flatMap(status -> {
               if (status.equals("free")) {
-                return processTimeSlots(partition);
+                return processTimeSlots(partition, group);
               } else {
                 return Mono.empty();
               }
             }).subscribe(o -> {}, throwable -> {});
     }
 
-  private Mono<?> processTimeSlots(int partition) {
-    return downsampleTrackingService.retrieveTimeSlots(partition)
-            .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition))
+  private Mono<?> processTimeSlots(int partition, String group) {
+    return downsampleTrackingService.retrieveTimeSlots(partition, group)
+            .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition, group))
                     .then(downsampleTrackingService.initJob(partition));
   }
 
-  private static boolean isNoNodeAvailable(Throwable throwable) {
-    if (throwable instanceof CassandraConnectionFailureException) {
-      return throwable.getCause() instanceof NoNodeAvailableException;
-    }
-    return false;
-  }
-
-  private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition) {
+  private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
@@ -137,39 +136,48 @@ public class DownsampleProcessor {
 
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
 
+    Duration min = downsampleProperties.getTimeSlotMinWidth();
+    Duration max = downsampleProperties.getTimeSlotMaxWidth();
+
     final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
-        pendingDownsampleSet.getTenant(),
-        pendingDownsampleSet.getSeriesSetHash(),
-        pendingDownsampleSet.getTimeSlot(),
-        pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
+            pendingDownsampleSet.getTenant(),
+            pendingDownsampleSet.getSeriesSetHash(),
+            pendingDownsampleSet.getTimeSlot(),
+            pendingDownsampleSet.getTimeSlot().plus(group.equals("max") ? max : min)
     );
+
+    List<Granularity> granularities =
+            DateTimeUtils.filterGroupGranularities(group, min, max, downsampleProperties.getGranularities());
 
     return
         downsampleData(data,
             pendingDownsampleSet.getTenant(),
             pendingDownsampleSet.getSeriesSetHash(),
-            downsampleProperties.getGranularities().iterator(), isCounter
+                granularities.iterator(), isCounter
         )
             .name("downsample.set")
             .metrics()
             .then(
-                downsampleTrackingService.complete(pendingDownsampleSet, partition)
+                downsampleTrackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
-                    log.info("Completed downsampling of set: {} timeslot: {} partition: {}",
+                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                             pendingDownsampleSet.getSeriesSetHash(),
-                            pendingDownsampleSet.getTimeSlot().getEpochSecond(), partition))
+                            pendingDownsampleSet.getTimeSlot().getEpochSecond(),
+                            Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())
+                                    .atZone(ZoneId.systemDefault()).toLocalDateTime(),
+                            partition, group))
             .checkpoint();
   }
 
   /**
-   * Downsamples the given data into the next granularity, stores that data,
+   * Downsample the given data into the next granularity, stores that data,
    * and recurses until the remaining granularities are processed.
    * @param data a flux of either raw {@link SingleValueSet}s or
    * aggregated {@link AggregatedValueSet}s from the prior granularity.
    * @param tenant the tenant of the pending downsample set
    * @param seriesSet the series-set of the pending downsample set
-   * @param granularities remaining granularties to process
+   * @param granularities remaining granularities to process
    * @param isCounter indicates if the original metric is a counter or gauge
    * @return a mono that completes when the aggregated data has been stored
    */
@@ -198,7 +206,7 @@ public class DownsampleProcessor {
                     : ValueSetCollectors.gaugeCollector(granularity.getWidth())
             ));
 
-    // expand the aggregated volue-sets into individual data points to be stored
+    // expand the aggregated volume-sets into individual data points to be stored
     final Flux<DataDownsampled> expanded = expandAggregatedData(
         aggregated, tenant, seriesSet, isCounter);
 

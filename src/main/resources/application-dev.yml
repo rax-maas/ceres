@@ -7,7 +7,8 @@ ceres:
       - width: 1m
         ttl: 1d
         partitionWidth: 4h
-    time-slot-width: 1m # must be multiple of max granularity width
+    time-slot-min-width: 30s # granularities <= min width must be multiples of min width
+    time-slot-max-width: 1m # must be multiple of max granularity width
     last-touch-delay: 5s
     partitions: 4
     initial-processing-delay: 5s

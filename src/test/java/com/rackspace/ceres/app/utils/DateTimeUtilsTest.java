@@ -114,4 +114,9 @@ public class DateTimeUtilsTest {
         .getGranularity(Instant.now(), Instant.now().plus(400, ChronoUnit.DAYS), granularityList))
         .isEqualTo(Duration.ofHours(2));
   }
+
+  @Test
+  public void filterGroupGranularitiesTest() {
+    // TODO:
+  }
 }
