@@ -95,7 +95,8 @@ public class DownsampleProcessor {
 
   private void initializeRedisJobs() {
     log.info("Initialize redis jobs...");
-    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach(this::initRedisJob);
+    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> initRedisJob(i, "min"));
+    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> initRedisJob(i, "max"));
   }
 
   private void initializeJobs() {
@@ -107,12 +108,12 @@ public class DownsampleProcessor {
             () -> processJob(i, "max"), random.nextInt(2000), 1000, TimeUnit.MILLISECONDS));
   }
 
-  private void initRedisJob(int partition) {
-    downsampleTrackingService.initJob(partition).subscribe(o -> {}, throwable -> {});
+  private void initRedisJob(int partition, String group) {
+    downsampleTrackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
   }
 
   private void processJob(int partition, String group) {
-    downsampleTrackingService.checkPartitionJob(partition)
+    downsampleTrackingService.checkPartitionJob(partition, group)
             .flatMap(status -> {
               if (status.equals("free")) {
                 return processTimeSlots(partition, group);
@@ -125,7 +126,7 @@ public class DownsampleProcessor {
   private Mono<?> processTimeSlots(int partition, String group) {
     return downsampleTrackingService.retrieveTimeSlots(partition, group)
             .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition, group))
-                    .then(downsampleTrackingService.initJob(partition));
+                    .then(downsampleTrackingService.initJob(partition, group));
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {

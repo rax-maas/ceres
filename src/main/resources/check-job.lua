@@ -1,6 +1,9 @@
 local partition = ARGV[1]
-local pod_name = ARGV[2]
-local now = ARGV[3]
+local group = ARGV[2]
+local pod_name = ARGV[3]
+local now = ARGV[4]
+
+local job_key = 'job|'.. partition .. '|' .. group
 
 local log_list = {}
 
@@ -29,10 +32,10 @@ local function is_max_lock_time_exceeded(status)
 end
 
 local function claim_job()
-    return redis.call('set', 'job|'.. partition, pod_name .. '|' .. now)
+    return redis.call('set', job_key, pod_name .. '|' .. now)
 end
 
-local job_status = redis.call('get', 'job|' .. partition)
+local job_status = redis.call('get', job_key)
 
 if job_status == "free" then
     claim_job()

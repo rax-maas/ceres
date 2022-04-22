@@ -78,13 +78,13 @@ public class DownsampleTrackingService {
     ).flatMapIterable(list -> list);
   }
 
-  public Flux<String> checkPartitionJob(Integer partition) {
+  public Flux<String> checkPartitionJob(Integer partition, String group) {
     String hostName = System.getenv("HOSTNAME");
     final String now = Long.toString(Instant.now().getEpochSecond());
     return redisTemplate.execute(
             this.redisGetJob,
             List.of(),
-            List.of(partition.toString(), hostName == null ? "localhost" : hostName, now));
+            List.of(partition.toString(), group, hostName == null ? "localhost" : hostName, now));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -129,8 +129,8 @@ public class DownsampleTrackingService {
             .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
-  public Mono<?> initJob(int partition) {
-    return redisTemplate.opsForValue().set("job|" + partition, "free");
+  public Mono<?> initJob(int partition, String group) {
+    return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, int partition, String group) {
