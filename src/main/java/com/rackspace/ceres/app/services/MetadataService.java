@@ -58,8 +58,8 @@ public class MetadataService {
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
   private final ReactiveStringRedisTemplate redisTemplate;
-  private final Counter redisHit;
-  private final Counter redisMiss;
+  private final Counter cassandraHit;
+  private final Counter cassandraMiss;
   private final Counter writeDbOperationErrorsCounter;
   private final Counter readDbOperationErrorsCounter;
   private final AppProperties appProperties;
@@ -102,8 +102,8 @@ public class MetadataService {
     this.seriesSetExistenceCache = seriesSetExistenceCache;
     this.redisTemplate = redisTemplate;
 
-    redisHit = meterRegistry.counter("seriesSetHash.redisCache", "result", "hit");
-    redisMiss = meterRegistry.counter("seriesSetHash.redisCache", "result", "miss");
+    cassandraHit = meterRegistry.counter("seriesSetHash.cassandraCache", "result", "hit");
+    cassandraMiss = meterRegistry.counter("seriesSetHash.cassandraCache", "result", "miss");
     writeDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "write");
     readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
@@ -111,35 +111,37 @@ public class MetadataService {
     this.appProperties = appProperties;
   }
 
-    public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
-                                      String metricName, Map<String, String> tags) {
-        final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
-                new SeriesSetCacheKey(tenant, seriesSetHash),
-                (key, executor) ->
-                        redisTemplate.opsForValue()
-                                .setIfAbsent(
-                                        PREFIX_SERIES_SET_HASHES + DELIM + key.getTenant() + DELIM + key
-                                                .getSeriesSetHash(),
-                                        ""
-                                )
-                                .doOnNext(inserted -> {
-                                    if (inserted) {
-                                        redisMiss.increment();
-                                    } else {
-                                        redisHit.increment();
-                                    }
-                                })
-                                // already cached in redis?
-                                .flatMap(inserted -> !inserted ? Mono.just(true) :
-                                        // not cached, so store the metadata to be sure
-                                        storeMetadataInCassandra(tenant, seriesSetHash, metricName,
-                                                tags
-                                        )
-                                                .map(it -> true))
-                                .toFuture()
-        );
-        return Mono.fromFuture(result);
-    }
+  public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
+                                    String metricName, Map<String, String> tags) {
+    final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
+            new SeriesSetCacheKey(tenant, seriesSetHash),
+            (key, executor) ->
+                    cassandraTemplate.exists(
+                                    query(
+                                            where(COL_TENANT).is(tenant),
+                                            where(COL_SERIES_SET_HASH).is(seriesSetHash)
+                                    ),
+                                    SeriesSetHash.class
+                            )
+                            .name("metadataExists")
+                            .metrics()
+                            .doOnNext(exists -> {
+                              if (exists) {
+                                cassandraHit.increment();
+                              } else {
+                                cassandraMiss.increment();
+                              }
+                            })
+                            // not cached in cassandra?
+                            .flatMap(exists -> exists ?
+                                    Mono.just(true) :
+                                    // not cached, so store the metadata to be sure
+                                    storeMetadataInCassandra(tenant, seriesSetHash, metricName, tags)
+                                            .map(it -> true))
+                            .toFuture()
+    );
+    return Mono.fromFuture(result);
+  }
 
   public Mono<?> updateMetricGroupAddMetricName(
       String tenant, String metricGroup, String metricName, String updatedAt) {
