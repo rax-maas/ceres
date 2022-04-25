@@ -15,7 +15,7 @@ public class ScheduledExecutorConfig {
     public ScheduledExecutorConfig(DownsampleProperties downsampleProperties) {
         this.downsampleProperties = downsampleProperties;
     }
-    
+
     @Bean
     public ScheduledExecutorService scheduledExecutorService() {
         return Executors.newScheduledThreadPool(downsampleProperties.getProcessingThreads());
