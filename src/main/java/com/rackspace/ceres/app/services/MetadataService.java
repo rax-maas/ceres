@@ -28,11 +28,11 @@ import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -49,6 +49,7 @@ import static org.springframework.data.cassandra.core.query.Criteria.where;
 import static org.springframework.data.cassandra.core.query.Query.query;
 
 @Service
+@Slf4j
 public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
@@ -57,7 +58,6 @@ public class MetadataService {
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
-  private final ReactiveStringRedisTemplate redisTemplate;
   private final Counter cassandraHit;
   private final Counter cassandraMiss;
   private final Counter writeDbOperationErrorsCounter;
@@ -94,13 +94,11 @@ public class MetadataService {
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
                          ReactiveCassandraTemplate cassandraTemplate,
                          AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
-                         ReactiveStringRedisTemplate redisTemplate,
                          MeterRegistry meterRegistry,
                          AppProperties appProperties) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
-    this.redisTemplate = redisTemplate;
 
     cassandraHit = meterRegistry.counter("seriesSetHash.cassandraCache", "result", "hit");
     cassandraMiss = meterRegistry.counter("seriesSetHash.cassandraCache", "result", "miss");
