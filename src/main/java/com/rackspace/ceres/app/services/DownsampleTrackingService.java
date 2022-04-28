@@ -20,6 +20,7 @@ import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,10 +30,10 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -48,8 +49,6 @@ public class DownsampleTrackingService {
   private final RedisScript<List> redisGetTimeSlots;
   private final RedisScript<String> redisGetJob;
   private final DownsampleProperties properties;
-  private final TemporalNormalizer timeSlotMaxNormalizer;
-  private final TemporalNormalizer timeSlotMinNormalizer;
   private final HashService hashService;
 
   @Autowired
@@ -63,8 +62,6 @@ public class DownsampleTrackingService {
     this.redisGetJob = redisGetJob;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
-    this.timeSlotMaxNormalizer = new TemporalNormalizer(properties.getTimeSlotMaxWidth());
-    this.timeSlotMinNormalizer = new TemporalNormalizer(properties.getTimeSlotMinWidth());
     this.hashService = hashService;
   }
 
@@ -93,28 +90,26 @@ public class DownsampleTrackingService {
     }
 
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
-    final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-//    log.info("partition: {}", partition);
-
-    final Instant normalizedMaxTimeSlot = timestamp.with(this.timeSlotMaxNormalizer);
-    final Instant normalizedMinTimeSlot = timestamp.with(this.timeSlotMinNormalizer);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
-    final String timeslotMax = Long.toString(normalizedMaxTimeSlot.getEpochSecond());
-    final String timeslotMin = Long.toString(normalizedMinTimeSlot.getEpochSecond());
-    final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslotMax, partition, "max");
-    final String downsamplingTimeslotMin = encodeDownsamplingTimeslot(timeslotMin, partition, "min");
-    final String ingestingKeyMax = encodeKey(PREFIX_INGESTING, partition, "max", timeslotMax);
-    final String ingestingKeyMin = encodeKey(PREFIX_INGESTING, partition, "min", timeslotMin);
+    final int partition = hashService.getPartition(hashCode, properties.getPartitions());
 
-    return redisTemplate.opsForValue()
-            .set(ingestingKeyMax, "", properties.getLastTouchDelay())
-            .and(redisTemplate.opsForValue().set(ingestingKeyMin, "", properties.getLastTouchDelay()))
-            .and(redisTemplate.opsForSet()
-                    .add(PREFIX_PENDING + DELIM + partition + DELIM + "max", timeslotMax)
-                    .and(redisTemplate.opsForSet().add(downsamplingTimeslotMax, pendingValue)))
-            .and(redisTemplate.opsForSet()
-                    .add(PREFIX_PENDING + DELIM + partition + DELIM + "min", timeslotMin)
-                    .and(redisTemplate.opsForSet().add(downsamplingTimeslotMin, pendingValue)));
+    properties.getGranularities().forEach(
+            granularity -> {
+              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(granularity.getPartitionWidth()));
+              final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
+              final String group = granularity.getPartitionWidth().toString();
+              final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslot, partition, group);
+              final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, group, timeslot);
+
+              redisTemplate.opsForValue()
+                      .set(ingestingKey, "", properties.getLastTouchDelay())
+                      .and(redisTemplate.opsForSet()
+                              .add(PREFIX_PENDING + DELIM + partition + DELIM + group, timeslot)
+                              .and(redisTemplate.opsForSet().add(downsamplingTimeslotMax, pendingValue)))
+                      .subscribe(o -> {}, throwable -> {});
+            }
+    );
+    return Mono.empty();
   }
 
   public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition, String group) {

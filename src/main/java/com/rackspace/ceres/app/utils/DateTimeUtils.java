@@ -126,14 +126,10 @@ public class DateTimeUtils {
     return granularity.getWidth();
   }
 
-  public static List<Granularity> filterGroupGranularities(
-          String group, Duration min, Duration max, List<Granularity> granularities) {
+  public static List<Granularity> filterGroupGranularities(String group, List<Granularity> granularities) {
+    Duration width = Duration.parse(group);
     return granularities.stream()
-            .filter(g -> group.equals("min") ?
-                    (g.getWidth().compareTo(min) < 0 || g.getWidth().compareTo(min) == 0) : // get min granularities
-                    !(g.getWidth().compareTo(min) < 0 || g.getWidth().compareTo(min) == 0) && // get max first exclude min granularities
-                            (g.getWidth().compareTo(max) < 0 || g.getWidth().compareTo(max) == 0) // get max granularities
-            )
+            .filter(g -> (g.getWidth().compareTo(width) < 0 || g.getWidth().compareTo(width) == 0))
             .collect(Collectors.toList());
   }
 

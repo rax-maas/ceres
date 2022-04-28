@@ -80,8 +80,7 @@ public class DownsampleProcessor {
       throw new IllegalStateException("Granularities are not configured!");
     }
 
-    // TODO: Check granularities and consistency check time slot widths
-    // TODO: Implement small time slot width and max time slot width
+    // TODO: Check granularities and consistency check partition time slot widths, only 2 should be allowed at this point
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(
@@ -95,17 +94,20 @@ public class DownsampleProcessor {
 
   private void initializeRedisJobs() {
     log.info("Initialize redis jobs...");
-    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> initRedisJob(i, "min"));
-    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> initRedisJob(i, "max"));
+    downsampleProperties.getGranularities().forEach(granularity ->
+            IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach(
+              (partition) -> initRedisJob(partition, granularity.getPartitionWidth().toString())
+    ));
   }
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
     Random random = new Random();
-    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> executor.scheduleAtFixedRate(
-            () -> processJob(i, "min"), random.nextInt(2000), 1000, TimeUnit.MILLISECONDS));
-    IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((i) -> executor.scheduleAtFixedRate(
-            () -> processJob(i, "max"), random.nextInt(2000), 1000, TimeUnit.MILLISECONDS));
+    downsampleProperties.getGranularities().forEach(granularity ->
+            IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((partition) ->
+              executor.scheduleAtFixedRate(() ->
+                    processJob(partition, granularity.getPartitionWidth().toString()),
+                      random.nextInt(2000), 1000, TimeUnit.MILLISECONDS)));
   }
 
   private void initRedisJob(int partition, String group) {
@@ -133,22 +135,17 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-//    log.info("Processing downsample set: {} partition: {}", pendingDownsampleSet, partition);
-
     final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
-
-    Duration min = downsampleProperties.getTimeSlotMinWidth();
-    Duration max = downsampleProperties.getTimeSlotMaxWidth();
 
     final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
             pendingDownsampleSet.getTenant(),
             pendingDownsampleSet.getSeriesSetHash(),
             pendingDownsampleSet.getTimeSlot(),
-            pendingDownsampleSet.getTimeSlot().plus(group.equals("max") ? max : min)
+            pendingDownsampleSet.getTimeSlot().plus(Duration.parse(group))
     );
 
     List<Granularity> granularities =
-            DateTimeUtils.filterGroupGranularities(group, min, max, downsampleProperties.getGranularities());
+            DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities());
 
     return
         downsampleData(data,

@@ -2,13 +2,11 @@ ceres:
   downsample:
     granularities:
       - width: 30s
-        ttl: 12h
-        partitionWidth: 2h
+        ttl: 30m
+        partitionWidth: 30s
       - width: 1m
-        ttl: 1d
-        partitionWidth: 4h
-    time-slot-min-width: 30s # granularities <= min width must be multiples of min width
-    time-slot-max-width: 1m # must be multiple of max granularity width
+        ttl: 1h
+        partitionWidth: 1m
     last-touch-delay: 5s
     partitions: 4
     initial-processing-delay: 5s
