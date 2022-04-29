@@ -16,27 +16,23 @@
 
 package com.rackspace.ceres.app.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.task.TaskSchedulerBuilder;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.TaskScheduler;
 
 @Configuration
 public class SchedulerConfig {
 
-  private final DownsampleProperties downsampleProperties;
-
-  @Autowired
-  public SchedulerConfig(DownsampleProperties downsampleProperties) {
-    this.downsampleProperties = downsampleProperties;
-  }
-
-  @Bean
-  public TaskScheduler downsampleTaskScheduler() {
-    return new TaskSchedulerBuilder()
-        .poolSize(downsampleProperties.getProcessingThreads())
-        .threadNamePrefix("downsample")
-        .build();
-  }
+//  private final DownsampleProperties downsampleProperties;
+//
+//  @Autowired
+//  public SchedulerConfig(DownsampleProperties downsampleProperties) {
+//    this.downsampleProperties = downsampleProperties;
+//  }
+//
+//  @Bean
+//  public TaskScheduler downsampleTaskScheduler() {
+//    return new TaskSchedulerBuilder()
+//        .poolSize(downsampleProperties.getProcessingThreads())
+//        .threadNamePrefix("downsample")
+//        .build();
+//  }
 }
