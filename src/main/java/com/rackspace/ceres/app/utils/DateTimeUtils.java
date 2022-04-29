@@ -9,10 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -129,7 +126,7 @@ public class DateTimeUtils {
   public static List<Granularity> filterGroupGranularities(String group, List<Granularity> granularities) {
     Duration width = Duration.parse(group);
     return granularities.stream()
-            .filter(g -> (g.getWidth().compareTo(width) < 0 || g.getWidth().compareTo(width) == 0))
+            .filter(g -> g.getPartitionWidth().compareTo(width) == 0)
             .collect(Collectors.toList());
   }
 
