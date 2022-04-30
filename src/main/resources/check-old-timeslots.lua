@@ -1,7 +1,8 @@
 local now = ARGV[1]
 local groups = ARGV[2]
+local num_partitions = ARGV[3]
 
-local time_delta = 86400 -- 24 hours
+local time_delta = 21600 -- 6 hours
 
 local log_list = {}
 
@@ -19,7 +20,7 @@ end
 
 local group_list = split(groups, "|")
 
-for partition=0, 63 do -- partitions
+for partition=0, tonumber(num_partitions) do -- partitions
     for g=1, #group_list do
         local timeslots = redis.call("keys", "downsampling|" .. partition .. "|" .. group_list[g] .. "|*")
         if #timeslots ~= 0 then

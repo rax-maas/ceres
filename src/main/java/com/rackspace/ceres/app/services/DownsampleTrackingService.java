@@ -70,9 +70,7 @@ public class DownsampleTrackingService {
 
   public Flux<String> getTimeSlots(Integer partition, String group) {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    long widthSeconds = group.equals("max") ?
-            properties.getTimeSlotMaxWidth().getSeconds() : properties.getTimeSlotMinWidth().getSeconds();
-    final String timeSlotWidth = Long.toString(widthSeconds);
+    final String timeSlotWidth = Long.toString(Duration.parse(group).getSeconds());
     return redisTemplate.execute(
             this.redisGetTimeSlots, List.of(), List.of(now, timeSlotWidth, partition.toString(), group)
     ).flatMapIterable(list -> list);
@@ -89,7 +87,9 @@ public class DownsampleTrackingService {
 
   public Flux<String> checkOldTimeSlots() {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    return redisTemplate.execute(this.redisCheckOldTimeSlots, List.of(), List.of(now));
+    final String partitionWidths = String.join("|", DateTimeUtils.getPartitionWidths(properties.getGranularities()));
+    final Integer partitions = properties.getPartitions() - 1;
+    return redisTemplate.execute(this.redisCheckOldTimeSlots, List.of(), List.of(now, partitionWidths, partitions.toString()));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {

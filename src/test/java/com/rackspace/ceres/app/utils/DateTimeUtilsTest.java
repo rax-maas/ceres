@@ -139,17 +139,40 @@ public class DateTimeUtilsTest {
     granularity4.setTtl(Duration.ofDays(500));
 
     List<Granularity> granularityList = List.of(granularity1, granularity2, granularity3, granularity4);
-    assertThat(containsDuration(DateTimeUtils.filterGroupGranularities("PT5M", granularityList), "PT5M"));
-    assertThat(containsDuration(DateTimeUtils.filterGroupGranularities("PT2H", granularityList), "PT1H"));
-    assertThat(containsDuration(DateTimeUtils.filterGroupGranularities("PT2H", granularityList), "PT2H"));
-    assertThat(containsDuration(DateTimeUtils.filterGroupGranularities("PT3H", granularityList), "PT3H"));
+
+    assertThat(hasNoMatch(DateTimeUtils.filterGroupGranularities("PT5M", granularityList), "PT5M")).isEqualTo(Boolean.FALSE);
+    assertThat(hasNoMatch(DateTimeUtils.filterGroupGranularities("PT2H", granularityList), "PT2H")).isEqualTo(Boolean.FALSE);
+    assertThat(hasNoMatch(DateTimeUtils.filterGroupGranularities("PT3H", granularityList), "PT3H")).isEqualTo(Boolean.FALSE);
   }
 
-  private boolean containsDuration(final List<Granularity> list, final String width){
-    return list.stream().anyMatch(o -> o.getPartitionWidth().compareTo(Duration.parse(width)) == 0);
+  @Test
+  public void getPartitionWidthsTest() {
+    Granularity granularity1 = new Granularity();
+    granularity1.setWidth(Duration.ofMinutes(5));
+    granularity1.setPartitionWidth(Duration.ofMinutes(5));
+    granularity1.setTtl(Duration.ofDays(14));
+
+    Granularity granularity2 = new Granularity();
+    granularity2.setWidth(Duration.ofHours(1));
+    granularity2.setPartitionWidth(Duration.ofHours(2));
+    granularity2.setTtl(Duration.ofDays(365));
+
+    Granularity granularity3 = new Granularity();
+    granularity3.setWidth(Duration.ofHours(2));
+    granularity3.setPartitionWidth(Duration.ofHours(2));
+    granularity3.setTtl(Duration.ofDays(500));
+
+    Granularity granularity4 = new Granularity();
+    granularity4.setWidth(Duration.ofHours(3));
+    granularity4.setPartitionWidth(Duration.ofHours(3));
+    granularity4.setTtl(Duration.ofDays(500));
+
+    List<Granularity> granularityList = List.of(granularity4, granularity1, granularity3, granularity2);
+    List<String> widths = DateTimeUtils.getPartitionWidths(granularityList);
+    assertThat(widths.equals(List.of("PT5M", "PT2H", "PT2H", "PT3H"))).isEqualTo(Boolean.TRUE);
   }
 
-  public void delayUntilNextTimeOfDayTest() {
-    // TODO:
+  private boolean hasNoMatch(final List<Granularity> granularities, final String width){
+    return granularities.stream().anyMatch(o -> o.getPartitionWidth().compareTo(Duration.parse(width)) != 0);
   }
 }

@@ -79,13 +79,10 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-    
-    long initialDelay = DateTimeUtils.delayUntilNextTimeOfDay(new Random().nextInt(24), 0, 0);
-    log.info("Initial delay for recurring check old time slots: {}", initialDelay);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
-            initialDelay,
+            downsampleProperties.getInitialProcessingDelay().getSeconds(),
             TimeUnit.DAYS.toSeconds(1),
             TimeUnit.SECONDS);
     executor.schedule(
