@@ -32,8 +32,10 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -100,12 +102,11 @@ public class DownsampleTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-
-    properties.getGranularities().forEach(
-            granularity -> {
-              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(granularity.getPartitionWidth()));
+    List<String> partitionWidths = DateTimeUtils.getPartitionWidths(properties.getGranularities());
+    partitionWidths.forEach(
+            group -> {
+              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
               final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-              final String group = granularity.getPartitionWidth().toString();
               final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslot, partition, group);
               final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, group, timeslot);
 

@@ -169,7 +169,7 @@ public class DateTimeUtilsTest {
 
     List<Granularity> granularityList = List.of(granularity4, granularity1, granularity3, granularity2);
     List<String> widths = DateTimeUtils.getPartitionWidths(granularityList);
-    assertThat(widths.equals(List.of("PT5M", "PT2H", "PT2H", "PT3H"))).isEqualTo(Boolean.TRUE);
+    assertThat(widths.equals(List.of("PT5M", "PT2H", "PT3H"))).isEqualTo(Boolean.TRUE);
   }
 
   private boolean hasNoMatch(final List<Granularity> granularities, final String width){

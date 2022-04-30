@@ -138,6 +138,7 @@ public class DateTimeUtils {
             .map(Granularity::getPartitionWidth).sorted()
             .collect(Collectors.toList())
             .stream().map(Duration::toString)
+            .distinct()
             .collect(Collectors.toList());
   }
 
