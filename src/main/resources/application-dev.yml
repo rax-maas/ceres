@@ -16,6 +16,9 @@ ceres:
       - width: 2m
         ttl: 1h
         partitionWidth: 2m
+      - width: 10m
+        ttl: 1h
+        partitionWidth: 10m
     last-touch-delay: 5s
     partitions: 4
     initial-processing-delay: 5s

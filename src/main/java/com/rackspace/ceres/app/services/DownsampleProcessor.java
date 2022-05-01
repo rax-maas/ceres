@@ -96,19 +96,18 @@ public class DownsampleProcessor {
 
   private void initializeRedisJobs() {
     log.info("Initialize redis jobs...");
-    downsampleProperties.getGranularities().forEach(granularity ->
-            IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach(
-              (partition) -> initRedisJob(partition, granularity.getPartitionWidth().toString())
+    DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
+            .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
+                    .forEach((partition) -> initRedisJob(partition, width)
     ));
   }
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
     Random random = new Random();
-    downsampleProperties.getGranularities().forEach(granularity ->
-            IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1).forEach((partition) ->
-              executor.scheduleAtFixedRate(() ->
-                    processJob(partition, granularity.getPartitionWidth().toString()),
+    DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
+            .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
+                    .forEach((partition) -> executor.scheduleAtFixedRate(() -> processJob(partition, width),
                       random.nextInt(2000), 1000, TimeUnit.MILLISECONDS)));
   }
 
