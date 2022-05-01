@@ -3,30 +3,19 @@ kind: ConfigMap
 metadata:
   name: ceres
 data:
-  partitions.json: |-
-    {
-      "ceres-0": "0-15",
-      "ceres-1": "16-31",
-      "ceres-2": "32-47",
-      "ceres-3": "48-63"
-    }
   application.yml: |-
     ceres:
       downsample:
-        downsample-process-period: 896s # must be multiple of 16!
         granularities:
           - width: 5m
             ttl: 14d
-            partitionWidth: 6h
+            partitionWidth: 30m
           - width: 1h
             ttl: 365d
-            partitionWidth: 24h
-        partitions: 64
-        partitions-mapping-file: /config/partitions.json
-        # must be multiple of max granularity width
-        time-slot-width: 1h
-        last-touch-delay: 80m # should be time-slot-width < last-touch-delay !!
-        processing-threads: 2
+            partitionWidth: 1h
+        partitions: 128
+        last-touch-delay: 5s
+        processing-threads: 5
       raw-ttl: 2d
       series-set-cache-size: 2000000
       tenant-tag: tenant

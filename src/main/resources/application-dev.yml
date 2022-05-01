@@ -1,12 +1,21 @@
 ceres:
   downsample:
     granularities:
+      - width: 5s
+        ttl: 30m
+        partitionWidth: 30s
+      - width: 10s
+        ttl: 30m
+        partitionWidth: 30s
       - width: 30s
         ttl: 30m
         partitionWidth: 30s
       - width: 1m
         ttl: 1h
-        partitionWidth: 1m
+        partitionWidth: 2m
+      - width: 2m
+        ttl: 1h
+        partitionWidth: 2m
     last-touch-delay: 5s
     partitions: 4
     initial-processing-delay: 5s
