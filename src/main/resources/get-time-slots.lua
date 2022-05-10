@@ -32,6 +32,8 @@ for i=1, #timeslots do
     if is_ingesting(ts) == "false" then
         redis.call("srem", pending_key, ts)
         save_ts(ts)
+         -- We just handle one time slot at a time to give someone else a chance to work
+        break
     end
 end
 return ts_list
