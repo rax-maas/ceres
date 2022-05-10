@@ -83,6 +83,12 @@ public class DownsampleProperties {
   Duration downsampleProcessPeriod = Duration.ofMinutes(1);
 
   /**
+   * Specifies how wide in time the jobs will be spread out
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration downsampleSpreadPeriod = Duration.ofMinutes(1);
+
+  /**
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
    */
   IntegerSet partitionsToProcess;

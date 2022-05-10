@@ -83,7 +83,7 @@ public class DownsampleProcessor {
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
             downsampleProperties.getInitialProcessingDelay().getSeconds(),
-            TimeUnit.DAYS.toSeconds(1),
+            TimeUnit.HOURS.toSeconds(3),
             TimeUnit.SECONDS);
     executor.schedule(
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
@@ -105,12 +105,14 @@ public class DownsampleProcessor {
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
     long processPeriodSecs = downsampleProperties.getDownsampleProcessPeriod().getSeconds();
+    long spreadPeriodSecs = downsampleProperties.getDownsampleSpreadPeriod().getSeconds();
     log.info("processPeriodSecs: {}", processPeriodSecs);
+    log.info("spreadPeriodSecs: {}", spreadPeriodSecs);
     Random random = new Random();
     DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
                     .forEach((partition) -> executor.scheduleAtFixedRate(() -> processJob(partition, width),
-                      random.nextInt(30), processPeriodSecs, TimeUnit.SECONDS)));
+                      random.nextInt((int) spreadPeriodSecs), processPeriodSecs, TimeUnit.SECONDS)));
   }
 
   private void initRedisJob(int partition, String group) {
