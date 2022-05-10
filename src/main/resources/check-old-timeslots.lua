@@ -2,7 +2,7 @@ local now = ARGV[1]
 local groups = ARGV[2]
 local num_partitions = ARGV[3]
 
-local time_delta = 21600 -- 6 hours
+local time_delta = tonumber(ARGV[4])
 
 local log_list = {}
 

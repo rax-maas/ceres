@@ -91,7 +91,10 @@ public class DownsampleTrackingService {
     final String now = Long.toString(Instant.now().getEpochSecond());
     final String partitionWidths = String.join("|", DateTimeUtils.getPartitionWidths(properties.getGranularities()));
     final Integer partitions = properties.getPartitions() - 1;
-    return redisTemplate.execute(this.redisCheckOldTimeSlots, List.of(), List.of(now, partitionWidths, partitions.toString()));
+    final Long maxDownsamplingTime = properties.getMaxDownsamplingTime().getSeconds();
+    return redisTemplate.execute(
+            this.redisCheckOldTimeSlots, List.of(), List.of(
+                    now, partitionWidths, partitions.toString(), maxDownsamplingTime.toString()));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {

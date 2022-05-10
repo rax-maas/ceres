@@ -95,6 +95,12 @@ public class DownsampleProperties {
   Path partitionsMappingFile;
 
   /**
+   * Specifies maximum time a timeslot can be in state downsampling before it will go back to pending state.
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration maxDownsamplingTime = Duration.ofMinutes(1);
+
+  /**
    * Target granularities to downsample from raw data.
    */
   @GranularityValidator
