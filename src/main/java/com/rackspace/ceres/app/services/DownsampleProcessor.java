@@ -104,11 +104,13 @@ public class DownsampleProcessor {
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
+    long processPeriodSecs = downsampleProperties.getDownsampleProcessPeriod().getSeconds();
+    log.info("processPeriodSecs: {}", processPeriodSecs);
     Random random = new Random();
     DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
                     .forEach((partition) -> executor.scheduleAtFixedRate(() -> processJob(partition, width),
-                      random.nextInt(2000), 1000, TimeUnit.MILLISECONDS)));
+                      random.nextInt(30), processPeriodSecs, TimeUnit.SECONDS)));
   }
 
   private void initRedisJob(int partition, String group) {
@@ -201,7 +203,7 @@ public class DownsampleProcessor {
 
     final Granularity granularity = granularities.next();
     final TemporalNormalizer normalizer = new TemporalNormalizer(granularity.getWidth());
-    log.info("Downsampling width: {}", granularity.getWidth());
+//    log.info("Downsampling width: {}", granularity.getWidth());
 
     final Flux<AggregatedValueSet> aggregated =
         data

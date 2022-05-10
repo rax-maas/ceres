@@ -23,6 +23,7 @@ ceres:
     partitions: 4
     initial-processing-delay: 5s
     processing-threads: 5
+    downsample-process-period: 5s
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]
