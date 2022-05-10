@@ -89,6 +89,12 @@ public class DownsampleProperties {
   Duration downsampleSpreadPeriod = Duration.ofMinutes(1);
 
   /**
+   * Specifies how long between checks for old orphaned timeslots in state downsampling
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration oldTimeslotCleanInterval = Duration.ofHours(6);
+
+  /**
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
    */
   IntegerSet partitionsToProcess;

@@ -79,12 +79,14 @@ public class DownsampleProcessor {
         downsampleProperties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
+    
+    long oldTimeslotCleanInterval = downsampleProperties.getOldTimeslotCleanInterval().getSeconds();
+    log.info("oldTimeslotCleanInterval: {}", oldTimeslotCleanInterval);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
             downsampleProperties.getInitialProcessingDelay().getSeconds(),
-            TimeUnit.HOURS.toSeconds(3),
-            TimeUnit.SECONDS);
+            oldTimeslotCleanInterval, TimeUnit.SECONDS);
     executor.schedule(
             this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }

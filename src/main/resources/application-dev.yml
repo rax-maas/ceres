@@ -26,6 +26,7 @@ ceres:
     downsample-process-period: 5s
     downsample-spread-period: 10s
     max-downsampling-time: 10m
+    old-timeslot-clean-interval: 20m
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]
