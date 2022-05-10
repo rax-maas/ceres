@@ -97,6 +97,33 @@ public class DownsampleTrackingService {
                     now, partitionWidths, partitions.toString(), maxDownsamplingTime.toString()));
   }
 
+//  public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
+//    if (!properties.isTrackingEnabled()) {
+//      return Mono.empty();
+//    }
+//
+//    final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
+//    final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
+//    final int partition = hashService.getPartition(hashCode, properties.getPartitions());
+//    List<String> partitionWidths = DateTimeUtils.getPartitionWidths(properties.getGranularities());
+//    partitionWidths.forEach(
+//            group -> {
+//              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
+//              final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
+//              final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslot, partition, group);
+//              final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, group, timeslot);
+//
+//              redisTemplate.opsForValue()
+//                      .set(ingestingKey, "", properties.getLastTouchDelay())
+//                      .and(redisTemplate.opsForSet()
+//                              .add(PREFIX_PENDING + DELIM + partition + DELIM + group, timeslot)
+//                              .and(redisTemplate.opsForSet().add(downsamplingTimeslotMax, pendingValue)))
+//                      .subscribe(o -> {}, throwable -> {});
+//            }
+//    );
+//    return Mono.empty();
+//  }
+
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
     if (!properties.isTrackingEnabled()) {
       return Mono.empty();
@@ -105,23 +132,20 @@ public class DownsampleTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-    List<String> partitionWidths = DateTimeUtils.getPartitionWidths(properties.getGranularities());
-    partitionWidths.forEach(
-            group -> {
-              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
-              final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-              final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslot, partition, group);
-              final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, group, timeslot);
 
-              redisTemplate.opsForValue()
+    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
+            width -> {
+              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
+              final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
+              final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, width);
+              final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, width, timeslot);
+              return redisTemplate.opsForValue()
                       .set(ingestingKey, "", properties.getLastTouchDelay())
                       .and(redisTemplate.opsForSet()
-                              .add(PREFIX_PENDING + DELIM + partition + DELIM + group, timeslot)
-                              .and(redisTemplate.opsForSet().add(downsamplingTimeslotMax, pendingValue)))
-                      .subscribe(o -> {}, throwable -> {});
+                              .add(PREFIX_PENDING + DELIM + partition + DELIM + width, timeslot)
+                              .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue)));
             }
     );
-    return Mono.empty();
   }
 
   public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition, String group) {
