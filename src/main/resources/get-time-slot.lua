@@ -26,14 +26,15 @@ local function is_ingesting(timeslot)
 end
 
 local timeslots = redis.call("smembers", pending_key)
+local timeslot = ""
 
 for i=1, #timeslots do
     local ts = timeslots[i]
     if is_ingesting(ts) == "false" then
         redis.call("srem", pending_key, ts)
-        save_ts(ts)
+        timeslot = ts
          -- We just handle one time slot at a time to give someone else a chance to work
         break
     end
 end
-return ts_list
+return timeslot

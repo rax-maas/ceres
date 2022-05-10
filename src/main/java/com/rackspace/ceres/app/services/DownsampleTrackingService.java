@@ -48,7 +48,7 @@ public class DownsampleTrackingService {
   private static final String PREFIX_DOWNSAMPLING = "downsampling";
 
   private final ReactiveStringRedisTemplate redisTemplate;
-  private final RedisScript<List> redisGetTimeSlots;
+  private final RedisScript<String> redisGetTimeSlot;
   private final RedisScript<String> redisGetJob;
   private final RedisScript<String> redisCheckOldTimeSlots;
   private final DownsampleProperties properties;
@@ -56,13 +56,13 @@ public class DownsampleTrackingService {
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
-                                   RedisScript<List> redisGetTimeSlots,
+                                   RedisScript<String> redisGetTimeSlot,
                                    RedisScript<String> redisGetJob,
                                    RedisScript<String> redisCheckOldTimeSlots,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
-    this.redisGetTimeSlots = redisGetTimeSlots;
+    this.redisGetTimeSlot = redisGetTimeSlot;
     this.redisGetJob = redisGetJob;
     this.redisCheckOldTimeSlots = redisCheckOldTimeSlots;
     this.properties = properties;
@@ -70,12 +70,11 @@ public class DownsampleTrackingService {
     this.hashService = hashService;
   }
 
-  public Flux<String> getTimeSlots(Integer partition, String group) {
+  public Flux<String> getTimeSlot(Integer partition, String group) {
     final String now = Long.toString(Instant.now().getEpochSecond());
     final String timeSlotWidth = Long.toString(Duration.parse(group).getSeconds());
     return redisTemplate.execute(
-            this.redisGetTimeSlots, List.of(), List.of(now, timeSlotWidth, partition.toString(), group)
-    ).flatMapIterable(list -> list);
+            this.redisGetTimeSlot, List.of(), List.of(now, timeSlotWidth, partition.toString(), group));
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
@@ -96,33 +95,6 @@ public class DownsampleTrackingService {
             this.redisCheckOldTimeSlots, List.of(), List.of(
                     now, partitionWidths, partitions.toString(), maxDownsamplingTime.toString()));
   }
-
-//  public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
-//    if (!properties.isTrackingEnabled()) {
-//      return Mono.empty();
-//    }
-//
-//    final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
-//    final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
-//    final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-//    List<String> partitionWidths = DateTimeUtils.getPartitionWidths(properties.getGranularities());
-//    partitionWidths.forEach(
-//            group -> {
-//              final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
-//              final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-//              final String downsamplingTimeslotMax = encodeDownsamplingTimeslot(timeslot, partition, group);
-//              final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, group, timeslot);
-//
-//              redisTemplate.opsForValue()
-//                      .set(ingestingKey, "", properties.getLastTouchDelay())
-//                      .and(redisTemplate.opsForSet()
-//                              .add(PREFIX_PENDING + DELIM + partition + DELIM + group, timeslot)
-//                              .and(redisTemplate.opsForSet().add(downsamplingTimeslotMax, pendingValue)))
-//                      .subscribe(o -> {}, throwable -> {});
-//            }
-//    );
-//    return Mono.empty();
-//  }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
     if (!properties.isTrackingEnabled()) {
@@ -148,12 +120,13 @@ public class DownsampleTrackingService {
     );
   }
 
-  public Flux<PendingDownsampleSet> retrieveTimeSlots(int partition, String group) {
-    return getTimeSlots(partition, group).flatMap(timeslot -> getDownsampleSets(timeslot, partition, group));
+  public Flux<PendingDownsampleSet> retrieveDownsampleSets(int partition, String group) {
+    return getTimeSlot(partition, group)
+            .flatMap(timeslot -> timeslot.equals("") ? Flux.empty() : getDownsampleSets(timeslot, partition, group));
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
-    // log.info("Downsampling timeslot: {} partition: {}", timeslot, partition);
+//    log.info("Downsampling timeslot: {} partition: {} group: {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     return redisTemplate.opsForSet()
             .scan(downsamplingTimeslot)

@@ -134,15 +134,15 @@ public class DownsampleProcessor {
     downsampleTrackingService.checkPartitionJob(partition, group)
             .flatMap(status -> {
               if (status.equals("free")) {
-                return processTimeSlots(partition, group);
+                return processTimeSlot(partition, group);
               } else {
                 return Mono.empty();
               }
             }).subscribe(o -> {}, throwable -> {});
     }
 
-  private Mono<?> processTimeSlots(int partition, String group) {
-    return downsampleTrackingService.retrieveTimeSlots(partition, group)
+  private Mono<?> processTimeSlot(int partition, String group) {
+    return downsampleTrackingService.retrieveDownsampleSets(partition, group)
             .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition, group))
                     .then(downsampleTrackingService.initJob(partition, group));
   }
