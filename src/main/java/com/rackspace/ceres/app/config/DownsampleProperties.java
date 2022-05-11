@@ -113,6 +113,12 @@ public class DownsampleProperties {
   Duration maxDownsamplingTime = Duration.ofMinutes(1);
 
   /**
+   * Sets a limit on how many series set hashes that can be processed in on task
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  int setHashesProcessLimit;
+
+  /**
    * Target granularities to downsample from raw data.
    */
   @GranularityValidator

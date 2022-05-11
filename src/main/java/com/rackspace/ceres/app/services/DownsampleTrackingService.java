@@ -32,10 +32,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-import java.util.stream.Collectors;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -51,6 +48,8 @@ public class DownsampleTrackingService {
   private final RedisScript<String> redisGetTimeSlot;
   private final RedisScript<String> redisGetJob;
   private final RedisScript<String> redisCheckOldTimeSlots;
+  private final RedisScript<String> redisRemoveSeriesSetHash;
+  private final RedisScript<String> redisGetSetHashes;
   private final DownsampleProperties properties;
   private final HashService hashService;
 
@@ -59,12 +58,16 @@ public class DownsampleTrackingService {
                                    RedisScript<String> redisGetTimeSlot,
                                    RedisScript<String> redisGetJob,
                                    RedisScript<String> redisCheckOldTimeSlots,
+                                   RedisScript<String> redisRemoveSeriesSetHash,
+                                   RedisScript<String> redisGetSetHashes,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
     this.redisGetTimeSlot = redisGetTimeSlot;
     this.redisGetJob = redisGetJob;
     this.redisCheckOldTimeSlots = redisCheckOldTimeSlots;
+    this.redisRemoveSeriesSetHash = redisRemoveSeriesSetHash;
+    this.redisGetSetHashes = redisGetSetHashes;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
@@ -75,6 +78,19 @@ public class DownsampleTrackingService {
     final String timeSlotWidth = Long.toString(Duration.parse(group).getSeconds());
     return redisTemplate.execute(
             this.redisGetTimeSlot, List.of(), List.of(now, timeSlotWidth, partition.toString(), group));
+  }
+
+  public Flux<String> getSetHashes(Integer partition, String group, String timeslot) {
+    Integer setHashesProcessLimit = properties.getSetHashesProcessLimit();
+    return redisTemplate.execute(
+            this.redisGetSetHashes,
+            List.of(), List.of(partition.toString(), group, timeslot, setHashesProcessLimit.toString())
+    );
+  }
+
+  public List<String> junk(String list) {
+    log.info("list: {}", list);
+    return List.of(list.split("|"));
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
@@ -126,22 +142,20 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
-//    log.info("Downsampling timeslot: {} partition: {} group: {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
-    return redisTemplate.opsForSet()
-            .scan(downsamplingTimeslot)
-            .map(pendingValue -> buildPending(timeslot, pendingValue));
+    return getSetHashes(partition, group, timeslot).map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
   public Mono<?> initJob(int partition, String group) {
     return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
   }
 
-  public Mono<?> complete(PendingDownsampleSet entry, int partition, String group) {
+  public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return redisTemplate.opsForSet().remove(downsamplingTimeslot, value);
+    return redisTemplate.execute(
+            this.redisRemoveSeriesSetHash, List.of(), List.of(timeslot, partition.toString(), group, value)).next();
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {

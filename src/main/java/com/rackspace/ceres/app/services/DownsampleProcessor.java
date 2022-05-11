@@ -81,7 +81,7 @@ public class DownsampleProcessor {
     }
     
     long oldTimeslotCleanInterval = downsampleProperties.getOldTimeslotCleanInterval().getSeconds();
-    log.info("oldTimeslotCleanInterval: {}", oldTimeslotCleanInterval);
+    log.info("old-timeslot-clean-interval: {}", oldTimeslotCleanInterval);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
@@ -108,8 +108,11 @@ public class DownsampleProcessor {
     log.info("Initialize downsampling jobs...");
     long processPeriodSecs = downsampleProperties.getDownsampleProcessPeriod().getSeconds();
     long spreadPeriodSecs = downsampleProperties.getDownsampleSpreadPeriod().getSeconds();
-    log.info("processPeriodSecs: {}", processPeriodSecs);
-    log.info("spreadPeriodSecs: {}", spreadPeriodSecs);
+    int setHashesProcessLimit = downsampleProperties.getSetHashesProcessLimit();
+
+    log.info("downsample-process-period: {}", processPeriodSecs);
+    log.info("downsample-spread-period: {}", spreadPeriodSecs);
+    log.info("set-hashes-process-limit: {}", setHashesProcessLimit);
     Random random = new Random();
     DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
@@ -175,7 +178,7 @@ public class DownsampleProcessor {
                 downsampleTrackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
-                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                    log.debug("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                             pendingDownsampleSet.getSeriesSetHash(),
                             pendingDownsampleSet.getTimeSlot().getEpochSecond(),
                             Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())
