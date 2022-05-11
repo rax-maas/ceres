@@ -87,8 +87,7 @@ public class DownsampleProcessor {
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
             downsampleProperties.getInitialProcessingDelay().getSeconds(),
             oldTimeslotCleanInterval, TimeUnit.SECONDS);
-    executor.schedule(
-            this::initializeJobs, downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
+    executor.schedule(this::initializeJobs, 1, TimeUnit.SECONDS);
   }
 
   @PreDestroy
@@ -110,14 +109,28 @@ public class DownsampleProcessor {
     long spreadPeriodSecs = downsampleProperties.getDownsampleSpreadPeriod().getSeconds();
     int setHashesProcessLimit = downsampleProperties.getSetHashesProcessLimit();
 
-    log.info("downsample-process-period: {}", processPeriodSecs);
     log.info("downsample-spread-period: {}", spreadPeriodSecs);
     log.info("set-hashes-process-limit: {}", setHashesProcessLimit);
-    Random random = new Random();
+
     DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
-                    .forEach((partition) -> executor.scheduleAtFixedRate(() -> processJob(partition, width),
-                      random.nextInt((int) spreadPeriodSecs), processPeriodSecs, TimeUnit.SECONDS)));
+                    .forEach((partition) -> executor.schedule(
+                            () -> processJob(partition, width),
+                            downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS)));
+  }
+
+  private void processJob(int partition, String partitionWidth) {
+    downsampleTrackingService.checkPartitionJob(partition, partitionWidth)
+            .flatMap(status -> {
+              if (status.equals("free")) {
+                return processTimeSlot(partition, partitionWidth);
+              } else {
+                return Mono.empty();
+              }
+            }).subscribe(o -> {}, throwable -> {});
+    int delay = new Random().nextInt((int) downsampleProperties.getDownsampleSpreadPeriod().getSeconds());
+//    log.info("Scheduling job for: {} {} {}", partition, partitionWidth, delay);
+    executor.schedule(() -> processJob(partition, partitionWidth), delay, TimeUnit.SECONDS);
   }
 
   private void initRedisJob(int partition, String group) {
@@ -132,17 +145,6 @@ public class DownsampleProcessor {
             })
             .subscribe(o -> {}, throwable -> {});
   }
-
-  private void processJob(int partition, String group) {
-    downsampleTrackingService.checkPartitionJob(partition, group)
-            .flatMap(status -> {
-              if (status.equals("free")) {
-                return processTimeSlot(partition, group);
-              } else {
-                return Mono.empty();
-              }
-            }).subscribe(o -> {}, throwable -> {});
-    }
 
   private Mono<?> processTimeSlot(int partition, String group) {
     return downsampleTrackingService.retrieveDownsampleSets(partition, group)
