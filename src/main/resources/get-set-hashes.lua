@@ -16,6 +16,7 @@ for i=1, #set_hashes do
     if i < limit then
         save_set_hash(set_hashes[i])
     else
+        -- We break at the limit to let others have a chance to run
         break
     end
 end

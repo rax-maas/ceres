@@ -48,8 +48,8 @@ import java.util.stream.IntStream;
 @Profile("downsample")
 public class DownsampleProcessor {
 
-  private final DownsampleProperties downsampleProperties;
-  private final DownsampleTrackingService downsampleTrackingService;
+  private final DownsampleProperties properties;
+  private final DownsampleTrackingService trackingService;
   private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
@@ -57,15 +57,15 @@ public class DownsampleProcessor {
   private final ScheduledExecutorService executor;
 
   @Autowired
-  public DownsampleProcessor(DownsampleProperties downsampleProperties,
-                             DownsampleTrackingService downsampleTrackingService,
+  public DownsampleProcessor(DownsampleProperties properties,
+                             DownsampleTrackingService trackingService,
                              SeriesSetService seriesSetService,
                              QueryService queryService,
                              DataWriteService dataWriteService,
                              MeterRegistry meterRegistry,
                              ScheduledExecutorService executor) {
-    this.downsampleProperties = downsampleProperties;
-    this.downsampleTrackingService = downsampleTrackingService;
+    this.properties = properties;
+    this.trackingService = trackingService;
     this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
@@ -75,19 +75,20 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    if (downsampleProperties.getGranularities() == null ||
-        downsampleProperties.getGranularities().isEmpty()) {
+    if (properties.getGranularities() == null ||
+        properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
     
-    long oldTimeslotCleanInterval = downsampleProperties.getOldTimeslotCleanInterval().getSeconds();
+    long oldTimeslotCleanInterval = properties.getOldTimeslotCleanInterval().getSeconds();
     log.info("old-timeslot-clean-interval: {}", oldTimeslotCleanInterval);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
-            downsampleProperties.getInitialProcessingDelay().getSeconds(),
+            properties.getInitialProcessingDelay().getSeconds(),
             oldTimeslotCleanInterval, TimeUnit.SECONDS);
-    executor.schedule(this::initializeJobs, 1, TimeUnit.SECONDS);
+    executor.schedule(this::initializeJobs,
+            properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
   @PreDestroy
@@ -97,30 +98,29 @@ public class DownsampleProcessor {
 
   private void initializeRedisJobs() {
     log.info("Initialize redis jobs...");
-    DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
-            .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
+    DateTimeUtils.getPartitionWidths(properties.getGranularities())
+            .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
                     .forEach((partition) -> initRedisJob(partition, width)
     ));
   }
 
   private void initializeJobs() {
     log.info("Initialize downsampling jobs...");
-    long processPeriodSecs = downsampleProperties.getDownsampleProcessPeriod().getSeconds();
-    long spreadPeriodSecs = downsampleProperties.getDownsampleSpreadPeriod().getSeconds();
-    int setHashesProcessLimit = downsampleProperties.getSetHashesProcessLimit();
+    long spreadPeriodSecs = properties.getDownsampleSpreadPeriod().getSeconds();
+    int setHashesProcessLimit = properties.getSetHashesProcessLimit();
 
     log.info("downsample-spread-period: {}", spreadPeriodSecs);
     log.info("set-hashes-process-limit: {}", setHashesProcessLimit);
 
-    DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities())
-            .forEach(width -> IntStream.rangeClosed(0, downsampleProperties.getPartitions() - 1)
+    DateTimeUtils.getPartitionWidths(properties.getGranularities())
+            .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
                     .forEach((partition) -> executor.schedule(
                             () -> processJob(partition, width),
-                            downsampleProperties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS)));
+                            new Random().nextInt((int) spreadPeriodSecs), TimeUnit.SECONDS)));
   }
 
   private void processJob(int partition, String partitionWidth) {
-    downsampleTrackingService.checkPartitionJob(partition, partitionWidth)
+    trackingService.checkPartitionJob(partition, partitionWidth)
             .flatMap(status -> {
               if (status.equals("free")) {
                 return processTimeSlot(partition, partitionWidth);
@@ -128,17 +128,16 @@ public class DownsampleProcessor {
                 return Mono.empty();
               }
             }).subscribe(o -> {}, throwable -> {});
-    int delay = new Random().nextInt((int) downsampleProperties.getDownsampleSpreadPeriod().getSeconds());
-//    log.info("Scheduling job for: {} {} {}", partition, partitionWidth, delay);
+    int delay = new Random().nextInt((int) properties.getDownsampleSpreadPeriod().getSeconds());
     executor.schedule(() -> processJob(partition, partitionWidth), delay, TimeUnit.SECONDS);
   }
 
   private void initRedisJob(int partition, String group) {
-    downsampleTrackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
+    trackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
   }
 
   private void checkOldTimeSlots() {
-    downsampleTrackingService.checkOldTimeSlots()
+    trackingService.checkOldTimeSlots()
             .flatMap(result -> {
               log.info("Check old time slots result: {}", result);
               return Mono.empty();
@@ -147,9 +146,9 @@ public class DownsampleProcessor {
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
-    return downsampleTrackingService.retrieveDownsampleSets(partition, group)
+    return trackingService.retrieveDownsampleSets(partition, group)
             .flatMap(downsampleSet ->  processDownsampleSet(downsampleSet, partition, group))
-                    .then(downsampleTrackingService.initJob(partition, group));
+                    .then(trackingService.initJob(partition, group));
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
@@ -166,7 +165,7 @@ public class DownsampleProcessor {
     );
 
     List<Granularity> granularities =
-            DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities());
+            DateTimeUtils.filterGroupGranularities(group, properties.getGranularities());
 
     return
         downsampleData(data,
@@ -177,7 +176,7 @@ public class DownsampleProcessor {
             .name("downsample.set")
             .metrics()
             .then(
-                downsampleTrackingService.complete(pendingDownsampleSet, partition, group)
+                trackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
                     log.debug("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
