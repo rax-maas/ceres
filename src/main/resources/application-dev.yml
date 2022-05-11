@@ -25,7 +25,7 @@ ceres:
     processing-threads: 5
     downsample-process-period: 5s
     downsample-spread-period: 10s
-    set-hashes-process-limit: 2
+    set-hashes-process-limit: 5
     max-downsampling-time: 10m
     old-timeslot-clean-interval: 20m
   tag-filter: truncate

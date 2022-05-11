@@ -6,6 +6,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.redis.core.script.RedisScript;
 
+import java.util.List;
+
 @Configuration
 public class RedisConfig {
   @Bean
@@ -15,9 +17,9 @@ public class RedisConfig {
   }
 
   @Bean
-  public RedisScript<String> redisGetSetHashes() {
+  public RedisScript<List> redisGetSetHashes() {
     Resource scriptSource = new ClassPathResource("get-set-hashes.lua");
-    return RedisScript.of(scriptSource, String.class);
+    return RedisScript.of(scriptSource, List.class);
   }
 
   @Bean

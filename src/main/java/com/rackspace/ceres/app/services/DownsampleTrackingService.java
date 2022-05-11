@@ -49,7 +49,7 @@ public class DownsampleTrackingService {
   private final RedisScript<String> redisGetJob;
   private final RedisScript<String> redisCheckOldTimeSlots;
   private final RedisScript<String> redisRemoveSeriesSetHash;
-  private final RedisScript<String> redisGetSetHashes;
+  private final RedisScript<List> redisGetSetHashes;
   private final DownsampleProperties properties;
   private final HashService hashService;
 
@@ -59,7 +59,7 @@ public class DownsampleTrackingService {
                                    RedisScript<String> redisGetJob,
                                    RedisScript<String> redisCheckOldTimeSlots,
                                    RedisScript<String> redisRemoveSeriesSetHash,
-                                   RedisScript<String> redisGetSetHashes,
+                                   RedisScript<List> redisGetSetHashes,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
@@ -85,7 +85,7 @@ public class DownsampleTrackingService {
     return redisTemplate.execute(
             this.redisGetSetHashes,
             List.of(), List.of(partition.toString(), group, timeslot, setHashesProcessLimit.toString())
-    );
+    ).flatMapIterable(list -> list);
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
