@@ -88,11 +88,6 @@ public class DownsampleTrackingService {
     );
   }
 
-  public List<String> junk(String list) {
-    log.info("list: {}", list);
-    return List.of(list.split("|"));
-  }
-
   public Flux<String> checkPartitionJob(Integer partition, String group) {
     String hostName = System.getenv("HOSTNAME");
     final String now = Long.toString(Instant.now().getEpochSecond());
