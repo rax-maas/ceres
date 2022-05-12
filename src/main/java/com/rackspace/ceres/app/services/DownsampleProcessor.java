@@ -81,7 +81,7 @@ public class DownsampleProcessor {
     }
     
     long oldTimeslotCleanInterval = properties.getOldTimeslotCleanInterval().getSeconds();
-    log.info("old-timeslot-clean-interval: {}", oldTimeslotCleanInterval);
+    log.info("old-timeslot-clean-interval: {}", properties.getOldTimeslotCleanInterval().getSeconds());
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.scheduleAtFixedRate(this::checkOldTimeSlots,
@@ -97,7 +97,7 @@ public class DownsampleProcessor {
   }
 
   private void initializeRedisJobs() {
-    log.info("Initialize redis jobs...");
+    log.info("Initialize redis jobs");
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
                     .forEach((partition) -> initRedisJob(partition, width)
@@ -105,12 +105,10 @@ public class DownsampleProcessor {
   }
 
   private void initializeJobs() {
-    log.info("Initialize downsampling jobs...");
+    log.info("Initialize downsampling jobs");
     long spreadPeriodSecs = properties.getDownsampleSpreadPeriod().getSeconds();
-    int setHashesProcessLimit = properties.getSetHashesProcessLimit();
-
-    log.info("downsample-spread-period: {}", spreadPeriodSecs);
-    log.info("set-hashes-process-limit: {}", setHashesProcessLimit);
+    log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
+    log.info("set-hashes-process-limit: {}", properties.getSetHashesProcessLimit());
 
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)

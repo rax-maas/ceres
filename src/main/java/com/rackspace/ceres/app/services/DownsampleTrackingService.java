@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -49,7 +50,6 @@ public class DownsampleTrackingService {
   private final RedisScript<String> redisGetJob;
   private final RedisScript<String> redisCheckOldTimeSlots;
   private final RedisScript<String> redisRemoveSeriesSetHash;
-  private final RedisScript<List> redisGetSetHashes;
   private final DownsampleProperties properties;
   private final HashService hashService;
 
@@ -59,7 +59,6 @@ public class DownsampleTrackingService {
                                    RedisScript<String> redisGetJob,
                                    RedisScript<String> redisCheckOldTimeSlots,
                                    RedisScript<String> redisRemoveSeriesSetHash,
-                                   RedisScript<List> redisGetSetHashes,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
@@ -67,25 +66,47 @@ public class DownsampleTrackingService {
     this.redisGetJob = redisGetJob;
     this.redisCheckOldTimeSlots = redisCheckOldTimeSlots;
     this.redisRemoveSeriesSetHash = redisRemoveSeriesSetHash;
-    this.redisGetSetHashes = redisGetSetHashes;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
   }
 
+//  public Flux<PendingDownsampleSet> retrieveReadyOnes(int partition) {
+//    return redisTemplate
+//            // scan over pending timeslots
+//            .scan(
+//                    ScanOptions.scanOptions()
+//                            .match(PREFIX_PENDING + DELIM + partition + DELIM + "*")
+//                            .build()
+//            )
+//            // expand each of those
+//            .flatMap(pendingKey ->
+//                    // ...first see if the ingestion key
+//                    redisTemplate.hasKey(
+//                                    PREFIX_INGESTING + pendingKey.substring(PREFIX_PENDING.length())
+//                            )
+//                            // ...has gone idle and been expired away
+//                            .filter(stillIngesting -> !stillIngesting)
+//                            // ...otherwise, expand by popping the downsample sets from that timeslot
+//                            .flatMapMany(ready -> getDownsampleSets(pendingKey, partition, ""))
+//            );
+//  }
+//    return redisTemplate.opsForSet()
+//            .scan(PREFIX_PENDING + DELIM + partition + DELIM + group)
+//            .take(1)
+//            .flatMap(timeslot -> timeslot.equals("") ? Flux.empty() :
+//                            // ...first see if the ingestion key
+//                            redisTemplate.hasKey(encodeKey(PREFIX_INGESTING, partition, group, timeslot))
+//            )
+//            .filter(stillIngesting -> !stillIngesting)
+//            .flatMap(ready -> Flux.fromIterable(List.of(timeslot));
+//  }
+
   public Flux<String> getTimeSlot(Integer partition, String group) {
     final String now = Long.toString(Instant.now().getEpochSecond());
-    final String timeSlotWidth = Long.toString(Duration.parse(group).getSeconds());
+    final String partitionWidth = Long.toString(Duration.parse(group).getSeconds());
     return redisTemplate.execute(
-            this.redisGetTimeSlot, List.of(), List.of(now, timeSlotWidth, partition.toString(), group));
-  }
-
-  public Flux<String> getSetHashes(Integer partition, String group, String timeslot) {
-    Integer setHashesProcessLimit = properties.getSetHashesProcessLimit();
-    return redisTemplate.execute(
-            this.redisGetSetHashes,
-            List.of(), List.of(partition.toString(), group, timeslot, setHashesProcessLimit.toString())
-    ).flatMapIterable(list -> list);
+            this.redisGetTimeSlot, List.of(), List.of(now, partitionWidth, partition.toString(), group));
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
@@ -137,8 +158,13 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
+//    log.info("Downsampling timeslot: {} partition: {} group: {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
-    return getSetHashes(partition, group, timeslot).map(pendingValue -> buildPending(timeslot, pendingValue));
+    long setHashesProcessLimit = properties.getSetHashesProcessLimit();
+    return redisTemplate.opsForSet()
+            .scan(downsamplingTimeslot)
+            .take(setHashesProcessLimit)
+            .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
   public Mono<?> initJob(int partition, String group) {

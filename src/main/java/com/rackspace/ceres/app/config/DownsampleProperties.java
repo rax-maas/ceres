@@ -102,7 +102,7 @@ public class DownsampleProperties {
    * Sets a limit on how many series set hashes that can be processed in on task
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  int setHashesProcessLimit;
+  long setHashesProcessLimit;
 
   /**
    * Target granularities to downsample from raw data.
