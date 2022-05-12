@@ -1,26 +1,14 @@
 package com.rackspace.ceres.app.services;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
-import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -35,8 +23,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 @ActiveProfiles(profiles = {"downsample", "test"})
-@EnableConfigurationProperties(DownsampleProperties.class)
 @SpringBootTest
 @Testcontainers
 public class MetricDeletionServiceTest {
@@ -66,8 +64,6 @@ public class MetricDeletionServiceTest {
   MetricDeletionService metricDeletionService;
   @Autowired
   ReactiveCqlTemplate cqlTemplate;
-  @Autowired
-  DownsampleProperties downsampleProperties;
   @Autowired
   DataWriteService dataWriteService;
   @Autowired

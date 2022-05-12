@@ -27,7 +27,6 @@ import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -47,12 +46,6 @@ public class DownsampleProperties {
   public boolean isTrackingEnabled() {
     return partitions > 0;
   }
-
-  @DurationUnit(ChronoUnit.HOURS)
-  Duration timeSlotMaxWidth = Duration.ofHours(1);
-
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration timeSlotMinWidth = Duration.ofMinutes(30);
 
   /**
    * The amount of time to allow for the lastTouch of pending downsample sets to remain stable.
@@ -98,13 +91,6 @@ public class DownsampleProperties {
    * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
    */
   IntegerSet partitionsToProcess;
-
-  /**
-   * Can be used instead of <code>partitionsToProcess</code> to provide a shared JSON file
-   * that contains a map of hostname to comma separated list of partitions or ranges of partitions.
-   * This property is ignored if <code>partitionsToProcess</code> is configured.
-   */
-  Path partitionsMappingFile;
 
   /**
    * Specifies maximum time a timeslot can be in state downsampling before it will go back to pending state.
