@@ -2,20 +2,20 @@ ceres:
   downsample:
     granularities:
       - width: 5s
-        ttl: 30m
+        ttl: 1h
         partitionWidth: 30s
       - width: 10s
-        ttl: 30m
+        ttl: 1h
         partitionWidth: 30s
       - width: 30s
-        ttl: 30m
+        ttl: 1h
         partitionWidth: 30s
       - width: 1m
         ttl: 1h
         partitionWidth: 2m
-      - width: 2m
+      - width: 5m
         ttl: 1h
-        partitionWidth: 2m
+        partitionWidth: 10m
       - width: 10m
         ttl: 1h
         partitionWidth: 10m
@@ -32,6 +32,7 @@ ceres:
   excluded-tag-keys: ["ip_address"]
   ingest-start-time: 7d
   ingest-end-time: 1d
+  raw-ttl: 1d
 spring:
   data:
     cassandra:
