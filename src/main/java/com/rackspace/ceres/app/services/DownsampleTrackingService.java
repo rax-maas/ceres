@@ -41,7 +41,6 @@ import java.util.List;
 public class DownsampleTrackingService {
 
   private static final String DELIM = "|";
-  private static final String PREFIX_INGESTING = "ingesting";
   private static final String PREFIX_PENDING = "pending";
   private static final String PREFIX_DOWNSAMPLING = "downsampling";
 
@@ -70,13 +69,8 @@ public class DownsampleTrackingService {
     long partitionWidthSeconds = Duration.parse(group).getSeconds();
     return redisTemplate
             .opsForSet().members(PREFIX_PENDING + DELIM + partition + DELIM + group)
-            // first level filter to check if we are with-in down sampled width duration
-            .filter(timeslotEpoch ->
-                    Long.valueOf(timeslotEpoch).longValue() + partitionWidthSeconds < epochNow)
-            // second level filter: if still ingesting for timeslot, ignore down sampling
-//            .filterWhen(timeslotEpoch ->
-//                    redisTemplate.hasKey(encodeKey(PREFIX_INGESTING, partition, group, timeslotEpoch))
-//                            .map(stillIngesting -> !stillIngesting))
+            // check if we are within downsampling width, i.e. if we are due
+            .filter(timeslotEpoch -> Long.valueOf(timeslotEpoch).longValue() + partitionWidthSeconds < epochNow)
             .take(1); // Only one timeslot at a time
   }
 
@@ -126,7 +120,6 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
-//    log.info("Downsampling timeslot: {} partition: {} group: {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     long setHashesProcessLimit = properties.getSetHashesProcessLimit();
     return redisTemplate.opsForSet()

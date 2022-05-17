@@ -130,59 +130,6 @@ class DownsampleTrackingServiceTest {
 //    );
 //  }
 
-//  @Test
-//  void checkPartitionJobsLuaScript() {
-//    String now = isoTimeUtcPlusSeconds(0);
-//    String later = isoTimeUtcPlusSeconds(1);
-//    String next = isoTimeUtcPlusSeconds(5);
-//
-//    setJobValue(1, later);
-//
-//    // now is before later, so it's not time to run yet
-//    downsampleTrackingService.checkPartitionJobs(1, now, next)
-//        .flatMap(result -> {
-//          // Not time to execute job yet
-//          assertThat(result).isFalse();
-//          return Mono.empty();
-//        }).blockFirst();
-//
-//    setJobValue(1, now);
-//
-//    // now is the time to run the job
-//    downsampleTrackingService.checkPartitionJobs(1, now, next)
-//        .flatMap(result -> {
-//          // Time to run job
-//          assertThat(result).isTrue();
-//          return Mono.empty();
-//        }).blockFirst();
-//
-//    setJobValue(1, now);
-//
-//    // now is passed by later so we need to run the job
-//    downsampleTrackingService.checkPartitionJobs(1, later, next)
-//        .flatMap(result -> {
-//          // Time to run job
-//          assertThat(result).isTrue();
-//          return Mono.empty();
-//        }).blockFirst();
-//
-//    // Check that the script set the value to next
-//    downsampleTrackingService.getJobValue(1).flatMap(
-//        result -> {
-//          assertThat(result).isEqualTo(next);
-//          return Mono.empty();
-//        }
-//    ).block();
-//
-//    // ...and that if we compare to next it's time to run the job
-//    downsampleTrackingService.checkPartitionJobs(1, next, next)
-//        .flatMap(result -> {
-//          // Time to run job
-//          assertThat(result).isTrue();
-//          return Mono.empty();
-//        }).blockFirst();
-//  }
-
   @Nested
   class retrieveReadyOnes {
 
