@@ -17,17 +17,16 @@
 package com.rackspace.ceres.app.config;
 
 import com.rackspace.ceres.app.model.TagFilter;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
 
 @ConfigurationProperties("ceres")
 @Component
@@ -56,7 +55,7 @@ public class AppProperties {
   /**
    * The width of time slots used for partitioning data, which can reduce the number
    * of Cassandra files that need to be scanned. It is best to set this to the same
-   * as <code>ceres.downsample.timeSlotMaxWidth</code> or greater to ensure downsampling
+   * as <code>ceres.downsample.timeSlotWidth</code> or greater to ensure downsampling
    * queries only need to consult one partition.
    */
   @NotNull

@@ -209,7 +209,6 @@ public class DownsampleProcessor {
 
     final Granularity granularity = granularities.next();
     final TemporalNormalizer normalizer = new TemporalNormalizer(granularity.getWidth());
-//    log.info("Downsampling width: {}", granularity.getWidth());
 
     final Flux<AggregatedValueSet> aggregated =
         data

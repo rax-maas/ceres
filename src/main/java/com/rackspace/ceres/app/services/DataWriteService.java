@@ -105,6 +105,7 @@ public class DataWriteService {
             .and(storeMetricGroup(tenant, metric))
             .and(storeDeviceData(tenant, metric))
             .then(Mono.just(metric));
+    // TODO: Figure out how to enable recordIngestionLatency
 //            .doOnNext(_metric -> recordIngestionLatency(_metric));
   }
 
