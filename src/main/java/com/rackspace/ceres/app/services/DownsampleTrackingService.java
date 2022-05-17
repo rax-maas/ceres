@@ -46,26 +46,20 @@ public class DownsampleTrackingService {
   private static final String PREFIX_DOWNSAMPLING = "downsampling";
 
   private final ReactiveStringRedisTemplate redisTemplate;
-  private final RedisScript<String> redisGetTimeSlot;
   private final RedisScript<String> redisGetJob;
   private final RedisScript<String> redisCheckOldTimeSlots;
-  private final RedisScript<String> redisRemoveSeriesSetHash;
   private final DownsampleProperties properties;
   private final HashService hashService;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
-                                   RedisScript<String> redisGetTimeSlot,
                                    RedisScript<String> redisGetJob,
                                    RedisScript<String> redisCheckOldTimeSlots,
-                                   RedisScript<String> redisRemoveSeriesSetHash,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
-    this.redisGetTimeSlot = redisGetTimeSlot;
     this.redisGetJob = redisGetJob;
     this.redisCheckOldTimeSlots = redisCheckOldTimeSlots;
-    this.redisRemoveSeriesSetHash = redisRemoveSeriesSetHash;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
@@ -80,9 +74,9 @@ public class DownsampleTrackingService {
             .filter(timeslotEpoch ->
                     Long.valueOf(timeslotEpoch).longValue() + partitionWidthSeconds < epochNow)
             // second level filter: if still ingesting for timeslot, ignore down sampling
-            .filterWhen(timeslotEpoch ->
-                    redisTemplate.hasKey(encodeKey(PREFIX_INGESTING, partition, group, timeslotEpoch))
-                            .map(stillIngesting -> !stillIngesting))
+//            .filterWhen(timeslotEpoch ->
+//                    redisTemplate.hasKey(encodeKey(PREFIX_INGESTING, partition, group, timeslotEpoch))
+//                            .map(stillIngesting -> !stillIngesting))
             .take(1); // Only one timeslot at a time
   }
 
@@ -119,12 +113,9 @@ public class DownsampleTrackingService {
               final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
               final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
               final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, width);
-              final String ingestingKey = encodeKey(PREFIX_INGESTING, partition, width, timeslot);
-              return redisTemplate.opsForValue()
-                      .set(ingestingKey, "", properties.getLastTouchDelay())
-                      .and(redisTemplate.opsForSet()
+              return redisTemplate.opsForSet()
                               .add(PREFIX_PENDING + DELIM + partition + DELIM + width, timeslot)
-                              .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue)));
+                              .and(redisTemplate.opsForSet().add(downsamplingTimeslot, pendingValue));
             }
     );
   }
