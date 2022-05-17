@@ -48,14 +48,6 @@ public class DownsampleProperties {
   }
 
   /**
-   * The amount of time to allow for the lastTouch of pending downsample sets to remain stable.
-   * This is mainly useful for handling backfilled data where this delay ensures that all metrics
-   * have likely been ingested for the slot.
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration lastTouchDelay = Duration.ofMinutes(5);
-
-  /**
    * The amount of time to wait after startup before the downsample processing starts.
    * Each partition is staggered by up to an additional 50% of this duration.
    */
