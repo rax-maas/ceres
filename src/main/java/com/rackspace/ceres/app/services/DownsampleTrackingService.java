@@ -103,10 +103,17 @@ public class DownsampleTrackingService {
 //  }
 
   public Flux<String> getTimeSlot(Integer partition, String group) {
-    final String now = Long.toString(Instant.now().getEpochSecond());
-    final String partitionWidth = Long.toString(Duration.parse(group).getSeconds());
-    return redisTemplate.execute(
-            this.redisGetTimeSlot, List.of(), List.of(now, partitionWidth, partition.toString(), group));
+    long epochNow = Instant.now().getEpochSecond();
+    long partitionWidthSeconds = Duration.parse(group).getSeconds();
+    return redisTemplate
+            .opsForSet().members(PREFIX_PENDING + DELIM + partition + DELIM + group)
+            // first level filter to check if we are with-in down sampled width duration
+            .filter(timeslotEpoch ->
+                    Long.valueOf(timeslotEpoch).longValue() + partitionWidthSeconds < epochNow)
+            // second level filter: if still ingesting for timeslot, ignore down sampling
+            .filterWhen(timeslotEpoch ->
+                    redisTemplate.hasKey(encodeKey(PREFIX_INGESTING, partition, group, timeslotEpoch)).map(stillIngesting -> !stillIngesting))
+            .take(1);
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
@@ -175,8 +182,15 @@ public class DownsampleTrackingService {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return redisTemplate.execute(
-            this.redisRemoveSeriesSetHash, List.of(), List.of(timeslot, partition.toString(), group, value)).next();
+    return redisTemplate.
+            opsForSet()
+            .remove(downsamplingTimeslot, value)
+            .then(
+                    redisTemplate
+                            .opsForSet()
+                            .size(downsamplingTimeslot)
+                            .flatMap(size -> size == 0 ? redisTemplate.opsForSet().remove(encodePendingGroup(partition,group), timeslot) : Mono.just(true))
+            );
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
@@ -189,6 +203,10 @@ public class DownsampleTrackingService {
 
   private static String encodeDownsamplingTimeslot(String timeslot, int partition, String group) {
     return PREFIX_DOWNSAMPLING + DELIM + partition + DELIM + group + DELIM + timeslot;
+  }
+
+  private static String encodePendingGroup(int partition, String group) {
+    return PREFIX_PENDING + DELIM + partition + DELIM + group;
   }
 
   private static PendingDownsampleSet buildPending(String timeslot, String pendingValue) {
