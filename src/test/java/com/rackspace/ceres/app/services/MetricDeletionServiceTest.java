@@ -524,8 +524,7 @@ public class MetricDeletionServiceTest {
         Flux.just(
             singleValue(currentTime.toString(), value.doubleValue())
         ), tenantId, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator(),
-        false
+        List.of(granularity(1, 12), granularity(2, 24)).iterator()
     ).block();
 
     //delete its entry from data raw table

@@ -12,10 +12,10 @@ ceres:
         partitionWidth: 30s
       - width: 1m
         ttl: 1h
-        partitionWidth: 2m
+        partitionWidth: 1m
       - width: 5m
         ttl: 1h
-        partitionWidth: 10m
+        partitionWidth: 5m
       - width: 10m
         ttl: 1h
         partitionWidth: 10m

@@ -16,15 +16,16 @@
 
 package com.rackspace.ceres.app.downsample;
 
-import java.time.Duration;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.time.Duration;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class AggregatedValueSet extends ValueSet {
   double min = Double.MAX_VALUE;
-  double max = Double.MIN_VALUE;
+  double max = -Double.MAX_VALUE;
   double sum;
   double count;
   double average = Double.NaN;
