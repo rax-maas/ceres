@@ -16,15 +16,15 @@ ceres:
       - width: 5m
         ttl: 1h
         partitionWidth: 5m
-      - width: 10m
+      - width: 15m
         ttl: 1h
-        partitionWidth: 10m
+        partitionWidth: 15m
     partitions: 4
     initial-processing-delay: 5s
     processing-threads: 5
     downsample-spread-period: 15s
     set-hashes-process-limit: 5
-    max-downsampling-time: 10m
+    max-downsampling-time: 15m
     old-timeslot-clean-interval: 20m
   tag-filter: truncate
   tag-value-limit: 50
