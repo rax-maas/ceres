@@ -55,9 +55,6 @@ public class DataWriteService {
   private final AppProperties appProperties;
   private final Counter dbOperationErrorsCounter;
 
-  private final Timer.Builder latencyTimerBuilder;
-  private final MeterRegistry meterRegistry;
-
   @Autowired
   public DataWriteService(ReactiveCqlTemplate cqlTemplate,
                           SeriesSetService seriesSetService,
@@ -75,9 +72,6 @@ public class DataWriteService {
     this.appProperties = appProperties;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "write");
-
-    this.meterRegistry = meterRegistry;
-    this.latencyTimerBuilder = Timer.builder("ingest.latency");
   }
 
   public Flux<Metric> ingest(Flux<Tuple2<String, Metric>> metrics) {
@@ -105,21 +99,6 @@ public class DataWriteService {
             .and(storeMetricGroup(tenant, metric))
             .and(storeDeviceData(tenant, metric))
             .then(Mono.just(metric));
-    // TODO: Figure out how to enable recordIngestionLatency
-//            .doOnNext(_metric -> recordIngestionLatency(_metric));
-  }
-
-  private void recordIngestionLatency(Metric metric) {
-    if(metric.getTags().containsKey("monitoring_system")) {
-      latencyTimerBuilder.tag("sensor_name", metric.getTags().get("monitoring_system"))
-          .register(meterRegistry)
-          .record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(),
-              TimeUnit.SECONDS);
-    } else  {
-      latencyTimerBuilder.register(meterRegistry)
-          .record(Duration.between(metric.getTimestamp(), Instant.now()).getSeconds(),
-              TimeUnit.SECONDS);
-    }
   }
 
   private void cleanTags(Map<String, String> tags) {

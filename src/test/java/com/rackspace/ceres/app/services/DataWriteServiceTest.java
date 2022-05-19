@@ -155,9 +155,6 @@ class DataWriteServiceTest {
 //          tenantId, resource, metric.getMetric(), metric.getTimestamp().toString());
 //
 //      verifyNoMoreInteractions(metadataService, downsampleTrackingService);
-//      Timer timer = meterRegistry.get("ingest.latency").timer();
-//      assertThat(timer.count()).isGreaterThanOrEqualTo(1L);
-//      assertThat(timer.getId().getTag("sensor_name")).isEqualTo(monitoring_system);
 //    }
 
 //    @Test
@@ -227,7 +224,6 @@ class DataWriteServiceTest {
 //      verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 //
 //      verifyNoMoreInteractions(metadataService, downsampleTrackingService);
-//      assertThat(meterRegistry.get("ingest.latency").timer().count()).isGreaterThanOrEqualTo(2);
 //    }
 
     @Test
