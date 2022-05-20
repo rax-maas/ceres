@@ -20,29 +20,33 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.model.TagFilter;
+import com.rackspace.ceres.app.model.ValidationErrorDTO;
 import com.rackspace.ceres.app.services.DataWriteService;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 import springfox.documentation.annotations.ApiIgnore;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -53,11 +57,39 @@ public class WriteController {
 
   private final DataWriteService dataWriteService;
   private final AppProperties appProperties;
+  private final MessageSource messageSource;
 
   @Autowired
-  public WriteController(DataWriteService dataWriteService, AppProperties appProperties) {
+  public WriteController(DataWriteService dataWriteService, AppProperties appProperties, MessageSource messageSource) {
     this.dataWriteService = dataWriteService;
     this.appProperties = appProperties;
+    this.messageSource = messageSource;
+  }
+
+  @ExceptionHandler(WebExchangeBindException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  @ResponseBody
+  public ValidationErrorDTO processValidationError(WebExchangeBindException ex) {
+    BindingResult result = ex.getBindingResult();
+    List<FieldError> fieldErrors = result.getFieldErrors();
+
+    return processFieldErrors(fieldErrors);
+  }
+
+  private ValidationErrorDTO processFieldErrors(List<FieldError> fieldErrors) {
+    ValidationErrorDTO dto = new ValidationErrorDTO();
+
+    for (FieldError fieldError: fieldErrors) {
+      String localizedErrorMessage = resolveLocalizedErrorMessage(fieldError);
+      dto.addFieldError(fieldError.getField(), localizedErrorMessage);
+    }
+
+    return dto;
+  }
+
+  private String resolveLocalizedErrorMessage(FieldError fieldError) {
+    Locale currentLocale =  LocaleContextHolder.getLocale();
+    return messageSource.getMessage(fieldError, currentLocale);
   }
 
   /**
