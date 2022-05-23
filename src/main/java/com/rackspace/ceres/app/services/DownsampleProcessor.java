@@ -76,14 +76,8 @@ public class DownsampleProcessor {
         properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-    
-    long oldTimeslotCleanInterval = properties.getOldTimeslotCleanInterval().getSeconds();
-    log.info("old-timeslot-clean-interval: {}", oldTimeslotCleanInterval);
 
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
-    executor.scheduleAtFixedRate(this::checkOldTimeSlots,
-            properties.getInitialProcessingDelay().getSeconds(),
-            oldTimeslotCleanInterval, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
@@ -93,7 +87,7 @@ public class DownsampleProcessor {
   }
 
   private void initializeRedisJobs() {
-    log.info("Initialize redis jobs");
+    log.info("Reset redis jobs");
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
                     .forEach((partition) -> initRedisJob(partition, width)
@@ -101,7 +95,7 @@ public class DownsampleProcessor {
   }
 
   private void initializeJobs() {
-    log.info("Initialize downsampling jobs");
+    log.info("Start downsampling jobs");
     long spreadPeriodSecs = properties.getDownsampleSpreadPeriod().getSeconds();
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("set-hashes-process-limit: {}", properties.getSetHashesProcessLimit());
@@ -128,15 +122,6 @@ public class DownsampleProcessor {
 
   private void initRedisJob(int partition, String group) {
     trackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
-  }
-
-  private void checkOldTimeSlots() {
-    trackingService.checkOldTimeSlots()
-            .flatMap(result -> {
-              log.info("Check old time slots result: {}", result);
-              return Mono.empty();
-            })
-            .subscribe(o -> {}, throwable -> {});
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {

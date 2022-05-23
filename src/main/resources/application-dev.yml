@@ -24,8 +24,6 @@ ceres:
     processing-threads: 5
     downsample-spread-period: 15s
     set-hashes-process-limit: 5
-    max-downsampling-time: 15m
-    old-timeslot-clean-interval: 20m
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]

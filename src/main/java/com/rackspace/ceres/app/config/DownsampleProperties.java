@@ -49,7 +49,6 @@ public class DownsampleProperties {
 
   /**
    * The amount of time to wait after startup before the downsample processing starts.
-   * Each partition is staggered by up to an additional 50% of this duration.
    */
   @DurationUnit(ChronoUnit.MINUTES)
   Duration initialProcessingDelay = Duration.ofSeconds(5);
@@ -72,23 +71,6 @@ public class DownsampleProperties {
    */
   @DurationUnit(ChronoUnit.MINUTES)
   Duration downsampleSpreadPeriod = Duration.ofMinutes(1);
-
-  /**
-   * Specifies how long between checks for old orphaned timeslots in state downsampling
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration oldTimeslotCleanInterval = Duration.ofHours(6);
-
-  /**
-   * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
-   */
-  IntegerSet partitionsToProcess;
-
-  /**
-   * Specifies maximum time a timeslot can be in state downsampling before it will go back to pending state.
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration maxDownsamplingTime = Duration.ofMinutes(1);
 
   /**
    * Sets a limit on how many series set hashes that can be processed in on task

@@ -100,12 +100,6 @@ class DownsampleProcessorTest {
   ArgumentCaptor<Flux<DataDownsampled>> dataDownsampledCaptor;
 
   @Test
-  void partitionsToProcessConfig() {
-    assertThat(downsampleProperties.getPartitionsToProcess())
-        .containsExactly(0, 1,3,4,5);
-  }
-
-  @Test
   void aggregateSomeRawData() {
     when(dataWriteService.storeDownsampledData(any()))
         .thenReturn(Mono.empty());
