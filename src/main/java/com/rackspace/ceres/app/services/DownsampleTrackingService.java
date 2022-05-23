@@ -25,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -46,19 +45,16 @@ public class DownsampleTrackingService {
 
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
-  private final RedisScript<String> redisCheckOldTimeSlots;
   private final DownsampleProperties properties;
   private final HashService hashService;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<String> redisGetJob,
-                                   RedisScript<String> redisCheckOldTimeSlots,
                                    DownsampleProperties properties,
                                    HashService hashService) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
-    this.redisCheckOldTimeSlots = redisCheckOldTimeSlots;
     this.properties = properties;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
@@ -83,14 +79,24 @@ public class DownsampleTrackingService {
             List.of(partition.toString(), group, hostName == null ? "localhost" : hostName, now));
   }
 
-  public Flux<String> checkOldTimeSlots() {
-    final String now = Long.toString(Instant.now().getEpochSecond());
-    final String partitionWidths = String.join("|", DateTimeUtils.getPartitionWidths(properties.getGranularities()));
-    final Integer partitions = properties.getPartitions() - 1;
-    final Long maxDownsamplingTime = properties.getMaxDownsamplingTime().getSeconds();
-    return redisTemplate.execute(
-            this.redisCheckOldTimeSlots, List.of(), List.of(
-                    now, partitionWidths, partitions.toString(), maxDownsamplingTime.toString()));
+  /*
+    Logs downsampling jobs still running beyond max allowed time
+   */
+  public Mono<List<String>> checkOldTimeSlots() {
+    long nowEpoch = Instant.now().getEpochSecond();
+    long maxDownsamplingTime = properties.getMaxDownsamplingTime().getSeconds();
+    return redisTemplate.keys(PREFIX_DOWNSAMPLING + "|*").flatMap(key -> {
+              String tokens[] = key.split("\\|");
+              if (tokens.length != 4) {
+                return Mono.empty();
+              }
+              long downsampleSlotEpoch = Long.valueOf(tokens[tokens.length - 1]);
+              if (downsampleSlotEpoch + maxDownsamplingTime < nowEpoch) {
+                return Mono.just(String.format("partition: %s group: %s epoch: %s", tokens[1], tokens[2], tokens[3]));
+              }
+              return Mono.empty();
+            })
+            .switchIfEmpty(Mono.just("ok")).collectList();
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
