@@ -61,10 +61,10 @@ public class DownsampleProperties {
   int processingThreads = Runtime.getRuntime().availableProcessors();
 
   /**
-   * Specifies how often pending downsample sets will be retrieved and processed.
+   * Max time a downsampling job can be locked
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  Duration downsampleProcessPeriod = Duration.ofMinutes(1);
+  Duration maxDownsampleJobDuration = Duration.ofMinutes(1);
 
   /**
    * Specifies how wide in time the jobs will be spread out

@@ -73,11 +73,16 @@ public class DownsampleTrackingService {
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
     String hostName = System.getenv("HOSTNAME");
-    final String now = Long.toString(Instant.now().getEpochSecond());
+    Long now = Instant.now().getEpochSecond();
+    Long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
     return redisTemplate.execute(
             this.redisGetJob,
             List.of(),
-            List.of(partition.toString(), group, hostName == null ? "localhost" : hostName, now));
+            List.of(partition.toString(),
+                    group,
+                    hostName == null ? "localhost" : hostName,
+                    now.toString(),
+                    maxJobDuration.toString()));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {

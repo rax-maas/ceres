@@ -2,6 +2,7 @@ local partition = ARGV[1]
 local group = ARGV[2]
 local pod_name = ARGV[3]
 local now = ARGV[4]
+local max_duration = ARGV[5]
 
 local job_key = 'job|'.. partition .. '|' .. group
 
@@ -22,7 +23,7 @@ end
 local function is_max_lock_time_exceeded(status)
     local token_list = split(status, '|')
     local timestamp = token_list[#token_list]
-    local timestamp_plus_max_lock_time = tonumber(timestamp) + 600 -- Job can't be locked for more than 10 minutes
+    local timestamp_plus_max_lock_time = tonumber(timestamp) + tonumber(max_duration)
 
     if timestamp_plus_max_lock_time < tonumber(now) then
         return "true"
