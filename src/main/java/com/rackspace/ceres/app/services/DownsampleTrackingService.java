@@ -131,6 +131,15 @@ public class DownsampleTrackingService {
     return redisTemplate.opsForValue().set("set-hashes-process-limit", processLimit.toString());
   }
 
+  public Mono<?> setRedisSpreadPeriod() {
+    Long spreadPeriod = properties.getDownsampleSpreadPeriod().getSeconds();
+    return redisTemplate.opsForValue().set("downsample-spread-period", spreadPeriod.toString());
+  }
+
+  public Mono<?> getRedisSpreadPeriod() {
+    return redisTemplate.opsForValue().get("downsample-spread-period");
+  }
+
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);

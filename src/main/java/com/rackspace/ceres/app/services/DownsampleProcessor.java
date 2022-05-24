@@ -78,6 +78,7 @@ public class DownsampleProcessor {
     }
 
     executor.schedule(this::setHashesProcessLimit, 1, TimeUnit.SECONDS);
+    executor.schedule(this::setSpreadPeriod, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
@@ -114,15 +115,16 @@ public class DownsampleProcessor {
 
   private void processJob(int partition, String partitionWidth) {
     trackingService.checkPartitionJob(partition, partitionWidth)
-            .flatMap(status -> {
-              if (status.equals("free")) {
-                return processTimeSlot(partition, partitionWidth);
-              } else {
-                return Mono.empty();
-              }
-            }).subscribe(o -> {}, throwable -> {});
-    int delay = new Random().nextInt((int) properties.getDownsampleSpreadPeriod().getSeconds());
-    executor.schedule(() -> processJob(partition, partitionWidth), delay, TimeUnit.SECONDS);
+            .flatMap(status -> status.equals("free") ? processTimeSlot(partition, partitionWidth) : Mono.empty())
+            .then(
+                    trackingService.getRedisSpreadPeriod().flatMap(
+                            period -> {
+                              executor.schedule(() ->
+                                      processJob(partition, partitionWidth),
+                                      new Random().nextInt(Integer.parseInt((String) period)), TimeUnit.SECONDS);
+                              return Mono.empty();
+                            })
+            ).subscribe(o -> {}, throwable -> {});
   }
 
   private void initRedisJob(int partition, String group) {
@@ -131,6 +133,10 @@ public class DownsampleProcessor {
 
   private void setHashesProcessLimit() {
     trackingService.setRedisSetHashesProcessLimit().subscribe(o -> {}, throwable -> {});
+  }
+
+  private void setSpreadPeriod() {
+    trackingService.setRedisSpreadPeriod().subscribe(o -> {}, throwable -> {});
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
