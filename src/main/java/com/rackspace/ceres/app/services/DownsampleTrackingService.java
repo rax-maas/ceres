@@ -113,15 +113,22 @@ public class DownsampleTrackingService {
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
-    long setHashesProcessLimit = properties.getSetHashesProcessLimit();
-    return redisTemplate.opsForSet()
-            .scan(downsamplingTimeslot)
-            .take(setHashesProcessLimit)
-            .map(pendingValue -> buildPending(timeslot, pendingValue));
+    return redisTemplate.opsForValue().get("set-hashes-process-limit").flatMapMany(
+            processLimit -> {
+              return redisTemplate.opsForSet()
+                      .scan(downsamplingTimeslot)
+                      .take(Long.parseLong(processLimit))
+                      .map(pendingValue -> buildPending(timeslot, pendingValue));
+            });
   }
 
   public Mono<?> initJob(int partition, String group) {
     return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
+  }
+
+  public Mono<?> setRedisSetHashesProcessLimit() {
+    Long processLimit = properties.getSetHashesProcessLimit();
+    return redisTemplate.opsForValue().set("set-hashes-process-limit", processLimit.toString());
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {

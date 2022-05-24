@@ -21,10 +21,10 @@ ceres:
         partitionWidth: 15m
     partitions: 4
     initial-processing-delay: 5s
-    max-downsample-job-duration: 30s
+    max-downsample-job-duration: 10m
     processing-threads: 5
     downsample-spread-period: 15s
-    set-hashes-process-limit: 5
+    set-hashes-process-limit: 100
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]
