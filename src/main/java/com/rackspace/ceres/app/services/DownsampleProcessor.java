@@ -77,6 +77,8 @@ public class DownsampleProcessor {
       throw new IllegalStateException("Granularities are not configured!");
     }
 
+    executor.schedule(this::setHashesProcessLimit, 1, TimeUnit.SECONDS);
+    executor.schedule(this::setSpreadPeriod, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
@@ -129,6 +131,14 @@ public class DownsampleProcessor {
 
   private void initRedisJob(int partition, String group) {
     trackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
+  }
+
+  private void setHashesProcessLimit() {
+    trackingService.setRedisSetHashesProcessLimit().subscribe(o -> {}, throwable -> {});
+  }
+
+  private void setSpreadPeriod() {
+    trackingService.setRedisSpreadPeriod().subscribe(o -> {}, throwable -> {});
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
