@@ -16,22 +16,11 @@
 
 package com.rackspace.ceres.app.services;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.model.Metric;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
@@ -55,6 +44,15 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -162,9 +160,6 @@ class DataWriteServiceTest {
           tenantId, resource, metric.getMetric(), metric.getTimestamp().toString());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
-      Timer timer = meterRegistry.get("ingest.latency").timer();
-      assertThat(timer.count()).isGreaterThanOrEqualTo(1L);
-      assertThat(timer.getId().getTag("sensor_name")).isEqualTo(monitoring_system);
     }
 
     @Test
@@ -234,7 +229,6 @@ class DataWriteServiceTest {
       verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
       verifyNoMoreInteractions(metadataService, downsampleTrackingService);
-      assertThat(meterRegistry.get("ingest.latency").timer().count()).isGreaterThanOrEqualTo(2);
     }
 
     @Test
