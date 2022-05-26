@@ -41,7 +41,6 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
