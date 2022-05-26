@@ -7,18 +7,40 @@ data:
     ceres:
       downsample:
         granularities:
+          - width: 1m
+            ttl: 14d
+            partitionWidth: 15m
           - width: 5m
+            ttl: 14d
+            partitionWidth: 15m
+          - width: 15m
+            ttl: 14d
+            partitionWidth: 30m
+          - width: 30m
             ttl: 14d
             partitionWidth: 30m
           - width: 1h
-            ttl: 365d
+            ttl: 30d
             partitionWidth: 1h
+          - width: 6h
+            ttl: 30d
+            partitionWidth: 6h
+          - width: 12h
+            ttl: 365d
+            partitionWidth: 12h
         partitions: 128
-        last-touch-delay: 5s
+        initial-processing-delay: 1m
+        max-downsample-job-duration: 1m
+        downsample-spread-period: 60s # the partition jobs will be spread out over this period in a uniform distribution
+        set-hashes-process-limit: 200 # max number of set hashes that can be processed in one task
         processing-threads: 5
       raw-ttl: 2d
       series-set-cache-size: 2000000
       tenant-tag: tenant
+    spring:
+      data:
+        cassandra:
+          keyspace-name: ceres
     logging:
       level:
         com.rackspace.ceres.app: debug
