@@ -4,7 +4,7 @@ local pod_name = ARGV[3]
 local now = ARGV[4]
 local max_duration = ARGV[5]
 
-local job_key = 'job|'.. partition .. '|' .. group
+local job_key = 'job|{1234}|'.. partition .. '|' .. group
 
 local log_list = {}
 

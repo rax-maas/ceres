@@ -114,7 +114,7 @@ public class DownsampleProcessor {
   }
 
   private void processJob(int partition, String partitionWidth) {
-//    log.info("processJob {} {}", partition, partitionWidth);
+    log.info("processJob {} {}", partition, partitionWidth);
     trackingService.checkPartitionJob(partition, partitionWidth)
             .flatMap(status -> status.equals("free") ? processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
@@ -142,6 +142,7 @@ public class DownsampleProcessor {
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
+    log.info("processTimeSlot {} {}", partition, group);
     return trackingService.retrieveDownsampleSets(partition, group)
             .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
                     .then(trackingService.initJob(partition, group));

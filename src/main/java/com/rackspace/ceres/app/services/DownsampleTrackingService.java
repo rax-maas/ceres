@@ -125,7 +125,7 @@ public class DownsampleTrackingService {
 
   public Mono<?> initJob(int partition, String group) {
 //    log.info("initJob {} {}", partition, group);
-    return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
+    return redisTemplate.opsForValue().set("job|{1234}|" + partition + "|" + group, "free");
   }
 
   public Mono<?> setRedisSetHashesProcessLimit() {
