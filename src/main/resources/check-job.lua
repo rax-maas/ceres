@@ -33,6 +33,7 @@ local function is_max_lock_time_exceeded(status)
 end
 
 local function claim_job()
+    redis.replicate_commands()
     return redis.call('set', job_key, pod_name .. '|' .. now)
 end
 
