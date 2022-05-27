@@ -25,17 +25,17 @@ import com.rackspace.ceres.app.services.DataTablesStatements;
 import com.rackspace.ceres.app.services.TimeSlotPartitioner;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Instant;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
+
 @Component
 public class MetricDeletionHelper {
 
-  private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
   private static final String DELIM = "|";
   private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
       + "AND metric_name = ?";
@@ -57,7 +57,7 @@ public class MetricDeletionHelper {
   private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
   private final String DELETE_ALL_TAGS_DATA_QUERY = "DELETE FROM tags_data WHERE tenant = ? AND type IN ('TAGK', 'TAGV')";
 
-  private AppProperties appProperties;
+  private final AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final ReactiveCqlTemplate cqlTemplate;
@@ -165,24 +165,15 @@ public class MetricDeletionHelper {
   }
 
   /**
-   * Remove entry from local cache as well as redis
+   * Remove entry from local cache
    *
    * @param tenant        the tenant
    * @param seriesSetHash the series set hash
    * @return the mono
    */
   public Mono<Boolean> removeEntryFromCache(String tenant, String seriesSetHash) {
-    seriesSetExistenceCache.synchronous()
-        .invalidate(new SeriesSetCacheKey(tenant, seriesSetHash));
-
-    return redisTemplate.delete(PREFIX_SERIES_SET_HASHES + DELIM + tenant + DELIM + seriesSetHash)
-        .flatMap(result -> {
-          if (result > 0) {
-            return Mono.just(true);
-          } else {
-            return Mono.just(false);
-          }
-        });
+    seriesSetExistenceCache.synchronous().invalidate(new SeriesSetCacheKey(tenant, seriesSetHash));
+    return Mono.just(true);
   }
 
   /**
