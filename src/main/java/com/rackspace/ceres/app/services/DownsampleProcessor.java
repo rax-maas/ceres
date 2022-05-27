@@ -114,7 +114,7 @@ public class DownsampleProcessor {
   }
 
   private void processJob(int partition, String partitionWidth) {
-    log.trace("processJob {} {}", partition, partitionWidth);
+//    log.info("processJob {} {}", partition, partitionWidth);
     trackingService.checkPartitionJob(partition, partitionWidth)
             .flatMap(status -> status.equals("free") ? processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
@@ -148,6 +148,7 @@ public class DownsampleProcessor {
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
+    log.info("processDownsampleSet {} {} {}", pendingDownsampleSet, partition, group);
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
@@ -172,7 +173,7 @@ public class DownsampleProcessor {
                 trackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
-                    log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                             pendingDownsampleSet.getSeriesSetHash(),
                             pendingDownsampleSet.getTimeSlot().getEpochSecond(),
                             Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())

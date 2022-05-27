@@ -112,6 +112,7 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
+    log.info("getDownsampleSets {} {} {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     return redisTemplate.opsForValue().get("set-hashes-process-limit").flatMapMany(
             processLimit -> {
@@ -123,6 +124,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> initJob(int partition, String group) {
+//    log.info("initJob {} {}", partition, group);
     return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
   }
 
