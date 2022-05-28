@@ -20,9 +20,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.utils.WebClientUtils;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Job;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.model.WebClientDTO;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import com.rackspace.ceres.app.utils.JobUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -32,12 +34,9 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -54,14 +53,18 @@ public class DownsampleTrackingService {
   private final DownsampleProperties properties;
   private final HashService hashService;
   private final JobUtils jobUtils;
+  private final WebClientUtils webClientUtils;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    DownsampleProperties properties,
-                                   HashService hashService, JobUtils jobUtils) {
+                                   HashService hashService,
+                                   JobUtils jobUtils,
+                                   WebClientUtils webClientUtils) {
     this.redisTemplate = redisTemplate;
     this.properties = properties;
     this.jobUtils = jobUtils;
+    this.webClientUtils = webClientUtils;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
   }
@@ -77,36 +80,14 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> checkPartitionJob(Integer partition, String group) {
-    log.info("checkPartitionJob is {} {}", partition, group);
-    InetAddress inetAddress = null;
-    try {
-      inetAddress = InetAddress.getLocalHost();
-    } catch (UnknownHostException e) {
-      e.printStackTrace();
-    }
-    Job job = new Job(partition, group, inetAddress.getHostName());
-    String body = null;
-    try {
-      body = new ObjectMapper().writeValueAsString(job);
-    } catch (JsonProcessingException e) {
-      e.printStackTrace();
-    }
-    log.info("hostname and IP are {} {}", inetAddress.getHostName(), inetAddress.getHostAddress());
-
-    if (inetAddress.getHostName().equals(properties.getJobsHost()) ||
-            inetAddress.getHostAddress().equals(properties.getJobsHost())) {
-      log.info("hostname and IP are {} {} just calling internal", inetAddress.getHostName(), inetAddress.getHostAddress());
+    WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
+    Job job = new Job(partition, group, clientDTO.getHostName());
+    if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
+      log.info("checkPartitionJob just calling internal");
       return Mono.just(this.jobUtils.getJobInternal(job));
     } else {
-      log.info("hostname is {} calling rest api", inetAddress.getHostName());
-      WebClient webClient = WebClient.create(
-              "http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
-      return webClient.post()
-              .accept(MediaType.APPLICATION_JSON)
-              .contentType(MediaType.APPLICATION_JSON)
-              .body(BodyInserters.fromObject(body))
-              .retrieve()
-              .bodyToMono(String.class);
+      log.info("hostname is {} calling rest api", clientDTO.getHostName());
+      return this.webClientUtils.claimJob(job);
     }
   }
 
@@ -149,36 +130,14 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> initJob(int partition, String group) {
-    log.info("initJob {} {}", partition, group);
-    InetAddress inetAddress = null;
-    try {
-      inetAddress = InetAddress.getLocalHost();
-    } catch (UnknownHostException e) {
-      e.printStackTrace();
-    }
-    Job job = new Job(partition, group, inetAddress.getHostName());
-    log.info("hostname and IP are {} {}", inetAddress.getHostName(), inetAddress.getHostAddress());
-
-    if (inetAddress.getHostName().equals(properties.getJobsHost()) ||
-            inetAddress.getHostAddress().equals(properties.getJobsHost())) {
-      log.info("hostname is {} just calling internal", inetAddress.getHostName());
+    WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
+    Job job = new Job(partition, group, clientDTO.getHostName());
+    if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
+      log.info("checkPartitionJob just calling internal");
       return Mono.just(this.jobUtils.freeJobInternal(job));
     } else {
-      log.info("hostname is {} calling rest api", inetAddress.getHostName());
-      WebClient webClient = WebClient.create(
-              "http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
-      String body = null;
-      try {
-        body = new ObjectMapper().writeValueAsString(job);
-      } catch (JsonProcessingException e) {
-        e.printStackTrace();
-      }
-      return webClient.put()
-              .accept(MediaType.APPLICATION_JSON)
-              .contentType(MediaType.APPLICATION_JSON)
-              .body(BodyInserters.fromObject(body))
-              .retrieve()
-              .bodyToMono(String.class);
+      log.info("hostname is {} calling rest api", clientDTO.getHostName());
+      return this.webClientUtils.freeJob(job);
     }
   }
 
