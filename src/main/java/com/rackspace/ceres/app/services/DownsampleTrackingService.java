@@ -36,6 +36,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -76,19 +78,27 @@ public class DownsampleTrackingService {
 
   public Mono<String> checkPartitionJob(Integer partition, String group) {
     log.info("checkPartitionJob is {} {}", partition, group);
-    String hostName = (hostName = System.getenv("HOSTNAME")) == null ? "localhost" : hostName;
-    Job job = new Job(partition, group, hostName);
+    InetAddress inetAddress = null;
+    try {
+      inetAddress = InetAddress.getLocalHost();
+    } catch (UnknownHostException e) {
+      e.printStackTrace();
+    }
+    Job job = new Job(partition, group, inetAddress.getHostName());
     String body = null;
     try {
       body = new ObjectMapper().writeValueAsString(job);
     } catch (JsonProcessingException e) {
       e.printStackTrace();
     }
-    if (hostName.equals(properties.getJobsHost())) {
-      log.info("hostname is {} just calling internal", hostName);
+    log.info("hostname and IP are {} {}", inetAddress.getHostName(), inetAddress.getHostAddress());
+
+    if (inetAddress.getHostName().equals(properties.getJobsHost()) ||
+            inetAddress.getHostAddress().equals(properties.getJobsHost())) {
+      log.info("hostname and IP are {} {} just calling internal", inetAddress.getHostName(), inetAddress.getHostAddress());
       return Mono.just(this.jobUtils.getJobInternal(job));
     } else {
-      log.info("hostname is {} calling rest api", hostName);
+      log.info("hostname is {} calling rest api", inetAddress.getHostName());
       WebClient webClient = WebClient.create(
               "http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
       return webClient.post()
@@ -140,13 +150,21 @@ public class DownsampleTrackingService {
 
   public Mono<?> initJob(int partition, String group) {
     log.info("initJob {} {}", partition, group);
-    String hostName = (hostName = System.getenv("HOSTNAME")) == null ? "localhost" : hostName;
-    Job job = new Job(partition, group, hostName);
-    if (hostName == null || hostName.equals(properties.getJobsHost())) {
-      log.info("hostname is {} just calling internal", hostName);
+    InetAddress inetAddress = null;
+    try {
+      inetAddress = InetAddress.getLocalHost();
+    } catch (UnknownHostException e) {
+      e.printStackTrace();
+    }
+    Job job = new Job(partition, group, inetAddress.getHostName());
+    log.info("hostname and IP are {} {}", inetAddress.getHostName(), inetAddress.getHostAddress());
+
+    if (inetAddress.getHostName().equals(properties.getJobsHost()) ||
+            inetAddress.getHostAddress().equals(properties.getJobsHost())) {
+      log.info("hostname is {} just calling internal", inetAddress.getHostName());
       return Mono.just(this.jobUtils.freeJobInternal(job));
     } else {
-      log.info("hostname is {} calling rest api", hostName);
+      log.info("hostname is {} calling rest api", inetAddress.getHostName());
       WebClient webClient = WebClient.create(
               "http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
       String body = null;

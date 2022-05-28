@@ -25,7 +25,7 @@ ceres:
     processing-threads: 5
     downsample-spread-period: 15s
     set-hashes-process-limit: 100
-    jobs-host: "localhost"
+    jobs-host: 192.168.200.191
     jobs-port: 9081
   tag-filter: truncate
   tag-value-limit: 50
