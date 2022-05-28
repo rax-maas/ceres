@@ -78,6 +78,10 @@ public class DownsampleProperties {
   @DurationUnit(ChronoUnit.MINUTES)
   long setHashesProcessLimit;
 
+  String jobsHost;
+
+  Integer jobsPort;
+
   /**
    * Target granularities to downsample from raw data.
    */

@@ -17,7 +17,6 @@
 package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.config.RedisConfig;
 import com.rackspace.ceres.app.services.DownsampleTrackingServiceTest.RedisEnvInit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
@@ -44,8 +43,7 @@ import org.testcontainers.utility.DockerImageName;
 }, classes = {
     RedisAutoConfiguration.class,
     RedisReactiveAutoConfiguration.class,
-    DownsampleTrackingService.class,
-    RedisConfig.class
+    DownsampleTrackingService.class
 })
 @EnableConfigurationProperties(DownsampleProperties.class)
 @ContextConfiguration(initializers = RedisEnvInit.class)

@@ -16,24 +16,28 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
+import com.rackspace.ceres.app.model.Job;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import com.rackspace.ceres.app.utils.JobUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.data.redis.core.ScanOptions;
-import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -45,18 +49,17 @@ public class DownsampleTrackingService {
   private static final String PREFIX_DOWNSAMPLING = "downsampling";
 
   private final ReactiveStringRedisTemplate redisTemplate;
-  private final RedisScript<String> redisGetJob;
   private final DownsampleProperties properties;
   private final HashService hashService;
+  private final JobUtils jobUtils;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
-                                   RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
-                                   HashService hashService) {
+                                   HashService hashService, JobUtils jobUtils) {
     this.redisTemplate = redisTemplate;
-    this.redisGetJob = redisGetJob;
     this.properties = properties;
+    this.jobUtils = jobUtils;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
   }
@@ -71,18 +74,30 @@ public class DownsampleTrackingService {
             .take(1); // Only one timeslot at a time
   }
 
-  public Flux<String> checkPartitionJob(Integer partition, String group) {
-    String hostName = System.getenv("HOSTNAME");
-    Long now = Instant.now().getEpochSecond();
-    Long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
-    return redisTemplate.execute(
-            this.redisGetJob,
-            List.of(),
-            List.of(partition.toString(),
-                    group,
-                    hostName == null ? "localhost" : hostName,
-                    now.toString(),
-                    maxJobDuration.toString()));
+  public Mono<String> checkPartitionJob(Integer partition, String group) {
+    log.info("checkPartitionJob is {} {}", partition, group);
+    String hostName = (hostName = System.getenv("HOSTNAME")) == null ? "localhost" : hostName;
+    Job job = new Job(partition, group, hostName);
+    String body = null;
+    try {
+      body = new ObjectMapper().writeValueAsString(job);
+    } catch (JsonProcessingException e) {
+      e.printStackTrace();
+    }
+    if (hostName.equals(properties.getJobsHost())) {
+      log.info("hostname is {} just calling internal", hostName);
+      return Mono.just(this.jobUtils.getJobInternal(job));
+    } else {
+      log.info("hostname is {} calling rest api", hostName);
+      WebClient webClient = WebClient.create(
+              "http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
+      return webClient.post()
+              .accept(MediaType.APPLICATION_JSON)
+              .contentType(MediaType.APPLICATION_JSON)
+              .body(BodyInserters.fromObject(body))
+              .retrieve()
+              .bodyToMono(String.class);
+    }
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -124,8 +139,29 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> initJob(int partition, String group) {
-//    log.info("initJob {} {}", partition, group);
-    return redisTemplate.opsForValue().set("job|{1234}|" + partition + "|" + group, "free");
+    log.info("initJob {} {}", partition, group);
+    String hostName = (hostName = System.getenv("HOSTNAME")) == null ? "localhost" : hostName;
+    Job job = new Job(partition, group, hostName);
+    if (hostName == null || hostName.equals(properties.getJobsHost())) {
+      log.info("hostname is {} just calling internal", hostName);
+      return Mono.just(this.jobUtils.freeJobInternal(job));
+    } else {
+      log.info("hostname is {} calling rest api", hostName);
+      WebClient webClient = WebClient.create(
+              "http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
+      String body = null;
+      try {
+        body = new ObjectMapper().writeValueAsString(job);
+      } catch (JsonProcessingException e) {
+        e.printStackTrace();
+      }
+      return webClient.put()
+              .accept(MediaType.APPLICATION_JSON)
+              .contentType(MediaType.APPLICATION_JSON)
+              .body(BodyInserters.fromObject(body))
+              .retrieve()
+              .bodyToMono(String.class);
+    }
   }
 
   public Mono<?> setRedisSetHashesProcessLimit() {

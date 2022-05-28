@@ -79,21 +79,12 @@ public class DownsampleProcessor {
 
     executor.schedule(this::setHashesProcessLimit, 1, TimeUnit.SECONDS);
     executor.schedule(this::setSpreadPeriod, 1, TimeUnit.SECONDS);
-    executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
   @PreDestroy
   public void stop() {
     executor.shutdown();
-  }
-
-  private void initializeRedisJobs() {
-    log.info("Reset redis jobs");
-    DateTimeUtils.getPartitionWidths(properties.getGranularities())
-            .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
-                    .forEach((partition) -> initRedisJob(partition, width)
-    ));
   }
 
   private void initializeJobs() {
@@ -116,7 +107,8 @@ public class DownsampleProcessor {
   private void processJob(int partition, String partitionWidth) {
     log.info("processJob {} {}", partition, partitionWidth);
     trackingService.checkPartitionJob(partition, partitionWidth)
-            .flatMap(status -> status.equals("free") ? processTimeSlot(partition, partitionWidth) : Mono.empty())
+            .flatMap(status -> status.equals("Job is assigned") ?
+                    processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
     trackingService.getRedisSpreadPeriod()
             .flatMap(
