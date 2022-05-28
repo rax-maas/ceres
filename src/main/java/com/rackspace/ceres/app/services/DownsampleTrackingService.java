@@ -83,10 +83,8 @@ public class DownsampleTrackingService {
     WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
     Job job = new Job(partition, group, clientDTO.getHostName());
     if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
-      log.info("checkPartitionJob just calling internal");
       return Mono.just(this.jobUtils.getJobInternal(job));
     } else {
-      log.info("hostname is {} calling rest api", clientDTO.getHostName());
       return this.webClientUtils.claimJob(job);
     }
   }
@@ -133,10 +131,8 @@ public class DownsampleTrackingService {
     WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
     Job job = new Job(partition, group, clientDTO.getHostName());
     if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
-      log.info("checkPartitionJob just calling internal");
       return Mono.just(this.jobUtils.freeJobInternal(job));
     } else {
-      log.info("hostname is {} calling rest api", clientDTO.getHostName());
       return this.webClientUtils.freeJob(job);
     }
   }

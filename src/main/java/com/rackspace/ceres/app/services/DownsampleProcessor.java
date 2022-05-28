@@ -105,7 +105,7 @@ public class DownsampleProcessor {
   }
 
   private void processJob(int partition, String partitionWidth) {
-    log.info("processJob {} {}", partition, partitionWidth);
+    log.trace("processJob {} {}", partition, partitionWidth);
     trackingService.checkPartitionJob(partition, partitionWidth)
             .flatMap(status -> status.equals("Job is assigned") ?
                     processTimeSlot(partition, partitionWidth) : Mono.empty())
@@ -121,10 +121,6 @@ public class DownsampleProcessor {
             .subscribe(o -> {}, throwable -> {});
   }
 
-  private void initRedisJob(int partition, String group) {
-    trackingService.initJob(partition, group).subscribe(o -> {}, throwable -> {});
-  }
-
   private void setHashesProcessLimit() {
     trackingService.setRedisSetHashesProcessLimit().subscribe(o -> {}, throwable -> {});
   }
@@ -134,7 +130,7 @@ public class DownsampleProcessor {
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
-    log.info("processTimeSlot {} {}", partition, group);
+    log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.retrieveDownsampleSets(partition, group)
             .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
                     .then(trackingService.initJob(partition, group));
