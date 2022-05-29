@@ -83,7 +83,7 @@ public class DownsampleTrackingService {
     WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
     Job job = new Job(partition, group, clientDTO.getHostName());
     if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
-      return Mono.just(this.jobUtils.getJobInternal(job));
+      return Mono.just(this.jobUtils.claimJobInternal(job));
     } else {
       return this.webClientUtils.claimJob(job);
     }
@@ -116,7 +116,7 @@ public class DownsampleTrackingService {
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
-    log.info("getDownsampleSets {} {} {}", timeslot, partition, group);
+    log.trace("getDownsampleSets {} {} {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
     return redisTemplate.opsForValue().get("set-hashes-process-limit").flatMapMany(
             processLimit -> {

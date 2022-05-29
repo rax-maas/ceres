@@ -18,18 +18,17 @@ import java.net.UnknownHostException;
 public class WebClientUtils {
     private final DownsampleProperties properties;
     private final ObjectMapper objectMapper;
+    private final WebClient webClient;
 
     public WebClientUtils(DownsampleProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-    }
-
-    private WebClient webClient() {
-        return WebClient.create("http://" + properties.getJobsHost() + ":" + properties.getJobsPort() + "/api/job");
+        String URI = String.format("http://%s:%d/api/job", properties.getJobsHost(), properties.getJobsPort());
+        this.webClient = WebClient.create(URI);
     }
 
     public Mono<String> claimJob(Job job) {
-        return webClient().post()
+        return this.webClient.post()
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(BodyInserters.fromValue(getJobJson(job)))
@@ -38,7 +37,7 @@ public class WebClientUtils {
     }
 
     public Mono<String> freeJob(Job job) {
-        return webClient().put()
+        return this.webClient.put()
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(BodyInserters.fromValue(getJobJson(job)))
@@ -47,16 +46,16 @@ public class WebClientUtils {
     }
 
     public WebClientDTO isLocalJobRequest() {
-        InetAddress inetAddress = null;
+        WebClientDTO webClientDTO = null;
         try {
-            inetAddress = InetAddress.getLocalHost();
-            Boolean isLocal = inetAddress.getHostName().equals(properties.getJobsHost()) ||
+            InetAddress inetAddress = InetAddress.getLocalHost();
+            boolean isLocal = inetAddress.getHostName().equals(properties.getJobsHost()) ||
                     inetAddress.getHostAddress().equals(properties.getJobsHost());
-            return new WebClientDTO(inetAddress.getHostName(), isLocal);
+            webClientDTO = new WebClientDTO(inetAddress.getHostName(), isLocal);
         } catch (UnknownHostException e) {
             e.printStackTrace();
-            return null;
         }
+        return webClientDTO;
     }
 
     private String getJobJson(Job job) {

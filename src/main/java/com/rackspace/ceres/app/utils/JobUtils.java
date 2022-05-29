@@ -27,7 +27,7 @@ public class JobUtils {
         this.properties = properties;
     }
 
-    public String getJobInternal(Job job) {
+    public String claimJobInternal(Job job) {
         Job searchJob = new Job(job.getPartition(), job.getGroup(), "free");
         int index = this.jobConfig.jobList().indexOf(searchJob);
         if (index > -1) {
@@ -35,13 +35,12 @@ public class JobUtils {
             claimJob(job, index);
             return JOB_IS_ASSIGNED;
         } else {
-            Job searchJob2 = new Job(job.getPartition(), job.getGroup(), job.getStatus());
-            index = this.jobConfig.jobList().indexOf(searchJob2);
+            index = this.jobConfig.jobList().indexOf(job);
             if (index > -1) {
                 Instant then = this.jobTimers.jobTimers().get(index);
-                if (Duration.between(then, Instant.now()).getSeconds() >
-                        properties.getMaxDownsampleJobDuration().getSeconds()) {
-                    log.info("jobTimed out: {}", searchJob2);
+                if (properties.getMaxDownsampleJobDuration().getSeconds() <
+                        Duration.between(then, Instant.now()).getSeconds()) {
+                    log.info("jobTimed out: {}", job);
                     claimJob(job, index);
                     return JOB_IS_ASSIGNED;
                 }

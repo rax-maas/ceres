@@ -137,7 +137,7 @@ public class DownsampleProcessor {
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
-    log.info("processDownsampleSet {} {} {}", pendingDownsampleSet, partition, group);
+    log.trace("processDownsampleSet {} {} {}", pendingDownsampleSet, partition, group);
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 

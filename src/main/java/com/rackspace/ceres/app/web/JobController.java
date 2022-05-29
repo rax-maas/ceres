@@ -21,7 +21,7 @@ public class JobController {
 
     @PostMapping("/api/job")
     public ResponseEntity<String> getJob(@RequestBody Job job) {
-        String result = this.jobUtils.getJobInternal(job);
+        String result = this.jobUtils.claimJobInternal(job);
         if (result.equals(this.jobUtils.JOB_IS_ASSIGNED)) {
             return ResponseEntity.status(HttpStatus.OK).body(result);
         }
