@@ -71,7 +71,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> checkPartitionJob(Integer partition, String group) {
-    return this.webClientUtils.claimJob(new Job(partition, group, properties.getJobsHost()));
+    return this.webClientUtils.claimJob(partition, group);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -113,7 +113,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> initJob(int partition, String group) {
-    return this.webClientUtils.freeJob(new Job(partition, group, properties.getJobsHost()));
+    return this.webClientUtils.freeJob(partition, group);
   }
 
   public Mono<?> setRedisSetHashesProcessLimit() {

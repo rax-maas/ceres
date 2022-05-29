@@ -26,7 +26,8 @@ public class WebClientUtils {
         this.webClient = WebClient.create(URI);
     }
 
-    public Mono<String> claimJob(Job job) {
+    public Mono<String> claimJob(int partition, String group) {
+        Job job = new Job(partition, group, getLocalHost());
         return this.webClient.post()
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -35,13 +36,24 @@ public class WebClientUtils {
                 .bodyToMono(String.class);
     }
 
-    public Mono<String> freeJob(Job job) {
+    public Mono<String> freeJob(int partition, String group) {
+        Job job = new Job(partition, group, getLocalHost());
         return this.webClient.put()
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(BodyInserters.fromValue(getJobJson(job)))
                 .retrieve()
                 .bodyToMono(String.class);
+    }
+
+    private String getLocalHost() {
+        String localHost = null;
+        try {
+            localHost = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        return localHost;
     }
 
     private String getJobJson(Job job) {
