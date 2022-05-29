@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.Job;
-import com.rackspace.ceres.app.model.WebClientDTO;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
