@@ -16,14 +16,13 @@ import java.net.UnknownHostException;
 
 @Component
 public class WebClientUtils {
-    private final DownsampleProperties properties;
     private final ObjectMapper objectMapper;
     private final WebClient webClient;
 
     public WebClientUtils(DownsampleProperties properties, ObjectMapper objectMapper) {
-        this.properties = properties;
         this.objectMapper = objectMapper;
-        String URI = String.format("http://%s:%d/api/job", properties.getJobsHost(), properties.getJobsPort());
+        String URI =
+                String.format("http://%s:%d/api/job", properties.getJobsHost(), properties.getJobsPort());
         this.webClient = WebClient.create(URI);
     }
 
@@ -43,19 +42,6 @@ public class WebClientUtils {
                 .body(BodyInserters.fromValue(getJobJson(job)))
                 .retrieve()
                 .bodyToMono(String.class);
-    }
-
-    public WebClientDTO isLocalJobRequest() {
-        WebClientDTO webClientDTO = null;
-        try {
-            InetAddress inetAddress = InetAddress.getLocalHost();
-            boolean isLocal = inetAddress.getHostName().equals(properties.getJobsHost()) ||
-                    inetAddress.getHostAddress().equals(properties.getJobsHost());
-            webClientDTO = new WebClientDTO(inetAddress.getHostName(), isLocal);
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-        return webClientDTO;
     }
 
     private String getJobJson(Job job) {

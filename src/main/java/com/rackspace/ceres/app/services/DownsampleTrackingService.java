@@ -16,24 +16,18 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.utils.WebClientUtils;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Job;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.model.WebClientDTO;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
-import com.rackspace.ceres.app.utils.JobUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -52,18 +46,15 @@ public class DownsampleTrackingService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final DownsampleProperties properties;
   private final HashService hashService;
-  private final JobUtils jobUtils;
   private final WebClientUtils webClientUtils;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    DownsampleProperties properties,
                                    HashService hashService,
-                                   JobUtils jobUtils,
                                    WebClientUtils webClientUtils) {
     this.redisTemplate = redisTemplate;
     this.properties = properties;
-    this.jobUtils = jobUtils;
     this.webClientUtils = webClientUtils;
     log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
@@ -80,13 +71,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> checkPartitionJob(Integer partition, String group) {
-    WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
-    Job job = new Job(partition, group, clientDTO.getHostName());
-    if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
-      return Mono.just(this.jobUtils.claimJobInternal(job));
-    } else {
-      return this.webClientUtils.claimJob(job);
-    }
+    return this.webClientUtils.claimJob(new Job(partition, group, properties.getJobsHost()));
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -128,13 +113,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> initJob(int partition, String group) {
-    WebClientDTO clientDTO = this.webClientUtils.isLocalJobRequest();
-    Job job = new Job(partition, group, clientDTO.getHostName());
-    if (clientDTO != null && clientDTO.getIsLocalJobRequest()) {
-      return Mono.just(this.jobUtils.freeJobInternal(job));
-    } else {
-      return this.webClientUtils.freeJob(job);
-    }
+    return this.webClientUtils.freeJob(new Job(partition, group, properties.getJobsHost()));
   }
 
   public Mono<?> setRedisSetHashesProcessLimit() {
@@ -171,10 +150,6 @@ public class DownsampleTrackingService {
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
     return tenant + DELIM + seriesSet;
-  }
-
-  private static String encodeKey(String prefix, int partition, String group, String timeSlot) {
-    return prefix + DELIM + partition + DELIM + group + DELIM + timeSlot;
   }
 
   private static String encodeDownsamplingTimeslot(String timeslot, int partition, String group) {

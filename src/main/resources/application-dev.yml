@@ -26,7 +26,7 @@ ceres:
     downsample-spread-period: 15s
     set-hashes-process-limit: 100
     jobs-host: localhost
-    jobs-port: 9081
+    jobs-port: 8080
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]
