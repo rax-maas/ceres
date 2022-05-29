@@ -72,9 +72,6 @@ public class DownsampleProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    log.info("granularities: {}", properties.getGranularities());
-    log.info("jobs host: {}", properties.getJobsHost());
-
     if (properties.getGranularities() == null ||
         properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
