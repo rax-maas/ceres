@@ -66,7 +66,7 @@ public class DownsampleTrackingService {
     return redisTemplate
             .opsForSet().members(PREFIX_PENDING + DELIM + partition + DELIM + group)
             // check if we are within downsampling width, i.e. if we are due
-            .filter(timeslotEpoch -> Long.valueOf(timeslotEpoch).longValue() + partitionWidthSeconds < epochNow)
+            .filter(timeslotEpoch -> Long.parseLong(timeslotEpoch) + partitionWidthSeconds < epochNow)
             .take(1); // Only one timeslot at a time
   }
 
@@ -103,31 +103,14 @@ public class DownsampleTrackingService {
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
     log.trace("getDownsampleSets {} {} {}", timeslot, partition, group);
     final String downsamplingTimeslot = encodeDownsamplingTimeslot(timeslot, partition, group);
-    return redisTemplate.opsForValue().get("set-hashes-process-limit").flatMapMany(
-            processLimit -> {
-              return redisTemplate.opsForSet()
-                      .scan(downsamplingTimeslot)
-                      .take(Long.parseLong(processLimit))
-                      .map(pendingValue -> buildPending(timeslot, pendingValue));
-            });
+    return redisTemplate.opsForSet()
+            .scan(downsamplingTimeslot)
+            .take(properties.getSetHashesProcessLimit())
+            .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
   public Mono<?> initJob(int partition, String group) {
     return this.webClientUtils.freeJob(partition, group);
-  }
-
-  public Mono<?> setRedisSetHashesProcessLimit() {
-    Long processLimit = properties.getSetHashesProcessLimit();
-    return redisTemplate.opsForValue().set("set-hashes-process-limit", processLimit.toString());
-  }
-
-  public Mono<?> setRedisSpreadPeriod() {
-    Long spreadPeriod = properties.getDownsampleSpreadPeriod().getSeconds();
-    return redisTemplate.opsForValue().set("downsample-spread-period", spreadPeriod.toString());
-  }
-
-  public Mono<?> getRedisSpreadPeriod() {
-    return redisTemplate.opsForValue().get("downsample-spread-period");
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {

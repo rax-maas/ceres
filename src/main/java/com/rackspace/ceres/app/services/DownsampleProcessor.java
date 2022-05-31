@@ -77,8 +77,6 @@ public class DownsampleProcessor {
       throw new IllegalStateException("Granularities are not configured!");
     }
 
-    executor.schedule(this::setHashesProcessLimit, 1, TimeUnit.SECONDS);
-    executor.schedule(this::setSpreadPeriod, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
@@ -110,23 +108,8 @@ public class DownsampleProcessor {
             .flatMap(status -> status.equals("Job is assigned") ?
                     processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
-    trackingService.getRedisSpreadPeriod()
-            .flatMap(
-                    period -> {
-                      executor.schedule(() ->
-                                      processJob(partition, partitionWidth),
-                              new Random().nextInt(Integer.parseInt((String) period)), TimeUnit.SECONDS);
-                      return Mono.empty();
-                    })
-            .subscribe(o -> {}, throwable -> {});
-  }
-
-  private void setHashesProcessLimit() {
-    trackingService.setRedisSetHashesProcessLimit().subscribe(o -> {}, throwable -> {});
-  }
-
-  private void setSpreadPeriod() {
-    trackingService.setRedisSpreadPeriod().subscribe(o -> {}, throwable -> {});
+    int period = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
+    executor.schedule(() -> processJob(partition, partitionWidth), new Random().nextInt(period), TimeUnit.SECONDS);
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
