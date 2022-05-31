@@ -31,9 +31,11 @@ data:
         partitions: 128
         initial-processing-delay: 1m
         max-downsample-job-duration: 1m
-        downsample-spread-period: 60s # the partition jobs will be spread out over this period in a uniform distribution
-        set-hashes-process-limit: 200 # max number of set hashes that can be processed in one task
         processing-threads: 5
+        downsample-spread-period: 1m
+        set-hashes-process-limit: 200
+        jobs-host: 10.80.6.120
+        jobs-port: 8080
       raw-ttl: 2d
       series-set-cache-size: 2000000
       tenant-tag: tenant
