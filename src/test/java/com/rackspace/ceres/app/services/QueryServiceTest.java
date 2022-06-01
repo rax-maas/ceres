@@ -16,6 +16,12 @@
 
 package com.rackspace.ceres.app.services;
 
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -24,7 +30,19 @@ import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.FilterType;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -44,19 +62,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles(profiles = {"test", "downsample"})
