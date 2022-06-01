@@ -126,6 +126,22 @@ public class DateTimeUtils {
     return granularity.getWidth();
   }
 
+  public static List<Granularity> filterGroupGranularities(String group, List<Granularity> granularities) {
+    Duration width = Duration.parse(group);
+    return granularities.stream()
+            .filter(g -> g.getPartitionWidth().compareTo(width) == 0)
+            .collect(Collectors.toList());
+  }
+
+  public static List<String> getPartitionWidths(List<Granularity> granularities) {
+    return granularities.stream()
+            .map(Granularity::getPartitionWidth).sorted()
+            .collect(Collectors.toList())
+            .stream().map(Duration::toString)
+            .distinct()
+            .collect(Collectors.toList());
+  }
+
   public static String isoTimeUtcPlusSeconds(long seconds) {
     return isoTimeUtcPlusMilliSeconds(seconds * 1000);
   }
