@@ -246,6 +246,8 @@ public class WriteControllerTest {
     MethodParameter parameter = new MethodParameter(method, -1);
 
     // TODO: We shouldn't have to force the exception here. Why isn't the IngestBoundValidator doing it's job??
+    // TODO: @Suman Jakkula wrote up an optional fix for this
+    // TODO: https://github.com/racker/ceres/pull/119#discussion_r886110738
     when(dataWriteService.ingest(any()))
             .thenReturn(Flux.error(new WebExchangeBindException(parameter, bindingResult)));
 
