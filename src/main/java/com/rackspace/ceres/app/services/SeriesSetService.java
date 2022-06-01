@@ -60,9 +60,4 @@ public class SeriesSetService {
         // so two trailing padding characters are not useful for our string encoding needs
         .substring(0,22);
   }
-
-  public boolean isCounter(String seriesSet) {
-    //TODO resolve by matching metric name suffix to known counter suffixes
-    return false;
-  }
 }

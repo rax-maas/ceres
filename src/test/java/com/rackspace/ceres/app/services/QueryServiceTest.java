@@ -328,8 +328,7 @@ class QueryServiceTest {
             singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
             singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
         ), tenant, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator(),
-        false
+        List.of(granularity(1, 12), granularity(2, 24)).iterator()
     ).block();
 
     StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(2), tags,
@@ -396,8 +395,7 @@ class QueryServiceTest {
             singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
             singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
         ), tenant, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator(),
-        false
+        List.of(granularity(1, 12), granularity(2, 24)).iterator()
     ).block();
 
     StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
@@ -457,8 +455,7 @@ class QueryServiceTest {
                     singleValue(now.plusSeconds(15).toString(), 3.4),
                     singleValue(now.plusSeconds(200).toString(), 8.4)
             ), tenant, seriesSetHash,
-            granularities.iterator(),
-            false
+            granularities.iterator()
     ).block();
 
     final Map<String, Double> expectedDps = Map.of(
