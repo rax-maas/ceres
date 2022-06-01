@@ -23,7 +23,6 @@ import com.rackspace.ceres.app.model.TagFilter;
 import com.rackspace.ceres.app.services.DataWriteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
@@ -54,13 +53,11 @@ public class WriteController {
 
   private final DataWriteService dataWriteService;
   private final AppProperties appProperties;
-  private final MessageSource messageSource;
 
   @Autowired
-  public WriteController(DataWriteService dataWriteService, AppProperties appProperties, MessageSource messageSource) {
+  public WriteController(DataWriteService dataWriteService, AppProperties appProperties) {
     this.dataWriteService = dataWriteService;
     this.appProperties = appProperties;
-    this.messageSource = messageSource;
   }
 
   /**
