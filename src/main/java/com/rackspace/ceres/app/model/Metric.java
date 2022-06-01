@@ -16,19 +16,17 @@
 
 package com.rackspace.ceres.app.model;
 
-import java.time.Instant;
-import java.util.Map;
+import lombok.Data;
+
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-
-import com.rackspace.ceres.app.validation.IngestBounds;
-import lombok.Data;
+import java.time.Instant;
+import java.util.Map;
 
 @Data
 public class Metric {
 
-  @IngestBounds
   @NotNull
   Instant timestamp;
   @NotBlank

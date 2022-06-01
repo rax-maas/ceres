@@ -20,33 +20,30 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.model.TagFilter;
-import com.rackspace.ceres.app.model.ValidationErrorDTO;
 import com.rackspace.ceres.app.services.DataWriteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Profile;
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.support.WebExchangeBindException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 import springfox.documentation.annotations.ApiIgnore;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 @RestController
 @RequestMapping("/api")
@@ -66,32 +63,6 @@ public class WriteController {
     this.messageSource = messageSource;
   }
 
-  @ExceptionHandler(WebExchangeBindException.class)
-  @ResponseStatus(HttpStatus.BAD_REQUEST)
-  @ResponseBody
-  public ValidationErrorDTO processValidationError(WebExchangeBindException ex) {
-    BindingResult result = ex.getBindingResult();
-    List<FieldError> fieldErrors = result.getFieldErrors();
-
-    return processFieldErrors(fieldErrors);
-  }
-
-  private ValidationErrorDTO processFieldErrors(List<FieldError> fieldErrors) {
-    ValidationErrorDTO dto = new ValidationErrorDTO();
-
-    for (FieldError fieldError: fieldErrors) {
-      String localizedErrorMessage = resolveLocalizedErrorMessage(fieldError);
-      dto.addFieldError(fieldError.getField(), localizedErrorMessage);
-    }
-
-    return dto;
-  }
-
-  private String resolveLocalizedErrorMessage(FieldError fieldError) {
-    Locale currentLocale =  LocaleContextHolder.getLocale();
-    return messageSource.getMessage(fieldError, currentLocale);
-  }
-
   /**
    * NOTE: the path is <code>/put</code> even though it is a POST operation in order to be
    * API compatible with OpenTSDB.
@@ -109,6 +80,7 @@ public class WriteController {
 
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
+            .filter(this::isValidTimestamp)
             .map(metric -> {
               String tenant;
               filterMetricTags(metric);
@@ -144,6 +116,15 @@ public class WriteController {
           Mono.just(ResponseEntity.noContent().build())
       );
     }
+  }
+
+  private boolean isValidTimestamp(Metric metric) {
+    Instant currentInstant = Instant.now();
+    Duration startTime = appProperties.getIngestStartTime();
+    Duration endTime = appProperties.getIngestEndTime();
+    var startPeriod = currentInstant.minus(startTime.getSeconds(), SECONDS);
+    var endPeriod = currentInstant.plus(endTime.getSeconds(), SECONDS);
+    return metric.getTimestamp().isAfter(startPeriod) && metric.getTimestamp().isBefore(endPeriod);
   }
 
   private void filterMetricTags(Metric metric) {

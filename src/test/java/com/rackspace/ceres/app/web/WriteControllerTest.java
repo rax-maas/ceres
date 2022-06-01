@@ -229,31 +229,4 @@ public class WriteControllerTest {
 
     verifyNoMoreInteractions(dataWriteService);
   }
-
-  @Test
-  public void ingestTimestampOutOfBounds() throws NoSuchMethodException {
-    Metric metric = new Metric()
-            .setMetric("metricA")
-            .setTags(Collections.singletonMap("os", "linux"))
-            .setTimestamp(Instant.parse("1997-01-01T00:00:00Z"))
-            .setValue(123);
-
-    BindingResult bindingResult = new MapBindingResult(new HashMap<>(), "objectName");
-    bindingResult.addError(
-            new FieldError("objectName", "timestamp", "Out of bounds!!"));
-
-    Method method = this.getClass().getMethod("ingestTimestampOutOfBounds", (Class<?>[]) null);
-    MethodParameter parameter = new MethodParameter(method, -1);
-
-    // TODO: We shouldn't have to force the exception here. Why isn't the IngestBoundValidator doing it's job??
-    // TODO: @Suman Jakkula wrote up an optional fix for this
-    // TODO: https://github.com/racker/ceres/pull/119#discussion_r886110738
-    when(dataWriteService.ingest(any()))
-            .thenReturn(Flux.error(new WebExchangeBindException(parameter, bindingResult)));
-
-    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/put").build())
-            .bodyValue(List.of(metric))
-            .header("X-Tenant", "t-1")
-            .exchange().expectStatus().isBadRequest();
-  }
 }
