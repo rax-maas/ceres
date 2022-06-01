@@ -145,7 +145,7 @@ public class DownsampleProcessor {
                 trackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
-                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                    log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                             pendingDownsampleSet.getSeriesSetHash(),
                             pendingDownsampleSet.getTimeSlot().getEpochSecond(),
                             Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())
