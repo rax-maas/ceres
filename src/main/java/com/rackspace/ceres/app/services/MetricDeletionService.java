@@ -39,7 +39,6 @@ import reactor.core.publisher.Sinks.Empty;
 
 @Service
 @Slf4j
-@Profile("admin")
 public class MetricDeletionService {
 
   private final DataTablesStatements dataTablesStatements;
