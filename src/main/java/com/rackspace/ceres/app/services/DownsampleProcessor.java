@@ -60,7 +60,6 @@ public class DownsampleProcessor {
   private final DownsampleProperties downsampleProperties;
   private final DownsampleTrackingService downsampleTrackingService;
   private final TaskScheduler taskScheduler;
-  private final SeriesSetService seriesSetService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private List<ScheduledFuture<?>> scheduled;
@@ -74,7 +73,6 @@ public class DownsampleProcessor {
                              DownsampleProperties downsampleProperties,
                              DownsampleTrackingService downsampleTrackingService,
                              @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
-                             SeriesSetService seriesSetService,
                              QueryService queryService,
                              DataWriteService dataWriteService,
                              MeterRegistry meterRegistry) {
@@ -83,7 +81,6 @@ public class DownsampleProcessor {
     this.downsampleProperties = downsampleProperties;
     this.downsampleTrackingService = downsampleTrackingService;
     this.taskScheduler = taskScheduler;
-    this.seriesSetService = seriesSetService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
@@ -184,8 +181,6 @@ public class DownsampleProcessor {
 
     log.trace("Processing downsample set {}", pendingDownsampleSet);
 
-    final boolean isCounter = seriesSetService.isCounter(pendingDownsampleSet.getSeriesSetHash());
-
     final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
         pendingDownsampleSet.getTenant(),
         pendingDownsampleSet.getSeriesSetHash(),
@@ -197,7 +192,7 @@ public class DownsampleProcessor {
         downsampleData(data,
             pendingDownsampleSet.getTenant(),
             pendingDownsampleSet.getSeriesSetHash(),
-            downsampleProperties.getGranularities().iterator(), isCounter
+            downsampleProperties.getGranularities().iterator()
         )
             .name("downsample.set")
             .metrics()
@@ -216,14 +211,12 @@ public class DownsampleProcessor {
    * @param tenant the tenant of the pending downsample set
    * @param seriesSet the series-set of the pending downsample set
    * @param granularities remaining granularties to process
-   * @param isCounter indicates if the original metric is a counter or gauge
    * @return a mono that completes when the aggregated data has been stored
    */
   public Mono<?> downsampleData(Flux<? extends ValueSet> data,
                                 String tenant,
                                 String seriesSet,
-                                Iterator<Granularity> granularities,
-                                boolean isCounter) {
+                                Iterator<Granularity> granularities) {
     if (!granularities.hasNext()) {
       // end of the recursion so pop back out
       return Mono.empty();
@@ -239,40 +232,30 @@ public class DownsampleProcessor {
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
             // ...and then do the aggregation math on those
-            .concatMap(valueSetFlux -> valueSetFlux.collect(
-                isCounter ? ValueSetCollectors.counterCollector(granularity.getWidth())
-                    : ValueSetCollectors.gaugeCollector(granularity.getWidth())
+            .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())
             ));
 
     // expand the aggregated volue-sets into individual data points to be stored
     final Flux<DataDownsampled> expanded = expandAggregatedData(
-        aggregated, tenant, seriesSet, isCounter);
+        aggregated, tenant, seriesSet);
 
     return
         dataWriteService.storeDownsampledData(expanded)
             .then(
                 // ...and recurse into remaining granularities
-                downsampleData(aggregated, tenant, seriesSet, granularities, isCounter)
+                downsampleData(aggregated, tenant, seriesSet, granularities)
             )
             .checkpoint();
   }
 
   public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant,
-                                                    String seriesSet, boolean isCounter) {
-    return aggs.flatMap(agg -> {
-      if (isCounter) {
-        return Flux.just(
-            data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum())
-        );
-      } else {
-        return Flux.just(
-            data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
-            data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),
-            data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax()),
-            data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage())
-        );
-      }
-    });
+                                                    String seriesSet) {
+    return aggs.flatMap(agg -> Flux.just(
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax()),
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage())
+    ));
   }
 
   private static DataDownsampled data(String tenant, String seriesSet, AggregatedValueSet agg) {
