@@ -26,7 +26,6 @@ import com.rackspace.ceres.app.services.TimeSlotPartitioner;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -36,7 +35,6 @@ import java.time.Instant;
 @Component
 public class MetricDeletionHelper {
 
-  private static final String DELIM = "|";
   private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
       + "AND metric_name = ?";
   private final String DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? "
@@ -62,14 +60,13 @@ public class MetricDeletionHelper {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final ReactiveCqlTemplate cqlTemplate;
   private final AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache;
-  private final ReactiveStringRedisTemplate redisTemplate;
   private final DownsampleProperties downsampleProperties;
   private final Counter deleteDbOperationErrorsCounter;
   private final Counter readDbOperationErrorsCounter;
 
   public MetricDeletionHelper(AppProperties appProperties,
       DataTablesStatements dataTablesStatements,
-      ReactiveCqlTemplate cqlTemplate, ReactiveStringRedisTemplate redisTemplate,
+      ReactiveCqlTemplate cqlTemplate,
       AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
       TimeSlotPartitioner timeSlotPartitioner, DownsampleProperties downsampleProperties,
       MeterRegistry meterRegistry) {
@@ -77,7 +74,6 @@ public class MetricDeletionHelper {
     this.dataTablesStatements = dataTablesStatements;
     this.cqlTemplate = cqlTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
-    this.redisTemplate = redisTemplate;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.downsampleProperties = downsampleProperties;
     deleteDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
