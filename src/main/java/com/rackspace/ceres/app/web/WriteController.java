@@ -21,10 +21,6 @@ import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.model.TagFilter;
 import com.rackspace.ceres.app.services.DataWriteService;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -33,16 +29,20 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 import springfox.documentation.annotations.ApiIgnore;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 @RestController
 @RequestMapping("/api")
@@ -77,6 +77,7 @@ public class WriteController {
 
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
+            .filter(this::isValidTimestamp)
             .map(metric -> {
               String tenant;
               filterMetricTags(metric);
@@ -112,6 +113,15 @@ public class WriteController {
           Mono.just(ResponseEntity.noContent().build())
       );
     }
+  }
+
+  private boolean isValidTimestamp(Metric metric) {
+    Instant currentInstant = Instant.now();
+    Duration startTime = appProperties.getIngestStartTime();
+    Duration endTime = appProperties.getIngestEndTime();
+    var startPeriod = currentInstant.minus(startTime.getSeconds(), SECONDS);
+    var endPeriod = currentInstant.plus(endTime.getSeconds(), SECONDS);
+    return metric.getTimestamp().isAfter(startPeriod) && metric.getTimestamp().isBefore(endPeriod);
   }
 
   private void filterMetricTags(Metric metric) {
