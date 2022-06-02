@@ -23,7 +23,7 @@ ceres:
     initial-processing-delay: 5s
     max-downsample-job-duration: 10m
     processing-threads: 5
-    downsample-spread-period: 15s
+    downsample-spread-period: 30s
     set-hashes-process-limit: 100
     jobs-host: localhost
     jobs-port: 8082
@@ -37,6 +37,8 @@ spring:
   data:
     cassandra:
       local-datacenter: datacenter1
+    mongodb:
+      uri: mongodb://localhost:27017/ceres?connectTimeoutMS=3000&minPoolSize=1&maxPoolSize=10&maxIdleTimeMS=30000
 management:
   server:
     port: 8081
