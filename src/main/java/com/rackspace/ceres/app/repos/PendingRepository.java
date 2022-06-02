@@ -1,8 +1,11 @@
 package com.rackspace.ceres.app.repos;
 
 import com.rackspace.ceres.app.model.Pending;
-import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Mono;
 
-public interface PendingRepository extends MongoRepository<Pending, String> {
-    public Pending findByPartitionAndGroup(Integer partition, String group);
+@Repository
+public interface PendingRepository extends ReactiveCrudRepository<Pending, String> {
+    Mono<Pending> findByPartitionAndGroup(Integer partition, String group);
 }

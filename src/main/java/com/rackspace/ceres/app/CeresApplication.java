@@ -18,8 +18,10 @@ package com.rackspace.ceres.app;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.mongodb.repository.config.EnableReactiveMongoRepositories;
 import reactor.core.scheduler.Schedulers;
 
+@EnableReactiveMongoRepositories
 @SpringBootApplication
 public class CeresApplication {
 
