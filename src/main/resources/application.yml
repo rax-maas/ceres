@@ -4,6 +4,8 @@ spring:
       keyspace-name: ceres
       schema-action: create_if_not_exists
       local-datacenter: datacenter1
+    mongodb:
+      uri: mongodb://10.76.4.83:27017,10.76.14.82:27017,10.76.0.58:27017/ceres?connectTimeoutMS=3000&minPoolSize=1&maxPoolSize=10&maxIdleTimeMS=60000
   cache:
     # we have redis, but really just want in-memory caching
     type: simple
