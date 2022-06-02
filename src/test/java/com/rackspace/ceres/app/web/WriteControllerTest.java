@@ -4,6 +4,9 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PutResponse;
 import com.rackspace.ceres.app.model.TagFilter;
+import com.rackspace.ceres.app.repos.DownsamplingRepository;
+import com.rackspace.ceres.app.repos.JobRepository;
+import com.rackspace.ceres.app.repos.PendingRepository;
 import com.rackspace.ceres.app.services.DataWriteService;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -45,6 +48,15 @@ public class WriteControllerTest {
 
   @MockBean
   DataWriteService dataWriteService;
+
+  @MockBean
+  JobRepository jobRepository;
+
+  @MockBean
+  DownsamplingRepository downsamplingRepository;
+
+  @MockBean
+  PendingRepository pendingRepository;
 
   @Autowired
   WebTestClient webTestClient;
