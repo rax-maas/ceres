@@ -38,7 +38,7 @@ spring:
     cassandra:
       local-datacenter: datacenter1
     mongodb:
-      uri: mongodb://localhost:27017/ceres?connectTimeoutMS=3000&minPoolSize=1&maxPoolSize=10&maxIdleTimeMS=60000
+      uri: mongodb://localhost:27017/ceres
 management:
   server:
     port: 8081
