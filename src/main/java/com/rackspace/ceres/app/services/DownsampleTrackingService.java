@@ -71,24 +71,20 @@ public class DownsampleTrackingService {
     this.downsamplingRepository = downsamplingRepository;
     this.mongoOperations = mongoOperations;
     this.hostname = InetAddress.getLocalHost().getHostName();
-    log.info("Downsample tracking is {}", properties.isTrackingEnabled() ? "enabled" : "disabled");
     this.hashService = hashService;
   }
 
-  public Flux<String> getTimeSlot(Integer partition, String group) {
+  public Mono<String> getTimeSlot(Integer partition, String group) {
     long now = Instant.now().getEpochSecond();
     long partitionWidth = Duration.parse(group).getSeconds();
     return this.pendingRepository.findByPartitionAndGroup(partition, group)
-        .flatMapMany(pending -> {
-          if (pending == null) {
-            return Flux.empty();
-          }
+        .flatMap(pending -> {
           List<String> sortedTimeslots = new ArrayList<>(pending.getTimeslots());
           if (sortedTimeslots.size() > 3) {
             log.warn("Timeslot count for partition: {} and group: {} is larger than 3.", partition, group);
           }
           Collections.sort(sortedTimeslots);
-          return Flux.fromIterable(sortedTimeslots).take(1)
+          return Mono.just(sortedTimeslots.get(0))
               .filter(timeslot -> isDueTimeslot(timeslot, partitionWidth, now));
         });
   }
@@ -97,32 +93,23 @@ public class DownsampleTrackingService {
     return Instant.ofEpochSecond(Long.parseLong(timeslot)).getEpochSecond() + partitionWidth < now;
   }
 
-  public Mono<String> checkPartitionJob(Integer partition, String group) {
+  public Mono<String> claimJob(Integer partition, String group) {
     Query query = new Query();
-    query.addCriteria(Criteria.where("partition").is(partition)
-        .and("group").is(group)
-        .and("timestamp").lt(Instant.now()));
+    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("status").is("free"));
     Update update = new Update();
     update.set("status", this.hostname);
-    update.set("timestamp", Instant.now().plusSeconds(5)); // TODO: fix this!
-
-    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class)
-        .flatMap(job -> (job != null && job.getStatus().equals(this.hostname)) ?
-            Mono.just("Job is assigned") : Mono.just("Job is not free")
-        );
+    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class).
+        flatMap(job -> job.getStatus().equals(this.hostname) ?
+            Mono.just("Job is assigned") : Mono.just("Job is not free"));
   }
 
-//  public void initJob(int partition, String group) {
-//    Query query = new Query();
-//    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("status").is(this.hostname));
-//    Update update = new Update();
-//    update.set("status", "free");
-//
-//    Job job = this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class);
-//    if (job != null && job.getStatus().equals("free")) {
-//      log.info("Job is free {} {}", partition, group);
-//    }
-//  }
+  public Mono<?> freeJob(int partition, String group) {
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("status").is(this.hostname));
+    Update update = new Update();
+    update.set("status", "free");
+    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class);
+  }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
     if (!properties.isTrackingEnabled()) {
@@ -181,18 +168,16 @@ public class DownsampleTrackingService {
 
   public Flux<PendingDownsampleSet> retrieveDownsampleSets(int partition, String group) {
     return getTimeSlot(partition, group)
-        .flatMap(timeslot -> timeslot.equals("") ? Flux.empty() : getDownsampleSets(timeslot, partition, group));
+        .flatMapMany(timeslot -> getDownsampleSets(timeslot, partition, group));
   }
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
     log.trace("getDownsampleSets {} {} {}", timeslot, partition, group);
     return this.downsamplingRepository.findByPartitionAndGroupAndTimeslot(partition, group, timeslot)
         .flatMapMany(
-            downsampling -> (downsampling == null) ?
-                Flux.empty() :
-                Flux.fromIterable(downsampling.getHashes())
-                    .take(properties.getSetHashesProcessLimit())
-                    .map(pendingValue -> buildPending(timeslot, pendingValue))
+            downsampling -> Flux.fromIterable(downsampling.getHashes())
+                .take(properties.getSetHashesProcessLimit())
+                .map(pendingValue -> buildPending(timeslot, pendingValue))
         );
   }
 

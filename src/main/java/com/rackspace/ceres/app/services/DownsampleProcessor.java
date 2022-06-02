@@ -94,7 +94,9 @@ public class DownsampleProcessor {
   private void initJobs() {
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
-                    .forEach((partition) -> this.jobRepository.save(new Job(partition, width, "free"))));
+                    .forEach((partition) ->
+                        this.jobRepository.save(new Job(partition, width, "free"))
+                            .subscribe(o -> {}, throwable -> {})));
   }
 
   private void initializeJobs() {
@@ -116,12 +118,11 @@ public class DownsampleProcessor {
 
   private void processJob(int partition, String partitionWidth) {
     log.trace("processJob {} {}", partition, partitionWidth);
-    trackingService.checkPartitionJob(partition, partitionWidth)
+    trackingService.claimJob(partition, partitionWidth)
             .flatMap(status -> status.equals("Job is assigned") ?
                     processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
     // TODO: Fix this!
-//    trackingService.initJob(partition, partitionWidth);
     int period = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
     executor.schedule(() -> processJob(partition, partitionWidth), new Random().nextInt(period), TimeUnit.SECONDS);
   }
@@ -130,7 +131,7 @@ public class DownsampleProcessor {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.retrieveDownsampleSets(partition, group)
             .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
-            .then(Mono.empty());
+            .then(trackingService.freeJob(partition, group));
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
