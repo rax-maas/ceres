@@ -136,7 +136,6 @@ public class DownsampleTrackingService {
         width -> {
           final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
           final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-          this.downsamplingRepository.findByPartitionAndGroupAndTimeslot(partition, width, timeslot);
           return savePending(partition, width, timeslot)
               .and(saveDownsampling(partition, width, timeslot, pendingValue));
         }
@@ -151,13 +150,11 @@ public class DownsampleTrackingService {
               if (hasElement) {
                 return mono.flatMap(downsampling -> {
                   downsampling.getHashes().add(value);
-                  log.trace("downsampling {}", downsampling);
                   return this.downsamplingRepository.save(downsampling);
                 });
               } else {
                 Downsampling downsampling = new Downsampling(partition, width, timeslot);
                 downsampling.getHashes().add(value);
-                log.trace("downsampling {}", downsampling);
                 return this.downsamplingRepository.save(downsampling);
               }
             }
@@ -172,13 +169,11 @@ public class DownsampleTrackingService {
           if (hasElement) {
             return mono.flatMap(pending -> {
               pending.getTimeslots().add(timeslot);
-              log.trace("pending {}", pending);
               return this.pendingRepository.save(pending);
             });
           } else {
             Pending pending = new Pending(partition, width);
             pending.getTimeslots().add(timeslot);
-            log.trace("downsampling {}", pending);
             return this.pendingRepository.save(pending);
           }
         });
