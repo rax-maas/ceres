@@ -120,6 +120,7 @@ public class DownsampleProcessor {
             .flatMap(status -> status.equals("Job is assigned") ?
                     processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
+    // TODO: Fix this!
 //    trackingService.initJob(partition, partitionWidth);
     int period = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
     executor.schedule(() -> processJob(partition, partitionWidth), new Random().nextInt(period), TimeUnit.SECONDS);

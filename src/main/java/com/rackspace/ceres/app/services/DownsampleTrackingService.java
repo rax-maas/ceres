@@ -18,14 +18,13 @@ package com.rackspace.ceres.app.services;
 
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.Job;
 import com.rackspace.ceres.app.model.Pending;
-import com.rackspace.ceres.app.repos.DownsamplingRepository;
-import com.rackspace.ceres.app.repos.JobRepository;
-import com.rackspace.ceres.app.repos.PendingRepository;
-import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.repos.DownsamplingRepository;
+import com.rackspace.ceres.app.repos.PendingRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
@@ -105,7 +104,7 @@ public class DownsampleTrackingService {
             .and("timestamp").lt(Instant.now()));
     Update update = new Update();
     update.set("status", this.hostname);
-    update.set("timestamp", Instant.now().plusSeconds(5));
+    update.set("timestamp", Instant.now().plusSeconds(5)); // TODO: fix this!
 
     Job job = this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class);
     if (job != null && job.getStatus().equals(this.hostname)) {
