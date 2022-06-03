@@ -95,12 +95,18 @@ public class DownsampleTrackingService {
 
   public Mono<String> claimJob(Integer partition, String group) {
     Query query = new Query();
-    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("status").is("free"));
+    Criteria criteria = new Criteria();
+    query.addCriteria(
+        criteria.orOperator(
+            Criteria.where("partition").is(partition).and("group").is(group).and("status").is("free"),
+            Criteria.where("partition").is(partition).and("group").is(group).and("timestamp").lt(Instant.now())
+        )
+    );
     Update update = new Update();
     update.set("status", this.hostname);
-    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class).
-        flatMap(job -> job.getStatus().equals(this.hostname) ?
-            Mono.just("Job is assigned") : Mono.just("Job is not free"));
+    update.set("timestamp", Instant.now().plusSeconds(properties.getMaxDownsampleJobDuration().getSeconds()));
+    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class)
+            .flatMap(job -> Mono.just("Job is assigned"));
   }
 
   public Mono<?> freeJob(int partition, String group) {
