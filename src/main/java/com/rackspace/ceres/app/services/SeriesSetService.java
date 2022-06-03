@@ -20,14 +20,13 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import org.springframework.stereotype.Service;
-
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.springframework.stereotype.Service;
 
 @SuppressWarnings("UnstableApiUsage") // due to guava
 @Service
