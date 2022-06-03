@@ -20,26 +20,19 @@ import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Downsampling;
-import com.rackspace.ceres.app.model.Job;
 import com.rackspace.ceres.app.model.Pending;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.repos.DownsamplingRepository;
 import com.rackspace.ceres.app.repos.PendingRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import com.rackspace.ceres.app.utils.WebClientUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
-import org.springframework.data.mongodb.core.ReactiveMongoOperations;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,21 +50,18 @@ public class DownsampleTrackingService {
   private final HashService hashService;
   private final PendingRepository pendingRepository;
   private final DownsamplingRepository downsamplingRepository;
-  private final String hostname;
-  private final ReactiveMongoOperations mongoOperations;
+  private final WebClientUtils webClientUtils;
 
   @Autowired
   public DownsampleTrackingService(DownsampleProperties properties,
                                    DownsamplingRepository downsamplingRepository,
                                    PendingRepository pendingRepository,
-                                   HashService hashService,
-                                   ReactiveMongoOperations mongoOperations) throws UnknownHostException {
+                                   HashService hashService, WebClientUtils webClientUtils) {
     this.properties = properties;
     this.pendingRepository = pendingRepository;
     this.downsamplingRepository = downsamplingRepository;
-    this.mongoOperations = mongoOperations;
-    this.hostname = InetAddress.getLocalHost().getHostName();
     this.hashService = hashService;
+    this.webClientUtils = webClientUtils;
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
@@ -94,27 +84,11 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> claimJob(Integer partition, String group) {
-    Query query = new Query();
-    Criteria criteria = new Criteria();
-    query.addCriteria(
-        criteria.orOperator(
-            Criteria.where("partition").is(partition).and("group").is(group).and("status").is("free"),
-            Criteria.where("partition").is(partition).and("group").is(group).and("timestamp").lt(Instant.now())
-        )
-    );
-    Update update = new Update();
-    update.set("status", this.hostname);
-    update.set("timestamp", Instant.now().plusSeconds(properties.getMaxDownsampleJobDuration().getSeconds()));
-    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class)
-            .flatMap(job -> Mono.just("Job is assigned"));
+    return this.webClientUtils.claimJob(partition, group);
   }
 
   public Mono<?> freeJob(int partition, String group) {
-    Query query = new Query();
-    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("status").is(this.hostname));
-    Update update = new Update();
-    update.set("status", "free");
-    return this.mongoOperations.findAndModify(query, update, new FindAndModifyOptions().returnNew(true), Job.class);
+    return this.webClientUtils.freeJob(partition, group);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
