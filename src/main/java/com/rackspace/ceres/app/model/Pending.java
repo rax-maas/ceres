@@ -11,7 +11,7 @@ import java.util.Set;
 
 @Data
 @Document
-@CompoundIndexes({@CompoundIndex(name = "pending_index", def = "{'partition': 1, 'group': 1}")})
+@CompoundIndexes({@CompoundIndex(name = "pending_index", def = "{'partition': 1, 'group': 1}", unique = true)})
 public class Pending {
     @Id
     public String id;

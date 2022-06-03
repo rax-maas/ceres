@@ -11,7 +11,8 @@ import java.util.Set;
 
 @Data
 @Document
-@CompoundIndexes({@CompoundIndex(name = "downsampling_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1}")})
+@CompoundIndexes(
+    {@CompoundIndex(name = "downsampling_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1}", unique = true)})
 public class Downsampling {
     @Id
     public String id;
