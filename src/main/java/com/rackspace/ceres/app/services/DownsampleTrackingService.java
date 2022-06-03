@@ -74,8 +74,9 @@ public class DownsampleTrackingService {
             log.warn("Timeslot count for partition: {} and group: {} is larger than 3.", partition, group);
           }
           Collections.sort(sortedTimeslots);
-          return Mono.just(sortedTimeslots.get(0))
-              .filter(timeslot -> isDueTimeslot(timeslot, partitionWidth, now));
+          return Flux.fromIterable(sortedTimeslots)
+              .filter(timeslot -> isDueTimeslot(timeslot, partitionWidth, now))
+              .next();
         });
   }
 
