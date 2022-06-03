@@ -23,7 +23,7 @@ ceres:
     initial-processing-delay: 5s
     max-downsample-job-duration: 10m
     processing-threads: 5
-    downsample-spread-period: 30s
+    downsample-spread-period: 5s
     set-hashes-process-limit: 100
     jobs-host: localhost
     jobs-port: 8082
@@ -37,8 +37,11 @@ spring:
   data:
     cassandra:
       local-datacenter: datacenter1
-    mongodb:
-      uri: mongodb://localhost:27017/ceres
 management:
   server:
     port: 8081
+logging:
+  level:
+    com.rackspace.ceres.app: debug
+  file:
+    name: ceres-application.log

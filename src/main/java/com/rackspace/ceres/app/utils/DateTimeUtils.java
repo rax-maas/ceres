@@ -96,7 +96,7 @@ public class DateTimeUtils {
       return getAbsoluteTimeFromRelativeTime(instant);
     }
   }
-  
+
   public static Duration getGranularity(Duration duration, List<Granularity> granularities) {
     granularities = granularities.stream()
         .sorted(Comparator.comparingLong(value -> value.getTtl().toHours()))
@@ -152,5 +152,9 @@ public class DateTimeUtils {
     Date now = new Date();
     now.setTime(now.getTime() + milliSeconds);
     return df.format(now);
+  }
+
+  public static long nowEpochSeconds() {
+    return Instant.now().getEpochSecond();
   }
 }

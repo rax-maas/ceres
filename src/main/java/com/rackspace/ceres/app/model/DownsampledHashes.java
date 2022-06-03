@@ -6,19 +6,16 @@ import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
 import org.springframework.data.cassandra.core.mapping.Table;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Data
 @AllArgsConstructor
-@Table("downsampling_hashes")
-public class Downsampling {
+@Table("downsampled_hashes")
+public class DownsampledHashes {
     @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 0)
-    private long timeslot;
+    private int partition;
     @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1)
     private String group;
     @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 2)
-    private int partition;
+    private long timeslot;
     @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 3)
     private String hash;
 }

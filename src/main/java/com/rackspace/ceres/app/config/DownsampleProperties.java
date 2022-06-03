@@ -76,7 +76,7 @@ public class DownsampleProperties {
    * Sets a limit on how many series set hashes that can be processed in on task
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  long setHashesProcessLimit;
+  int setHashesProcessLimit;
 
   String jobsHost;
 

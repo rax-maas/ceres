@@ -1,25 +1,23 @@
 package com.rackspace.ceres.app.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
+import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
+import org.springframework.data.cassandra.core.mapping.Table;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 @Data
-@Document
+@AllArgsConstructor
+@Table("pending_timeslots")
 public class Pending {
-    @Id
-    public String id;
-
+    @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 0)
     public Integer partition;
+    @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1)
     public String group;
-    public Set<String> timeslots;
-
-    public Pending(Integer partition, String group) {
-        this.partition = partition;
-        this.group = group;
-        this.timeslots = new HashSet<>();
-    }
+    @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 2)
+    public long timeslot;
 }
