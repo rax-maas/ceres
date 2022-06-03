@@ -70,8 +70,12 @@ public class DownsampleTrackingService {
             .take(1); // Only one timeslot at a time
   }
 
-  public Mono<String> checkPartitionJob(Integer partition, String group) {
+  public Mono<String> claimJob(Integer partition, String group) {
     return this.webClientUtils.claimJob(partition, group);
+  }
+
+  public Mono<?> freeJob(int partition, String group) {
+    return this.webClientUtils.freeJob(partition, group);
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -107,10 +111,6 @@ public class DownsampleTrackingService {
             .scan(downsamplingTimeslot)
             .take(properties.getSetHashesProcessLimit())
             .map(pendingValue -> buildPending(timeslot, pendingValue));
-  }
-
-  public Mono<?> initJob(int partition, String group) {
-    return this.webClientUtils.freeJob(partition, group);
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {

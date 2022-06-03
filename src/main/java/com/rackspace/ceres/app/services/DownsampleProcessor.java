@@ -54,6 +54,7 @@ public class DownsampleProcessor {
   private final DataWriteService dataWriteService;
   private final Timer meterTimer;
   private final ScheduledExecutorService executor;
+  private final int MIN_SCHEDULING_INTERVAL;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
@@ -68,6 +69,7 @@ public class DownsampleProcessor {
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
     this.executor = executor;
+    this.MIN_SCHEDULING_INTERVAL = 5;
   }
 
   @PostConstruct
@@ -76,7 +78,6 @@ public class DownsampleProcessor {
         properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
@@ -87,7 +88,6 @@ public class DownsampleProcessor {
 
   private void initializeJobs() {
     log.info("Start downsampling jobs");
-    long spreadPeriodSecs = properties.getDownsampleSpreadPeriod().getSeconds();
     log.info("Downsampling configuration parameters");
     log.info("=====================================");
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
@@ -98,25 +98,29 @@ public class DownsampleProcessor {
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
             .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
                     .forEach((partition) -> executor.schedule(
-                            () -> processJob(partition, width),
-                            new Random().nextInt((int) spreadPeriodSecs), TimeUnit.SECONDS)));
+                            () -> processJob(partition, width), rand(), TimeUnit.SECONDS)));
   }
 
   private void processJob(int partition, String partitionWidth) {
     log.trace("processJob {} {}", partition, partitionWidth);
-    trackingService.checkPartitionJob(partition, partitionWidth)
+    trackingService.claimJob(partition, partitionWidth)
             .flatMap(status -> status.equals("Job is assigned") ?
                     processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
-    int period = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
-    executor.schedule(() -> processJob(partition, partitionWidth), new Random().nextInt(period), TimeUnit.SECONDS);
+    executor.schedule(() -> processJob(partition, partitionWidth), rand(), TimeUnit.SECONDS);
+  }
+
+  private int rand() {
+    int maxInterval = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
+    int interval = new Random().nextInt(maxInterval) + this.MIN_SCHEDULING_INTERVAL;
+    return Math.min(interval, maxInterval);
   }
 
   private Mono<?> processTimeSlot(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.retrieveDownsampleSets(partition, group)
             .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
-                    .then(trackingService.initJob(partition, group));
+                    .then(trackingService.freeJob(partition, group));
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
