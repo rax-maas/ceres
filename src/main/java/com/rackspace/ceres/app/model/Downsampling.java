@@ -2,6 +2,8 @@ package com.rackspace.ceres.app.model;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.HashSet;
@@ -9,6 +11,7 @@ import java.util.Set;
 
 @Data
 @Document
+@CompoundIndexes({@CompoundIndex(name = "downsampling_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1}")})
 public class Downsampling {
     @Id
     public String id;

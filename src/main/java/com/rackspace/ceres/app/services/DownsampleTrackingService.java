@@ -29,6 +29,11 @@ import com.rackspace.ceres.app.utils.WebClientUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.ReactiveMongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -51,17 +56,20 @@ public class DownsampleTrackingService {
   private final PendingRepository pendingRepository;
   private final DownsamplingRepository downsamplingRepository;
   private final WebClientUtils webClientUtils;
+  private final ReactiveMongoOperations mongoOperations;
 
   @Autowired
   public DownsampleTrackingService(DownsampleProperties properties,
                                    DownsamplingRepository downsamplingRepository,
                                    PendingRepository pendingRepository,
-                                   HashService hashService, WebClientUtils webClientUtils) {
+                                   HashService hashService, WebClientUtils webClientUtils,
+                                   ReactiveMongoOperations mongoOperations) {
     this.properties = properties;
     this.pendingRepository = pendingRepository;
     this.downsamplingRepository = downsamplingRepository;
     this.hashService = hashService;
     this.webClientUtils = webClientUtils;
+    this.mongoOperations = mongoOperations;
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
@@ -110,40 +118,33 @@ public class DownsampleTrackingService {
     );
   }
 
-  private Mono<?> saveDownsampling(Integer partition, String width, String timeslot, String value) {
-    log.trace("saveDownsampling {} {} {} {}", partition, width, timeslot, value);
-    Mono<Downsampling> mono = this.downsamplingRepository.findByPartitionAndGroupAndTimeslot(partition, width, timeslot);
-    return mono.hasElement()
-        .flatMap(hasElement -> {
-              if (hasElement) {
-                return mono.flatMap(downsampling -> {
-                  downsampling.getHashes().add(value);
-                  return this.downsamplingRepository.save(downsampling);
-                });
-              } else {
-                Downsampling downsampling = new Downsampling(partition, width, timeslot);
-                downsampling.getHashes().add(value);
-                return this.downsamplingRepository.save(downsampling);
-              }
-            }
-        );
+  private Mono<?> saveDownsampling(Integer partition, String group, String timeslot, String value) {
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("timeslot").is(timeslot));
+    Update update = new Update();
+    update.addToSet("hashes", value);
+    FindAndModifyOptions options = new FindAndModifyOptions();
+    options.returnNew(true).upsert(true);
+
+    return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
+        .flatMap(downsampling -> {
+          log.trace("updated downsampling: {}", downsampling);
+          return Mono.empty();
+        });
   }
 
-  private Mono<?> savePending(Integer partition, String width, String timeslot) {
-    log.trace("savePending {} {} {}", partition, width, timeslot);
-    Mono<Pending> mono = this.pendingRepository.findByPartitionAndGroup(partition, width);
-    return mono.hasElement()
-        .flatMap(hasElement -> {
-          if (hasElement) {
-            return mono.flatMap(pending -> {
-              pending.getTimeslots().add(timeslot);
-              return this.pendingRepository.save(pending);
-            });
-          } else {
-            Pending pending = new Pending(partition, width);
-            pending.getTimeslots().add(timeslot);
-            return this.pendingRepository.save(pending);
-          }
+  private Mono<?> savePending(Integer partition, String group, String timeslot) {
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group));
+    Update update = new Update();
+    update.addToSet("timeslots", timeslot);
+    FindAndModifyOptions options = new FindAndModifyOptions();
+    options.returnNew(true).upsert(true);
+
+    return this.mongoOperations.findAndModify(query, update, options, Pending.class)
+        .flatMap(pending -> {
+          log.trace("updated pending: {}", pending);
+          return Mono.empty();
         });
   }
 
