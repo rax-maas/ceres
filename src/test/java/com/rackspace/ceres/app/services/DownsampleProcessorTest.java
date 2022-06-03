@@ -20,7 +20,6 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.config.StringToIntegerSetConverter;
 import com.rackspace.ceres.app.downsample.*;
-import com.rackspace.ceres.app.repos.JobRepository;
 import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -90,9 +89,6 @@ class DownsampleProcessorTest {
 
   @MockBean
   ScheduledExecutorService executorService;
-
-  @MockBean
-  JobRepository jobRepository;
 
   @Autowired
   DownsampleProcessor downsampleProcessor;

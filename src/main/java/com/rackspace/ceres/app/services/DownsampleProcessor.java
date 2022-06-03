@@ -19,9 +19,7 @@ package com.rackspace.ceres.app.services;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
-import com.rackspace.ceres.app.model.Job;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.repos.JobRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -56,7 +54,6 @@ public class DownsampleProcessor {
   private final DataWriteService dataWriteService;
   private final Timer meterTimer;
   private final ScheduledExecutorService executor;
-  private final JobRepository jobRepository;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
@@ -64,15 +61,13 @@ public class DownsampleProcessor {
                              QueryService queryService,
                              DataWriteService dataWriteService,
                              MeterRegistry meterRegistry,
-                             ScheduledExecutorService executor,
-                             JobRepository jobRepository) {
+                             ScheduledExecutorService executor) {
     this.properties = properties;
     this.trackingService = trackingService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
     this.executor = executor;
-    this.jobRepository = jobRepository;
   }
 
   @PostConstruct
@@ -81,22 +76,12 @@ public class DownsampleProcessor {
         properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-
-    executor.schedule(this::initJobs, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
   @PreDestroy
   public void stop() {
     executor.shutdown();
-  }
-
-  private void initJobs() {
-    DateTimeUtils.getPartitionWidths(properties.getGranularities())
-            .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
-                    .forEach((partition) ->
-                        this.jobRepository.save(new Job(partition, width, "free"))
-                            .subscribe(o -> {}, throwable -> {})));
   }
 
   private void initializeJobs() {
