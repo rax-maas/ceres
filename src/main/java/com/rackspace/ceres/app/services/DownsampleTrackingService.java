@@ -45,13 +45,13 @@ public class DownsampleTrackingService {
 
   private final ReactiveStringRedisTemplate redisTemplate;
   private final DownsampleProperties properties;
-  private final HashService hashService;
+  private final SeriesSetService hashService;
   private final WebClientUtils webClientUtils;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    DownsampleProperties properties,
-                                   HashService hashService,
+                                   SeriesSetService hashService,
                                    WebClientUtils webClientUtils) {
     this.redisTemplate = redisTemplate;
     this.properties = properties;
