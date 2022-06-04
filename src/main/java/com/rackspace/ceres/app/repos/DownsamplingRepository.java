@@ -7,5 +7,4 @@ import reactor.core.publisher.Mono;
 
 @Repository
 public interface DownsamplingRepository extends ReactiveCrudRepository<Downsampling, String> {
-    Mono<Downsampling> findByPartitionAndGroupAndTimeslot(Integer partition, String group, String timeslot);
 }

@@ -22,7 +22,6 @@ import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.Pending;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.repos.DownsamplingRepository;
 import com.rackspace.ceres.app.repos.PendingRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import com.rackspace.ceres.app.utils.WebClientUtils;
@@ -57,19 +56,16 @@ public class DownsampleTrackingService {
   private final DownsampleProperties properties;
   private final HashService hashService;
   private final PendingRepository pendingRepository;
-  private final DownsamplingRepository downsamplingRepository;
   private final WebClientUtils webClientUtils;
   private final ReactiveMongoOperations mongoOperations;
 
   @Autowired
   public DownsampleTrackingService(DownsampleProperties properties,
-                                   DownsamplingRepository downsamplingRepository,
                                    PendingRepository pendingRepository,
                                    HashService hashService, WebClientUtils webClientUtils,
                                    ReactiveMongoOperations mongoOperations) {
     this.properties = properties;
     this.pendingRepository = pendingRepository;
-    this.downsamplingRepository = downsamplingRepository;
     this.hashService = hashService;
     this.webClientUtils = webClientUtils;
     this.mongoOperations = mongoOperations;
@@ -136,7 +132,7 @@ public class DownsampleTrackingService {
                           .and("timeslot").lt(String.valueOf(then)).and("hashes").size(0));
                   this.mongoOperations.findAllAndRemove(query, Downsampling.class)
                       .flatMap(downsampling -> {
-                        log.info("removed empty hashes: {} {} {}",
+                        log.trace("removed empty hashes: {} {} {}",
                             Instant.ofEpochSecond(Long.parseLong(downsampling.getTimeslot()))
                                 .atZone(ZoneId.systemDefault()).toLocalDateTime(), downsampling.getPartition(), downsampling.getGroup());
                         return Mono.empty();
@@ -191,7 +187,7 @@ public class DownsampleTrackingService {
     return this.mongoOperations.findOne(query, Downsampling.class)
         .flatMapMany(
             downsampling -> {
-              log.info("downsampling num hashes returned: {}", downsampling.getHashes().size());
+              log.trace("downsampling num hashes returned: {}", downsampling.getHashes().size());
               return Flux.fromIterable(downsampling.getHashes());
             })
         .map(pendingValue -> buildPending(timeslot, pendingValue));
