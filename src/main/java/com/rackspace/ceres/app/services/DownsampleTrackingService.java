@@ -31,6 +31,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
+import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -182,12 +183,18 @@ public class DownsampleTrackingService {
 
   private Flux<PendingDownsampleSet> getDownsampleSets(String timeslot, int partition, String group) {
     log.trace("getDownsampleSets {} {} {}", timeslot, partition, group);
-    return this.downsamplingRepository.findByPartitionAndGroupAndTimeslot(partition, group, timeslot)
+    String queryString =
+        String.format("{ \"partition\" : %d, \"group\" : \"%s\", \"timeslot\" : \"%s\"}", partition, group, timeslot);
+    String fields = String.format("{ \"hashes\": { $slice: %d } }", properties.getSetHashesProcessLimit());
+    BasicQuery query = new BasicQuery(queryString, fields);
+
+    return this.mongoOperations.findOne(query, Downsampling.class)
         .flatMapMany(
-            downsampling -> Flux.fromIterable(downsampling.getHashes())
-                .take(properties.getSetHashesProcessLimit())
-                .map(pendingValue -> buildPending(timeslot, pendingValue))
-        );
+            downsampling -> {
+              log.info("downsampling num hashes returned: {}", downsampling.getHashes().size());
+              return Flux.fromIterable(downsampling.getHashes());
+            })
+        .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
