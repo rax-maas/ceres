@@ -135,7 +135,7 @@ public class DownsampleTrackingService {
                           .and("timeslot").lt(String.valueOf(then)).and("hashes").size(0));
                   this.mongoOperations.findAllAndRemove(query, Downsampling.class)
                       .flatMap(downsampling -> {
-                        log.trace("removed empty hashes: {} {} {}",
+                        log.info("removed empty hashes: {} {} {}",
                             Instant.ofEpochSecond(Long.parseLong(downsampling.getTimeslot()))
                                 .atZone(ZoneId.systemDefault()).toLocalDateTime(), downsampling.getPartition(), downsampling.getGroup());
                         return Mono.empty();
@@ -207,7 +207,7 @@ public class DownsampleTrackingService {
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
         .flatMap(downsampling -> {
-          log.trace("updated downsampling: {}", downsampling);
+          log.info("updated downsampling: {}", downsampling);
           return Mono.empty();
         });
   }
@@ -224,9 +224,7 @@ public class DownsampleTrackingService {
         .flatMap(pending -> {
           log.trace("updated pending: {}", pending);
           return Mono.empty();
-        }).then(
-
-        );
+        });
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
