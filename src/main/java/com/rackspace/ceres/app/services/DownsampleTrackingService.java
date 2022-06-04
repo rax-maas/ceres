@@ -40,9 +40,11 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -89,6 +91,7 @@ public class DownsampleTrackingService {
   }
 
   private boolean isDueTimeslot(String timeslot, long partitionWidth, long now) {
+    log.trace("is due: {}, {} {}", timeslot, partitionWidth, Instant.ofEpochSecond(Long.parseLong(timeslot)).getEpochSecond() + partitionWidth < now);
     return Instant.ofEpochSecond(Long.parseLong(timeslot)).getEpochSecond() + partitionWidth < now;
   }
 
@@ -116,6 +119,30 @@ public class DownsampleTrackingService {
               .and(saveDownsampling(partition, width, timeslot, pendingValue));
         }
     );
+  }
+
+  public void cleanEmptyHashes() {
+    long then = Instant.now().minusSeconds(properties.getZeroHashesTtl().getSeconds()).getEpochSecond();
+    FindAndModifyOptions options = new FindAndModifyOptions();
+    options.returnNew(true).remove(true);
+
+    DateTimeUtils.getPartitionWidths(properties.getGranularities())
+        .forEach(group -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
+            .forEach((partition) -> {
+                  Query query = new Query();
+                  query.addCriteria(
+                      Criteria.where("partition").is(partition).and("group").is(group)
+                          .and("timeslot").lt(String.valueOf(then)).and("hashes").size(0));
+                  this.mongoOperations.findAllAndRemove(query, Downsampling.class)
+                      .flatMap(downsampling -> {
+                        log.trace("removed empty hashes: {} {} {}",
+                            Instant.ofEpochSecond(Long.parseLong(downsampling.getTimeslot()))
+                                .atZone(ZoneId.systemDefault()).toLocalDateTime(), downsampling.getPartition(), downsampling.getGroup());
+                        return Mono.empty();
+                      }).subscribe(o -> {}, throwable -> {});
+                }
+            )
+        );
   }
 
   private Mono<?> saveDownsampling(Integer partition, String group, String timeslot, String value) {
@@ -166,28 +193,40 @@ public class DownsampleTrackingService {
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return removeHash(partition, group, timeslot, value)
-        .and(removeTimeslot(partition, group, timeslot));
+    return removeHash(partition, group, timeslot, value).and(removeTimeslot(partition, group, timeslot));
   }
 
   private Mono<?> removeHash(Integer partition, String group, String timeslot, String value) {
-    return this.downsamplingRepository.findByPartitionAndGroupAndTimeslot(partition, group, timeslot)
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("timeslot").is(timeslot));
+    query.fields().include("partition").include("group").include("timeslot");
+    Update update = new Update();
+    update.pull("hashes", value);
+    FindAndModifyOptions options = new FindAndModifyOptions();
+    options.returnNew(true);
+
+    return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
         .flatMap(downsampling -> {
-              downsampling.getHashes().remove(value);
-              return (downsampling.getHashes().size() == 0) ?
-                  this.downsamplingRepository.delete(downsampling) :
-                  this.downsamplingRepository.save(downsampling);
-            }
-        );
+          log.trace("updated downsampling: {}", downsampling);
+          return Mono.empty();
+        });
   }
 
   private Mono<?> removeTimeslot(Integer partition, String group, String timeslot) {
-    return this.pendingRepository.findByPartitionAndGroup(partition, group)
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group));
+    Update update = new Update();
+    update.pull("timeslots", timeslot);
+    FindAndModifyOptions options = new FindAndModifyOptions();
+    options.returnNew(true);
+
+    return this.mongoOperations.findAndModify(query, update, options, Pending.class)
         .flatMap(pending -> {
-          pending.getTimeslots().remove(timeslot);
-          return (pending.getTimeslots().size() == 0) ? this.pendingRepository.delete(pending) :
-              this.pendingRepository.save(pending);
-        });
+          log.trace("updated pending: {}", pending);
+          return Mono.empty();
+        }).then(
+
+        );
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
@@ -195,6 +234,7 @@ public class DownsampleTrackingService {
   }
 
   private static PendingDownsampleSet buildPending(String timeslot, String pendingValue) {
+    log.trace("buildPending {} {}", timeslot, pendingValue);
     final int splitValueAt = pendingValue.indexOf(DELIM);
 
     return new PendingDownsampleSet()

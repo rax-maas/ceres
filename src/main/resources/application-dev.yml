@@ -20,6 +20,8 @@ ceres:
         ttl: 1h
         partitionWidth: 15m
     partitions: 4
+    zero-hashes-cleanup-interval: 1m
+    zero-hashes-ttl: 1m
     initial-processing-delay: 5s
     max-downsample-job-duration: 15s
     processing-threads: 5

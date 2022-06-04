@@ -29,6 +29,8 @@ data:
             ttl: 365d
             partitionWidth: 12h
         partitions: 128
+        zero-hashes-cleanup-interval: 1h
+        zero-hashes-ttl: 3h
         initial-processing-delay: 1m
         max-downsample-job-duration: 1m
         processing-threads: 5
