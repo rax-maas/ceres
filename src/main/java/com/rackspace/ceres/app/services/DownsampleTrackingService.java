@@ -207,7 +207,7 @@ public class DownsampleTrackingService {
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
         .flatMap(downsampling -> {
-          log.info("updated downsampling: {}", downsampling);
+          log.trace("updated downsampling: {}", downsampling);
           return Mono.empty();
         });
   }
