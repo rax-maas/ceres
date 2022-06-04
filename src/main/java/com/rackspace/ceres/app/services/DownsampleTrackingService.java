@@ -112,8 +112,9 @@ public class DownsampleTrackingService {
         width -> {
           final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
           final String timeslot = Long.toString(normalizedTimeSlot.getEpochSecond());
-          return savePending(partition, width, timeslot)
-              .and(saveDownsampling(partition, width, timeslot, pendingValue));
+          return mongoOperations.inTransaction()
+              .execute(action -> savePending(partition, width, timeslot)
+                  .then(saveDownsampling(partition, width, timeslot, pendingValue)));
         }
     );
   }
@@ -196,7 +197,9 @@ public class DownsampleTrackingService {
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
     final String timeslot = Long.toString(entry.getTimeSlot().getEpochSecond());
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return removeHash(partition, group, timeslot, value).and(removeTimeslot(partition, group, timeslot));
+    return mongoOperations.inTransaction()
+        .execute(action -> removeHash(partition, group, timeslot, value)
+            .then(removeTimeslot(partition, group, timeslot))).next();
   }
 
   private Mono<?> removeHash(Integer partition, String group, String timeslot, String value) {
