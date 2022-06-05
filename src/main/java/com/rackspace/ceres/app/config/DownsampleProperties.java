@@ -83,18 +83,6 @@ public class DownsampleProperties {
   Integer jobsPort;
 
   /**
-   * Specifies how often zero hashes downsampling objects will be cleaned up
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration zeroHashesCleanupInterval = Duration.ofMinutes(1);
-
-  /**
-   * Specifies zero hashes object TTL
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration zeroHashesTtl = Duration.ofMinutes(1);
-
-  /**
    * Target granularities to downsample from raw data.
    */
   @GranularityValidator

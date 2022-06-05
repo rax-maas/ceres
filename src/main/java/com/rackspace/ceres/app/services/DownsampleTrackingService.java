@@ -77,8 +77,12 @@ public class DownsampleTrackingService {
   }
 
   private boolean isDueTimeslot(String timeslot, long partitionWidth, long now) {
-    log.info("is due: {}, {} {}", timeslot, partitionWidth, Instant.ofEpochSecond(Long.parseLong(timeslot)).getEpochSecond() + partitionWidth < now);
-    return Instant.ofEpochSecond(Long.parseLong(timeslot)).getEpochSecond() + partitionWidth < now;
+    boolean isDue = Long.parseLong(timeslot) + partitionWidth < now;
+    if (isDue) {
+      log.trace("Timeslot is due: {}, {}", Instant.ofEpochSecond(Long.parseLong(timeslot))
+          .atZone(ZoneId.systemDefault()).toLocalDateTime(), partitionWidth);
+    }
+    return isDue;
   }
 
   public Mono<String> claimJob(Integer partition, String group) {
@@ -109,6 +113,7 @@ public class DownsampleTrackingService {
   private Mono<?> saveDownsampling(Integer partition, String group, String timeslot, String value) {
     Query query = new Query();
     query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("timeslot").is(timeslot));
+    query.fields().include("partition").include("group").include("timeslot");
     Update update = new Update();
     update.addToSet("hashes", value);
     FindAndModifyOptions options = new FindAndModifyOptions();
@@ -116,7 +121,7 @@ public class DownsampleTrackingService {
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
         .flatMap(downsampling -> {
-          log.trace("updated downsampling: {}", downsampling);
+          log.trace("Saved downsampling: {}", downsampling);
           return Mono.empty();
         });
   }
@@ -136,8 +141,13 @@ public class DownsampleTrackingService {
     return this.mongoOperations.findOne(query, Downsampling.class)
         .flatMapMany(
             downsampling -> {
-              log.trace("downsampling num hashes returned: {}", downsampling.getHashes().size());
-              return Flux.fromIterable(downsampling.getHashes());
+              if (downsampling.getHashes().size() == 0) {
+                return cleanOneEmptyHashes(partition, group, timeslot)
+                    .flatMapMany(o -> Flux.empty());
+              } else {
+                log.trace("Number of hashes returned: {}", downsampling.getHashes().size());
+                return Flux.fromIterable(downsampling.getHashes());
+              }
             })
         .map(pendingValue -> buildPending(timeslot, pendingValue));
   }
@@ -159,9 +169,9 @@ public class DownsampleTrackingService {
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
         .flatMap(downsampling -> {
-          log.trace("updated downsampling: {}", downsampling);
+          log.trace("Removed hash: {}", downsampling);
           return Mono.empty();
-        });
+        }).then(cleanOneEmptyHashes(partition, group, timeslot));
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
@@ -178,28 +188,20 @@ public class DownsampleTrackingService {
         .setTimeSlot(Instant.ofEpochSecond(Long.parseLong(timeslot)));
   }
 
-  public void cleanEmptyHashes() {
-    long then = Instant.now().minusSeconds(properties.getZeroHashesTtl().getSeconds()).getEpochSecond();
-    FindAndModifyOptions options = new FindAndModifyOptions();
-    options.returnNew(true).remove(true);
-
-    DateTimeUtils.getPartitionWidths(properties.getGranularities())
-        .forEach(group -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
-            .forEach((partition) -> {
-                  Query query = new Query();
-                  query.addCriteria(
-                      Criteria.where("partition").is(partition).and("group").is(group)
-                          .and("timeslot").lt(String.valueOf(then)).and("hashes").size(0));
-                  this.mongoOperations.findAllAndRemove(query, Downsampling.class)
-                      .flatMap(downsampling -> {
-                        log.trace("removed empty hashes: {} {} {}",
-                            Instant.ofEpochSecond(Long.parseLong(downsampling.getTimeslot()))
-                                .atZone(ZoneId.systemDefault()).toLocalDateTime(),
-                            downsampling.getPartition(), downsampling.getGroup());
-                        return Mono.empty();
-                      }).subscribe(o -> {}, throwable -> {});
-                }
-            )
-        );
+  public Mono<?> cleanOneEmptyHashes(int partition, String group, String timeslot) {
+    Query query = new Query();
+    query.addCriteria(Criteria
+        .where("partition").is(partition)
+        .and("group").is(group)
+        .and("timeslot").is(timeslot)
+        .and("hashes").size(0));
+    return this.mongoOperations.findAndRemove(query, Downsampling.class)
+        .flatMap(downsampling -> {
+          log.trace("Removed empty hashes: {} {} {}",
+              Instant.ofEpochSecond(Long.parseLong(downsampling.getTimeslot()))
+                  .atZone(ZoneId.systemDefault()).toLocalDateTime(),
+              downsampling.getPartition(), downsampling.getGroup());
+          return Mono.empty();
+        });
   }
 }

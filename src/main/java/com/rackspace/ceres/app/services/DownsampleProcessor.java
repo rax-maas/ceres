@@ -78,8 +78,6 @@ public class DownsampleProcessor {
         properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-    executor.scheduleAtFixedRate(trackingService::cleanEmptyHashes, properties.getInitialProcessingDelay().getSeconds(),
-        properties.getZeroHashesCleanupInterval().getSeconds(), TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
@@ -96,8 +94,6 @@ public class DownsampleProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("set-hashes-process-limit: {}", properties.getSetHashesProcessLimit());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
-    log.info("zero-hashes-cleanup-interval: {}", properties.getZeroHashesCleanupInterval().getSeconds());
-    log.info("zero-hashes-ttl: {}", properties.getZeroHashesTtl().getSeconds());
     log.info("=====================================");
 
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
@@ -154,7 +150,7 @@ public class DownsampleProcessor {
                 trackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
-                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                    log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                             pendingDownsampleSet.getSeriesSetHash(),
                             pendingDownsampleSet.getTimeSlot().getEpochSecond(),
                             Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())
