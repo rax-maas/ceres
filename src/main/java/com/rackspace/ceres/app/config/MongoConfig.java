@@ -21,8 +21,7 @@ public class MongoConfig extends AbstractReactiveMongoConfiguration {
     @Bean
     public MongoClient mongoClient() {
         log.info("mongodb uri: {}", this.mongodbUri);
-        final ConnectionString connectionString =
-            new ConnectionString(this.mongodbUri);
+        final ConnectionString connectionString = new ConnectionString(this.mongodbUri);
         final MongoClientSettings mongoClientSettings = MongoClientSettings.builder()
             .applyConnectionString(connectionString)
             .build();

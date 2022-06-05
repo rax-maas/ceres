@@ -6,7 +6,9 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -25,7 +27,7 @@ public class Downsampling {
     public Downsampling(Integer partition, String group, String timeslot) {
         this.partition = partition;
         this.group = group;
-        this.timeslot = timeslot;
+        this.timeslot = timeslot;;
         this.hashes = new HashSet<>();
     }
 }
