@@ -44,9 +44,6 @@ public class WriteControllerTest {
   @MockBean
   DownsamplingRepository downsamplingRepository;
 
-  @MockBean
-  PendingRepository pendingRepository;
-
   @Autowired
   WebTestClient webTestClient;
 
