@@ -150,12 +150,10 @@ public class DownsampleProcessor {
                 trackingService.complete(pendingDownsampleSet, partition, group)
             )
             .doOnSuccess(o ->
-                    log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
-                            pendingDownsampleSet.getSeriesSetHash(),
-                            pendingDownsampleSet.getTimeSlot().getEpochSecond(),
-                            Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())
-                                    .atZone(ZoneId.systemDefault()).toLocalDateTime(),
-                            partition, group))
+                log.trace("Completed downsampling of set: {} timeslot: {} partition: {} group: {}",
+                    pendingDownsampleSet.getSeriesSetHash(),
+                    pendingDownsampleSet.getTimeSlot().atZone(ZoneId.systemDefault()).toLocalDateTime(),
+                    partition, group))
             .checkpoint();
   }
 
