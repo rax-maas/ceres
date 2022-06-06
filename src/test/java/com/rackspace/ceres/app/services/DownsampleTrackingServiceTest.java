@@ -16,10 +16,23 @@
 
 package com.rackspace.ceres.app.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.downsample.TemporalNormalizer;
+import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.services.DownsampleTrackingServiceTest.RedisEnvInit;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
+import com.rackspace.ceres.app.utils.WebClientUtils;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration;
@@ -29,11 +42,14 @@ import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
+import reactor.core.publisher.Mono;
 
 @SpringBootTest(properties = {
     "ceres.downsample.enabled=true",
@@ -43,11 +59,15 @@ import org.testcontainers.utility.DockerImageName;
 }, classes = {
     RedisAutoConfiguration.class,
     RedisReactiveAutoConfiguration.class,
-    DownsampleTrackingService.class
+    DownsampleTrackingService.class,
+    SeriesSetService.class,
+    WebClientUtils.class,
+    ObjectMapper.class
 })
 @EnableConfigurationProperties(DownsampleProperties.class)
 @ContextConfiguration(initializers = RedisEnvInit.class)
 @Testcontainers
+@ActiveProfiles("test")
 class DownsampleTrackingServiceTest {
 
   private static final int REDIS_PORT = 6379;
@@ -78,6 +98,9 @@ class DownsampleTrackingServiceTest {
   @Autowired
   DownsampleProperties downsampleProperties;
 
+  @Autowired
+  ObjectMapper objectMapper;
+
   @AfterEach
   void tearDown() {
     // prune between tests
@@ -85,216 +108,149 @@ class DownsampleTrackingServiceTest {
         .block();
   }
 
-//  @Test
-//  void track() {
-//    // need stable values to keep partition result stable for assertion
-//    final String tenantId = "tenant-1";
-//    final String seriesSetHash = "some_metric,some_tags";
-//    final String metricName = "some_metric";
-//    final Map<String, String> tags = Map.of(
-//        "os", "linux",
-//        "host", "h-1",
-//        "deployment", "prod"
-//    );
-//
-//    final Instant normalizedTimeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
-//    final Metric metric = new Metric()
-//        .setTimestamp(Instant.parse("2020-09-12T19:42:23.658447900Z"))
-//        .setValue(Math.random())
-//        .setMetric(metricName)
-//        .setTags(tags);
-//    Mono.from(
-//        downsampleTrackingService.track(
-//            tenantId,
-//            seriesSetHash, metric.getTimestamp()
-//        )
-//    ).block();
-//
-//    final List<String> keys = redisTemplate.scan().collectList().block();
-//
-//    final String ingestingKey = "ingesting|61|" + normalizedTimeSlot.getEpochSecond();
-//    final String pendingKey = "pending|61|" + normalizedTimeSlot.getEpochSecond();
-//    assertThat(keys).containsExactlyInAnyOrder(
-//        pendingKey,
-//        ingestingKey
-//    );
-//
-//    final Duration expiration = redisTemplate.getExpire(ingestingKey).block();
-//    assertThat(expiration).isPositive();
-//
-//    final List<String> pending = redisTemplate.opsForSet().scan(pendingKey).collectList().block();
-//    assertThat(pending).containsExactlyInAnyOrder(
-//        tenantId + "|" + seriesSetHash
-//    );
-//  }
+  @Test
+  void track() {
+    // need stable values to keep partition result stable for assertion
+    final String tenantId = "tenant-1";
+    final String seriesSetHash = "some_metric,some_tags";
+    final String metricName = "some_metric";
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod"
+    );
 
-  @Nested
-  class retrieveReadyOnes {
+    final Instant timeslot = Instant.parse("2020-09-12T19:42:23.658447900Z");
+    final Metric metric = new Metric()
+        .setTimestamp(timeslot)
+        .setValue(Math.random())
+        .setMetric(metricName)
+        .setTags(tags);
+    Mono.from(
+        downsampleTrackingService.track(
+            tenantId,
+            seriesSetHash, metric.getTimestamp()
+        )
+    ).block();
 
-//    @Test
-//    void onlyIncludesRequestedPartition() {
-//      final Instant timeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
-//
-//      final PendingDownsampleSet expected1 = createPending(50, timeSlot);
-//      final PendingDownsampleSet expected2 = createPending(50, timeSlot);
-//      final PendingDownsampleSet extra1 = createPending(25, timeSlot);
-//
-//      redisTemplate.opsForSet()
-//          .add(
-//              "pending|50|" + timeSlot.getEpochSecond(),
-//              buildPendingValue(expected1),
-//              buildPendingValue(expected2)
-//          )
-//          .block();
-//      redisTemplate.opsForSet()
-//          .add(
-//              "pending|25|" + timeSlot.getEpochSecond(),
-//              buildPendingValue(extra1)
-//          )
-//          .block();
-//
-//      final List<PendingDownsampleSet> results = downsampleTrackingService.retrieveReadyOnes(50)
-//          .collectList().block();
-//
-//      assertThat(results).containsExactlyInAnyOrder(
-//          expected1, expected2
-//      );
-//    }
+    final List<String> keys = redisTemplate.scan().collectList().block();
+    List<String> widths = DateTimeUtils.getPartitionWidths(downsampleProperties.getGranularities());
+    final Instant normalizedTimeSlotPt2h = timeslot.with(new TemporalNormalizer(Duration.parse(widths.get(0))));
+    final Instant normalizedTimeSlotPt4h = timeslot.with(new TemporalNormalizer(Duration.parse(widths.get(1))));
 
-//    @Test
-//    void onlyOnesFinishedIngesting() {
-//      final Instant timeSlotFinished = Instant.parse("2020-09-12T18:00:00.0Z");
-//      final Instant timeSlotIngesting = Instant.parse("2020-09-12T20:00:00.0Z");
-//
-//      final PendingDownsampleSet expected1 = createPending(50, timeSlotFinished);
-//      final PendingDownsampleSet extra1 = createPending(50, timeSlotIngesting);
-//
-//      redisTemplate.opsForSet()
-//          .add(
-//              "pending|50|" + timeSlotFinished.getEpochSecond(),
-//              buildPendingValue(expected1)
-//          )
-//          .block();
-//      redisTemplate.opsForSet()
-//          .add(
-//              "pending|50|" + timeSlotIngesting.getEpochSecond(),
-//              buildPendingValue(extra1)
-//          )
-//          .block();
-//      redisTemplate.opsForValue()
-//          .set("ingesting|50|" + timeSlotIngesting.getEpochSecond(), "")
-//          .block();
-//
-//      final List<PendingDownsampleSet> results = downsampleTrackingService.retrieveReadyOnes(50)
-//          .collectList().block();
-//
-//      assertThat(results).containsExactlyInAnyOrder(
-//          expected1
-//      );
-//    }
+    final String pendingKeyPt2h = "pending|36|" + widths.get(0);
+    final String pendingKeyPt4h = "pending|36|" + widths.get(1);
 
-//    @Test
-//    void multipleTimeSlots() {
-//      final Instant timeSlot1 = Instant.parse("2020-09-12T18:00:00.0Z");
-//      final Instant timeSlot2 = Instant.parse("2020-09-12T20:00:00.0Z");
-//
-//      final PendingDownsampleSet expected1 = createPending(50, timeSlot1);
-//      final PendingDownsampleSet expected2 = createPending(50, timeSlot2);
-//
-//      redisTemplate.opsForSet()
-//          .add(
-//              "pending|50|" + timeSlot1.getEpochSecond(),
-//              buildPendingValue(expected1)
-//          )
-//          .block();
-//      redisTemplate.opsForSet()
-//          .add(
-//              "pending|50|" + timeSlot2.getEpochSecond(),
-//              buildPendingValue(expected2)
-//          )
-//          .block();
-//
-//      final List<PendingDownsampleSet> results = downsampleTrackingService.retrieveReadyOnes(50)
-//          .collectList().block();
-//
-//      assertThat(results).containsExactlyInAnyOrder(
-//          expected1,
-//          expected2
-//      );
-//    }
+    final String downsamplingKeyPt2h = "downsampling|36|"+ widths.get(0)+"|" +normalizedTimeSlotPt2h.getEpochSecond();
+    final String downsamplingKeyPt4h = "downsampling|36|"+ widths.get(1)+"|" +normalizedTimeSlotPt4h.getEpochSecond();
+
+    assertThat(keys).containsExactlyInAnyOrder(
+        pendingKeyPt2h,
+        pendingKeyPt4h,
+        downsamplingKeyPt2h,
+        downsamplingKeyPt4h
+    );
+
+    final List<String> pendingValuePt2h = redisTemplate.opsForSet().scan(pendingKeyPt2h).collectList().block();
+    assertThat(pendingValuePt2h).containsExactlyInAnyOrder(
+        Long.toString(normalizedTimeSlotPt2h.getEpochSecond())
+    );
+    final List<String> pendingValuePt4h = redisTemplate.opsForSet().scan(pendingKeyPt4h).collectList().block();
+    assertThat(pendingValuePt4h).containsExactlyInAnyOrder(
+        Long.toString(normalizedTimeSlotPt4h.getEpochSecond())
+    );
+
+    final List<String> downsamplingValuePt2h = redisTemplate.opsForSet().scan(downsamplingKeyPt2h).collectList().block();
+    assertThat(downsamplingValuePt2h).containsExactlyInAnyOrder(
+        tenantId+"|"+seriesSetHash
+    );
+    final List<String> downsamplingValuePt4h = redisTemplate.opsForSet().scan(downsamplingKeyPt4h).collectList().block();
+    assertThat(downsamplingValuePt4h).containsExactlyInAnyOrder(
+        tenantId+"|"+seriesSetHash
+    );
   }
 
   @Nested
   class complete {
-//    @Test
-//    void oneRemains() {
-//      final Instant timeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
-//
-//      final PendingDownsampleSet pending1 = createPending(50, timeSlot);
-//      final PendingDownsampleSet pending2 = createPending(50, timeSlot);
-//
-//      final String key = "pending|50|" + timeSlot.getEpochSecond();
-//
-//      final String value1 = buildPendingValue(pending1);
-//      final String value2 = buildPendingValue(pending2);
-//
-//      redisTemplate.opsForSet().add(key, value1).block();
-//      redisTemplate.opsForSet().add(key, value2).block();
-//
-//      final List<String> before = redisTemplate.opsForSet().scan(key).collectList().block();
-//      assertThat(before).containsExactlyInAnyOrder(
-//          value1, value2
-//      );
-//
-//      downsampleTrackingService.complete(pending1)
-//          .block();
-//
-//      final List<String> after = redisTemplate.opsForSet().scan(key).collectList().block();
-//      assertThat(after).containsExactlyInAnyOrder(
-//          value2
-//      );
-//    }
+    @Test
+    void oneRemains() {
+      final Instant timeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
 
-//    @Test
-//    void noneRemain() {
-//      final Instant timeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
-//
-//      final PendingDownsampleSet pending1 = createPending(50, timeSlot);
-//
-//      final String key = "pending|50|" + timeSlot.getEpochSecond();
-//
-//      final String value1 = buildPendingValue(pending1);
-//
-//      redisTemplate.opsForSet().add(key, value1).block();
-//
-//      final List<String> before = redisTemplate.opsForSet().scan(key).collectList().block();
-//      assertThat(before).containsExactlyInAnyOrder(
-//          value1
-//      );
-//
-//      downsampleTrackingService.complete(pending1)
-//          .block();
-//
-//      final List<String> after = redisTemplate.opsForSet().scan(key).collectList().block();
-//      assertThat(after).isEmpty();
-//
-//      final Boolean hasKey = redisTemplate.hasKey(key).block();
-//      assertThat(hasKey).isFalse();
-//    }
+      final PendingDownsampleSet pending1 = createPending(timeSlot);
+      final PendingDownsampleSet pending2 = createPending(timeSlot);
+
+      final Instant normalizedTimeSlotPt2h = timeSlot.with(new TemporalNormalizer(Duration.parse("PT2H")));
+      final String downsamplingKeyPt2h = "downsampling|36|"+ "PT2H"+"|" +normalizedTimeSlotPt2h.getEpochSecond();
+
+      final String value1 = buildPendingValue(pending1);
+      final String value2 = buildPendingValue(pending2);
+
+      redisTemplate.opsForSet().add(downsamplingKeyPt2h, value1).block();
+      redisTemplate.opsForSet().add(downsamplingKeyPt2h, value2).block();
+
+      final List<String> before = redisTemplate.opsForSet().scan(downsamplingKeyPt2h).collectList().block();
+      assertThat(before).containsExactlyInAnyOrder(
+          value1, value2
+      );
+
+      downsampleTrackingService.complete(pending1,36, "PT2H" )
+          .block();
+
+      final List<String> after = redisTemplate.opsForSet().scan(downsamplingKeyPt2h).collectList().block();
+      assertThat(after).containsExactlyInAnyOrder(
+          value2
+      );
+    }
+
+    @Test
+    void noneRemain() {
+      final Instant timeSlot = Instant.parse("2020-09-12T18:00:00.0Z");
+
+      final PendingDownsampleSet pending1 = createPending(timeSlot);
+      final Instant normalizedTimeSlotPt2h = timeSlot.with(new TemporalNormalizer(Duration.parse("PT2H")));
+      final String downsamplingKeyPt2h = "downsampling|36|"+ "PT2H"+"|" +normalizedTimeSlotPt2h.getEpochSecond();
+
+      final String value1 = buildPendingValue(pending1);
+      final String pendingKeyPt2h = "pending|36|" + "PT2H";
+      final String pendingValuePt2h = Long.toString(normalizedTimeSlotPt2h.getEpochSecond());
+
+      redisTemplate.opsForSet().add(downsamplingKeyPt2h, value1).block();
+      redisTemplate.opsForSet().add(pendingKeyPt2h, pendingValuePt2h).block();
+
+      final List<String> before = redisTemplate.opsForSet().scan(downsamplingKeyPt2h).collectList().block();
+      assertThat(before).containsExactlyInAnyOrder(
+          value1
+      );
+      final List<String> beforePendingKey = redisTemplate.opsForSet().scan(pendingKeyPt2h).collectList().block();
+      assertThat(beforePendingKey).containsExactlyInAnyOrder(
+          pendingValuePt2h
+      );
+
+      downsampleTrackingService.complete(pending1, 36, "PT2H")
+          .block();
+
+      final List<String> after = redisTemplate.opsForSet().scan(downsamplingKeyPt2h).collectList().block();
+      assertThat(after).isEmpty();
+      final List<String> afterPendingKey = redisTemplate.opsForSet().scan(pendingKeyPt2h).collectList().block();
+      assertThat(afterPendingKey).isEmpty();
+
+      final Boolean hasKey = redisTemplate.hasKey(downsamplingKeyPt2h).block();
+      assertThat(hasKey).isFalse();
+    }
 
   }
 
-//  private PendingDownsampleSet createPending(Instant timeSlot) {
-//    return new PendingDownsampleSet()
-//        .setTenant(RandomStringUtils.randomAlphanumeric(10))
-//        .setSeriesSetHash(
-//            RandomStringUtils.randomAlphabetic(5) + ",deployment=prod,host=h-1,os=linux")
-//        .setTimeSlot(timeSlot);
-//  }
-//
-//  private String buildPendingValue(PendingDownsampleSet pending) {
-//    return pending.getTenant() + "|" + pending.getSeriesSetHash();
-//  }
+  private PendingDownsampleSet createPending(Instant timeSlot) {
+    return new PendingDownsampleSet()
+        .setTenant(RandomStringUtils.randomAlphanumeric(10))
+        .setSeriesSetHash(
+            RandomStringUtils.randomAlphabetic(5) + ",deployment=prod,host=h-1,os=linux")
+        .setTimeSlot(timeSlot);
+  }
+
+  private String buildPendingValue(PendingDownsampleSet pending) {
+    return pending.getTenant() + "|" + pending.getSeriesSetHash();
+  }
 //
 //  private String isoTimeUtcPlusSeconds(long seconds) {
 //    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
