@@ -105,11 +105,7 @@ public class DownsampleTrackingService {
         });
   }
 
-  public Flux<PendingDownsampleSet> retrieveDownsampleSets(int partition, String group) {
-    return getDownsampleSets(partition, group);
-  }
-
-  private Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
+  public Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
     log.trace("getDownsampleSets {} {}", partition, group);
     long partitionWidth = Duration.parse(group).getSeconds();
     String queryString =

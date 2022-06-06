@@ -106,7 +106,7 @@ public class DownsampleProcessor {
     log.trace("processJob {} {}", partition, partitionWidth);
     trackingService.claimJob(partition, partitionWidth)
             .flatMap(status -> status.equals("Job is assigned") ?
-                    processTimeSlot(partition, partitionWidth) : Mono.empty())
+                    processPartition(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> {});
     executor.schedule(() -> processJob(partition, partitionWidth), rand(), TimeUnit.SECONDS);
   }
@@ -117,9 +117,9 @@ public class DownsampleProcessor {
     return Math.min(interval, maxInterval);
   }
 
-  private Mono<?> processTimeSlot(int partition, String group) {
+  private Mono<?> processPartition(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
-    return trackingService.retrieveDownsampleSets(partition, group)
+    return trackingService.getDownsampleSets(partition, group)
             .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
             .then(trackingService.freeJob(partition, group));
   }
