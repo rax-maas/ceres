@@ -92,17 +92,14 @@ public class DownsampleTrackingService {
   private Mono<?> saveDownsampling(Integer partition, String group, Instant timeslot, String value) {
     Query query = new Query();
     query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("timeslot").is(timeslot));
-    query.fields().include("partition").include("group").include("timeslot");
+    query.fields().exclude("hashes");
     Update update = new Update();
     update.addToSet("hashes", value);
     FindAndModifyOptions options = new FindAndModifyOptions();
     options.returnNew(true).upsert(true);
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
-        .flatMap(downsampling -> {
-          log.trace("Saved downsampling: {}", downsampling);
-          return Mono.empty();
-        });
+        .flatMap(downsampling -> Mono.empty());
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
@@ -122,8 +119,9 @@ public class DownsampleTrackingService {
         .take(1)
         .flatMap(
             downsampling -> {
-                log.info("Number of hashes returned: {} partition: {}, group: {}, timeslot: {}",
-                    downsampling.getHashes().size(), partition, group, downsampling.getTimeslot());
+                log.info("Hashes count: {} partition: {}, group: {}, timeslot: {}",
+                    downsampling.getHashes().size(), partition, group,
+                    downsampling.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime());
                 return Flux.fromIterable(downsampling.getHashes());
             })
         .map(DownsampleTrackingService::buildPending);
@@ -138,14 +136,14 @@ public class DownsampleTrackingService {
   private Mono<?> removeHash(Integer partition, String group, Instant timeslot, String value) {
     Query query = new Query();
     query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("timeslot").is(timeslot));
-    query.fields().include("partition").include("group").include("timeslot");
+    query.fields().exclude("hashes");
     Update update = new Update();
     update.pull("hashes", value);
     FindAndModifyOptions options = new FindAndModifyOptions();
     options.returnNew(true);
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
-        .flatMap(downsampling -> Mono.empty()).then(cleanOneEmptyHashes(partition, group, timeslot));
+        .flatMap(downsampling -> cleanEmptyHashes(partition, group, timeslot));
   }
 
   private static String encodingPendingValue(String timeslot, String tenant, String seriesSet) {
@@ -162,7 +160,7 @@ public class DownsampleTrackingService {
         .setTimeSlot(Instant.ofEpochSecond(Long.parseLong(values[0])));
   }
 
-  public Mono<?> cleanOneEmptyHashes(int partition, String group, Instant timeslot) {
+  public Mono<?> cleanEmptyHashes(int partition, String group, Instant timeslot) {
     Query query = new Query();
     query.addCriteria(Criteria
         .where("partition").is(partition)
