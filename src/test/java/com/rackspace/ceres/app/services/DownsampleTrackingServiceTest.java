@@ -251,22 +251,4 @@ class DownsampleTrackingServiceTest {
   private String buildPendingValue(PendingDownsampleSet pending) {
     return pending.getTenant() + "|" + pending.getSeriesSetHash();
   }
-//
-//  private String isoTimeUtcPlusSeconds(long seconds) {
-//    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-//    df.setTimeZone(TimeZone.getTimeZone("UTC"));
-//    Date now = new Date();
-//    now.setTime(now.getTime() + seconds * 1000);
-//    return df.format(now);
-//  }
-//
-//  private void setJobValue(int jobKey, String jobValue) {
-//    downsampleTrackingService.setJobValue(jobKey, jobValue).block();
-//    downsampleTrackingService.getJobValue(jobKey).flatMap(
-//        result -> {
-//          assertThat(result).isEqualTo(jobValue);
-//          return Mono.empty();
-//        }
-//    ).block();
-//  }
 }
