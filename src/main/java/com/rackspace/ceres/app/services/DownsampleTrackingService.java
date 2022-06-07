@@ -99,7 +99,9 @@ public class DownsampleTrackingService {
     options.returnNew(true).upsert(true);
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
-        .flatMap(downsampling -> Mono.empty());
+            .name("saveDownsampling")
+            .metrics()
+            .flatMap(downsampling -> Mono.empty());
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
@@ -114,6 +116,8 @@ public class DownsampleTrackingService {
 //    query.with(Sort.by(Sort.Direction.ASC, "timeslot"));
 
     return this.mongoOperations.find(query, Downsampling.class)
+            .name("getDownsampleSets")
+            .metrics()
         .filter(d -> isDueTimeslot(d.getTimeslot(), partitionWidth, Instant.now()))
         .sort(Comparator.comparing(Downsampling::getTimeslot))
         .take(1)
@@ -148,7 +152,9 @@ public class DownsampleTrackingService {
     options.returnNew(true);
 
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
-        .flatMap(downsampling -> cleanEmptyHashes(partition, group, timeslot));
+            .name("removeHash")
+            .metrics()
+            .flatMap(downsampling -> cleanEmptyHashes(partition, group, timeslot));
   }
 
   private static String encodingPendingValue(String timeslot, String tenant, String seriesSet) {
@@ -173,12 +179,14 @@ public class DownsampleTrackingService {
         .and("timeslot").is(timeslot)
         .and("hashes").size(0));
     return this.mongoOperations.findAndRemove(query, Downsampling.class)
-        .flatMap(downsampling -> {
-          log.info("Removed empty hashes: {} {} {}",
-              timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(),
-              downsampling.getPartition(), downsampling.getGroup());
-          return Mono.empty();
-        });
+            .name("cleanEmptyHashes")
+            .metrics()
+            .flatMap(downsampling -> {
+              log.info("Removed empty hashes: {} {} {}",
+                      timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(),
+                      downsampling.getPartition(), downsampling.getGroup());
+              return Mono.empty();
+            });
   }
 
   private boolean isDueTimeslot(Instant timeslot, long partitionWidth, Instant now) {
