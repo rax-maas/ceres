@@ -178,9 +178,7 @@ public class DownsampleTrackingService {
 
   private boolean isDueTimeslot(Instant timeslot, long partitionWidth, Instant now) {
     boolean isDue = timeslot.getEpochSecond() + partitionWidth < now.getEpochSecond();
-    if (isDue) {
-      log.info("Timeslot is due: {}, {}", timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(), partitionWidth);
-    }
+    log.info("Timeslot is due: {}, {}, {}", isDue, timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(), partitionWidth);
     return isDue;
   }
 }
