@@ -119,12 +119,17 @@ public class DownsampleTrackingService {
         .take(1)
         .flatMap(
             downsampling -> {
+              if (downsampling.getHashes().size() == 0) {
+                return cleanEmptyHashes(partition, group, downsampling.getTimeslot())
+                    .flatMapMany(o -> Flux.empty());
+              } else {
                 log.info("Hashes count: {} partition: {}, group: {}, timeslot: {}",
                     downsampling.getHashes().size(), partition, group,
                     downsampling.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime());
-                return Flux.fromIterable(downsampling.getHashes());
-            })
-        .map(DownsampleTrackingService::buildPending);
+                return Flux.fromIterable(downsampling.getHashes())
+                    .map(DownsampleTrackingService::buildPending);
+              }
+            });
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
