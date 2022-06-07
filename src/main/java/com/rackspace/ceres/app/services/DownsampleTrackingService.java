@@ -169,7 +169,7 @@ public class DownsampleTrackingService {
         .and("hashes").size(0));
     return this.mongoOperations.findAndRemove(query, Downsampling.class)
         .flatMap(downsampling -> {
-          log.trace("Removed empty hashes: {} {} {}",
+          log.info("Removed empty hashes: {} {} {}",
               timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(),
               downsampling.getPartition(), downsampling.getGroup());
           return Mono.empty();
@@ -179,7 +179,7 @@ public class DownsampleTrackingService {
   private boolean isDueTimeslot(Instant timeslot, long partitionWidth, Instant now) {
     boolean isDue = timeslot.getEpochSecond() + partitionWidth < now.getEpochSecond();
     if (isDue) {
-      log.trace("Timeslot is due: {}, {}", timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(), partitionWidth);
+      log.info("Timeslot is due: {}, {}", timeslot.atZone(ZoneId.systemDefault()).toLocalDateTime(), partitionWidth);
     }
     return isDue;
   }
