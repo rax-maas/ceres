@@ -107,8 +107,6 @@ public class DownsampleTrackingService {
         .set("group", group)
         .set("timeslot", timeslot)
         .set("setHash", setHash);
-    FindAndModifyOptions options = new FindAndModifyOptions();
-    options.returnNew(true).upsert(true);
 
     Query query1 = new Query();
     query1.addCriteria(Criteria.where("partition").is(partition)
@@ -118,10 +116,8 @@ public class DownsampleTrackingService {
     update1.set("partition", partition)
         .set("group", group)
         .set("timeslot", timeslot);
-    FindAndModifyOptions options1 = new FindAndModifyOptions();
-    options1.returnNew(true).upsert(true);
-    return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
-        .then(this.mongoOperations.findAndModify(query1, update1, options1, Timeslot.class))
+    return this.mongoOperations.upsert(query, update, Downsampling.class)
+        .then(this.mongoOperations.upsert(query1, update1, Timeslot.class))
         .name("saveDownsampling")
         .metrics();
   }
