@@ -21,7 +21,9 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.model.Timeslot;
 import com.rackspace.ceres.app.repos.DownsamplingRepository;
+import com.rackspace.ceres.app.repos.TimeslotRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import com.rackspace.ceres.app.utils.WebClientUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -52,18 +54,21 @@ public class DownsampleTrackingService {
   private final WebClientUtils webClientUtils;
   private final ReactiveMongoOperations mongoOperations;
   private final DownsamplingRepository downsamplingRepository;
+  private final TimeslotRepository timeslotRepository;
 
   @Autowired
   public DownsampleTrackingService(DownsampleProperties properties,
                                    HashService hashService,
                                    WebClientUtils webClientUtils,
                                    ReactiveMongoOperations mongoOperations,
-                                   DownsamplingRepository downsamplingRepository) {
+                                   DownsamplingRepository downsamplingRepository,
+                                   TimeslotRepository timeslotRepository) {
     this.properties = properties;
     this.hashService = hashService;
     this.webClientUtils = webClientUtils;
     this.mongoOperations = mongoOperations;
     this.downsamplingRepository = downsamplingRepository;
+    this.timeslotRepository = timeslotRepository;
   }
 
   public Mono<String> claimJob(Integer partition, String group) {
@@ -103,7 +108,19 @@ public class DownsampleTrackingService {
         .set("setHash", setHash);
     FindAndModifyOptions options = new FindAndModifyOptions();
     options.returnNew(true).upsert(true);
+
+    Query query1 = new Query();
+    query1.addCriteria(Criteria.where("partition").is(partition)
+        .and("group").is(group)
+        .and("timeslot").is(timeslot));
+    Update update1 = new Update();
+    update1.set("partition", partition)
+        .set("group", group)
+        .set("timeslot", timeslot);
+    FindAndModifyOptions options1 = new FindAndModifyOptions();
+    options1.returnNew(true).upsert(true);
     return this.mongoOperations.findAndModify(query, update, options, Downsampling.class)
+        .then(this.mongoOperations.findAndModify(query1, update1, options1, Timeslot.class))
         .name("saveDownsampling")
         .metrics();
   }
@@ -115,18 +132,30 @@ public class DownsampleTrackingService {
     query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group)
         .and("timeslot").lt(Instant.now().minusSeconds(partitionWidth)));
     query.fields().include("timeslot");
-    return this.mongoOperations.findOne(query, Downsampling.class)
-            .name("getDownsampleSets")
-            .metrics()
+    return this.mongoOperations.findOne(query, Timeslot.class)
+        .name("getDownsampleSets")
+        .metrics()
         .flatMapMany(
             d2 -> {
-              log.info("Got timeslot: {} {} {}", d2.getTimeslot(), partition, group);
+              log.info("Got timeslot: {} {} {}",
+                  d2.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime(), partition, group);
               Query query1 = new Query();
-              query1.addCriteria(Criteria.where("partition").is(partition).and("group").is(group).and("timeslot").is(d2.getTimeslot()));
+              query1.addCriteria(Criteria.where("partition").is(partition)
+                  .and("group").is(group).and("timeslot").is(d2.getTimeslot()));
               query1.fields().include("setHash");
-              return this.mongoOperations.find(query1, Downsampling.class)
-                  .take(properties.getSetHashesProcessLimit())
-                  .map(d3 -> buildPending(d2.getTimeslot(), d3.getSetHash()));
+              Flux<Downsampling> flux = this.mongoOperations.find(query1, Downsampling.class);
+              return flux.hasElements().flatMapMany(hasElements -> {
+                    if (hasElements) {
+                      log.info("Got hashes...");
+                      return flux.take(properties.getSetHashesProcessLimit())
+                          .map(d3 -> buildPending(d2.getTimeslot(), d3.getSetHash()));
+                    } else {
+                      log.info("Empty hashes...");
+                      return this.timeslotRepository.deleteByPartitionAndGroupAndTimeslot(partition, group, d2.getTimeslot())
+                          .flatMapMany(o -> Flux.empty());
+                    }
+                  }
+              );
             });
   }
 
