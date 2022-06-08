@@ -31,6 +31,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
+import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -143,12 +144,13 @@ public class DownsampleTrackingService {
               query1.addCriteria(Criteria.where("partition").is(partition)
                   .and("group").is(group).and("timeslot").is(d2.getTimeslot()));
               query1.fields().include("setHash");
+              query1.limit((int) properties.getSetHashesProcessLimit());
+
               Flux<Downsampling> flux = this.mongoOperations.find(query1, Downsampling.class);
               return flux.hasElements().flatMapMany(hasElements -> {
                     if (hasElements) {
                       log.info("Got hashes...");
-                      return flux.take(properties.getSetHashesProcessLimit())
-                          .map(d3 -> buildPending(d2.getTimeslot(), d3.getSetHash()));
+                      return flux.map(d3 -> buildPending(d2.getTimeslot(), d3.getSetHash()));
                     } else {
                       log.info("Empty hashes...");
                       return this.timeslotRepository.deleteByPartitionAndGroupAndTimeslot(partition, group, d2.getTimeslot())
