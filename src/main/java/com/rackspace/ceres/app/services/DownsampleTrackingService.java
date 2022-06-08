@@ -22,16 +22,12 @@ import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.model.Timeslot;
-import com.rackspace.ceres.app.repos.DownsamplingRepository;
-import com.rackspace.ceres.app.repos.TimeslotRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import com.rackspace.ceres.app.utils.WebClientUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
-import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -54,22 +50,16 @@ public class DownsampleTrackingService {
   private final HashService hashService;
   private final WebClientUtils webClientUtils;
   private final ReactiveMongoOperations mongoOperations;
-  private final DownsamplingRepository downsamplingRepository;
-  private final TimeslotRepository timeslotRepository;
 
   @Autowired
   public DownsampleTrackingService(DownsampleProperties properties,
                                    HashService hashService,
                                    WebClientUtils webClientUtils,
-                                   ReactiveMongoOperations mongoOperations,
-                                   DownsamplingRepository downsamplingRepository,
-                                   TimeslotRepository timeslotRepository) {
+                                   ReactiveMongoOperations mongoOperations) {
     this.properties = properties;
     this.hashService = hashService;
     this.webClientUtils = webClientUtils;
     this.mongoOperations = mongoOperations;
-    this.downsamplingRepository = downsamplingRepository;
-    this.timeslotRepository = timeslotRepository;
   }
 
   public Mono<String> claimJob(Integer partition, String group) {
@@ -126,19 +116,21 @@ public class DownsampleTrackingService {
     log.trace("getDownsampleSets {} {}", partition, group);
     long partitionWidth = Duration.parse(group).getSeconds();
     Query query = new Query();
-    query.addCriteria(Criteria.where("partition").is(partition).and("group").is(group)
+    query.addCriteria(Criteria.where("partition").is(partition)
+        .and("group").is(group)
         .and("timeslot").lt(Instant.now().minusSeconds(partitionWidth)));
     query.fields().include("timeslot");
     return this.mongoOperations.findOne(query, Timeslot.class)
         .name("getDownsampleSets")
         .metrics()
         .flatMapMany(
-            d2 -> {
+            ts -> {
               log.info("Got timeslot: {} {} {}",
-                  d2.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime(), partition, group);
+                  ts.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime(), partition, group);
               Query query1 = new Query();
               query1.addCriteria(Criteria.where("partition").is(partition)
-                  .and("group").is(group).and("timeslot").is(d2.getTimeslot()));
+                  .and("group").is(group)
+                  .and("timeslot").is(ts.getTimeslot()));
               query1.fields().include("setHash");
               query1.limit((int) properties.getSetHashesProcessLimit());
 
@@ -146,10 +138,14 @@ public class DownsampleTrackingService {
               return flux.hasElements().flatMapMany(hasElements -> {
                     if (hasElements) {
                       log.info("Got hashes...");
-                      return flux.map(d3 -> buildPending(d2.getTimeslot(), d3.getSetHash()));
+                      return flux.map(d2 -> buildPending(ts.getTimeslot(), d2.getSetHash()));
                     } else {
                       log.info("Empty hashes...");
-                      return this.timeslotRepository.deleteByPartitionAndGroupAndTimeslot(partition, group, d2.getTimeslot())
+                      Query query2 = new Query();
+                      query2.addCriteria(Criteria.where("partition").is(partition)
+                          .and("group").is(group)
+                          .and("timeslot").is(ts.getTimeslot()));
+                      return this.mongoOperations.remove(query2, Timeslot.class)
                           .flatMapMany(o -> Flux.empty());
                     }
                   }
@@ -164,7 +160,12 @@ public class DownsampleTrackingService {
 
   private Mono<?> deleteDownsampling(Integer partition, String group, Instant timeslot, String setHash) {
     log.trace("Delete downsampling: {} {} {} {}", partition, group, timeslot, setHash);
-    return this.downsamplingRepository.deleteByPartitionAndGroupAndTimeslotAndSetHash(partition, group, timeslot, setHash)
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition)
+        .and("group").is(group)
+        .and("timeslot").is(timeslot)
+        .and("setHash").is(setHash));
+    return this.mongoOperations.remove(query, Downsampling.class)
             .name("removeHash")
             .metrics();
   }
