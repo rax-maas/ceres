@@ -17,9 +17,9 @@
 package com.rackspace.ceres.app.services;
 
 import com.google.common.hash.HashCode;
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
-import com.rackspace.ceres.app.model.DownsampledHashes;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.Pending;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
@@ -61,13 +61,11 @@ public class DownsampleTrackingService {
   private final RedisScript<String> redisGetJob;
 
   private static final String GET_TIMESLOT_QUERY = "SELECT timeslot FROM pending_timeslots WHERE partition = ? AND group = ? AND timeslot <= ? LIMIT 1";
-  private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?  LIMIT ?";
-  private static final String GET_COUNT_OF_HASHES_TO_DOWNSAMPLE= "SELECT COUNT(*) FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?";
-  private static final String GET_COUNT_OF_HASHES_DOWNSAMPLED = "SELECT COUNT(*) FROM downsampled_hashes WHERE timeslot = ? AND group = ? AND partition = ?";
+  private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?  AND completed = false LIMIT ? ALLOW FILTERING";
   private static final String REMOVE_DOWNSAMPLING_TIMESLOT_PARTITION = "DELETE FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?";
-  private static final String REMOVE_DOWNSAMPLED_TIMESLOT_PARTITION = "DELETE FROM downsampled_hashes WHERE timeslot = ? AND group = ? AND partition = ?";
 
   private final Counter dbOperationErrorsCounter;
+  private final AppProperties appProperties;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
@@ -76,6 +74,7 @@ public class DownsampleTrackingService {
                                    DownsampleProperties properties,
                                    HashService hashService,
                                    MeterRegistry meterRegistry,
+                                   AppProperties appProperties,
                                    ReactiveCqlTemplate cqlTemplate) throws UnknownHostException {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
@@ -84,6 +83,7 @@ public class DownsampleTrackingService {
     this.hashService = hashService;
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
+    this.appProperties = appProperties;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
             "type", "write");
   }
@@ -132,13 +132,14 @@ public class DownsampleTrackingService {
   }
 
   private Mono<?> saveDownsampling(Integer partition, String width, long timeslot, String hash) {
-    log.trace("saveDownsampling {} {} {} {}", partition, width, timeslot, hash);
-    return this.cassandraTemplate.insert(new Downsampling(timeslot, width, partition, hash));
+    log.trace("saveDownsampling {} {} {} {}", partition, width, timeslot, hash, false);
+    return this.cassandraTemplate.insert(new Downsampling(timeslot, width, partition, hash, false))
+            .retryWhen(appProperties.getRetryInsertDownsampled().build());
   }
 
   private Mono<?> savePending(Integer partition, String width, long timeslot) {
     Pending pending = new Pending(partition, width, timeslot);
-    return this.cassandraTemplate.insert(pending);
+    return this.cassandraTemplate.insert(pending).retryWhen(appProperties.getRetryInsertDownsampled().build());
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(Long timeslot, int partition, String group) {
@@ -157,24 +158,11 @@ public class DownsampleTrackingService {
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
     final Long timeslot = entry.getTimeSlot().getEpochSecond();
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return addToCompletedHashes(partition, group, timeslot, value)
-        .and(safeDeleteTimeslot(partition, group, timeslot));
-  }
-
-  private Mono<?> removeHash(Integer partition, String group, Long timeslot, String value) {
-    return this.cassandraTemplate.delete(new Downsampling(timeslot, group, partition, value));
+    return addToCompletedHashes(partition, group, timeslot, value);
   }
 
   private Mono<?> addToCompletedHashes(Integer partition, String group, Long timeslot, String value) {
-    return this.cassandraTemplate.insert(new DownsampledHashes(partition, group, timeslot, value));
-  }
-
-  public Mono<?> safeDeleteTimeslot(Integer partition, String group, Long timeslot) {
-    return this
-            .cqlTemplate
-            .queryForObject(GET_COUNT_OF_HASHES_TO_DOWNSAMPLE, Long.class, timeslot, group, partition)
-            .flatMap(count -> this.cqlTemplate.queryForObject(GET_COUNT_OF_HASHES_DOWNSAMPLED, Long.class, timeslot, group, partition)
-                            .flatMap(count2 -> count  == count2 ? deleteTimeslot(partition, group, timeslot) : Mono.empty()));
+    return this.cassandraTemplate.insert(new Downsampling(timeslot, group, partition, value, true));
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
@@ -182,7 +170,6 @@ public class DownsampleTrackingService {
     return
             this.cassandraTemplate.delete(new Pending(partition, group, timeslot))
                     .and(this.cqlTemplate.execute(REMOVE_DOWNSAMPLING_TIMESLOT_PARTITION,timeslot, group, partition))
-                    .and(this.cqlTemplate.execute(REMOVE_DOWNSAMPLED_TIMESLOT_PARTITION,timeslot, group, partition))
                     .doOnError((throwable) -> {
                       log.error("Exception in deleteTimeslot", throwable);
                     }) ;

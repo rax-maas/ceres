@@ -72,6 +72,8 @@ public class DataTablesPopulator implements KeyspacePopulator {
     dataDownsampledTableSpecs()
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
+            .flatMap( spec -> createTable(downsamplingHashesTableSpec(), session))
+            .flatMap( spec -> createTable(pendingTimeslotTableSpec(), session))
         .subscribe();
   }
 
@@ -127,6 +129,28 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
         .with(TableOption.COMPACTION, compactionOptions(ttl))
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
+  }
+
+  private CreateTableSpecification downsamplingHashesTableSpec() {
+    log.info("creating downsampling_hashes table");
+    return CreateTableSpecification
+            .createTable("downsampling_hashes")
+            .ifNotExists()
+            .partitionKeyColumn("timeslot", DataTypes.BIGINT)
+            .partitionKeyColumn("group", DataTypes.TEXT)
+            .partitionKeyColumn("partition", DataTypes.INT)
+            .clusteredKeyColumn("hash", DataTypes.TEXT)
+            .column("completed", DataTypes.BOOLEAN);
+  }
+
+  private CreateTableSpecification pendingTimeslotTableSpec() {
+    log.info("creating pending_timeslots table");
+    return CreateTableSpecification
+            .createTable("pending_timeslots")
+            .ifNotExists()
+            .partitionKeyColumn("partition", DataTypes.INT)
+            .partitionKeyColumn("group", DataTypes.TEXT)
+            .clusteredKeyColumn("timeslot", DataTypes.BIGINT);
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {

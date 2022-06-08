@@ -37,6 +37,10 @@ spring:
   data:
     cassandra:
       local-datacenter: datacenter1
+      connection:
+        connect-timeout: 10s
+      request:
+        timeout: 10s
 management:
   server:
     port: 8081

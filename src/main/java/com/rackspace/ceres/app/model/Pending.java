@@ -15,9 +15,9 @@ import java.util.Set;
 @Table("pending_timeslots")
 public class Pending {
     @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 0)
-    public Integer partition;
+    private Integer partition;
     @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1)
-    public String group;
+    private String group;
     @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 2)
-    public long timeslot;
+    private long timeslot;
 }

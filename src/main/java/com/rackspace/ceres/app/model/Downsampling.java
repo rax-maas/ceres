@@ -21,4 +21,5 @@ public class Downsampling {
     private int partition;
     @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 3)
     private String hash;
+    private boolean completed;
 }

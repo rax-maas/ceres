@@ -78,22 +78,22 @@ public class AppProperties {
    * Maximum size of the cache that tracks series-sets that have been persisted into Cassandra.
    */
   @Min(0)
-  long seriesSetCacheSize = 5000;
+  long seriesSetCacheSize = 50000;
 
   @NotNull
   RetrySpec retryInsertMetadata = new RetrySpec()
       .setMaxAttempts(5)
-      .setMinBackoff(Duration.ofMillis(100));
+      .setMinBackoff(Duration.ofMillis(500));
 
   @NotNull
   RetrySpec retryInsertRaw = new RetrySpec()
       .setMaxAttempts(5)
-      .setMinBackoff(Duration.ofMillis(100));
+      .setMinBackoff(Duration.ofMillis(500));
 
   @NotNull
   RetrySpec retryInsertDownsampled = new RetrySpec()
       .setMaxAttempts(5)
-      .setMinBackoff(Duration.ofMillis(100));
+      .setMinBackoff(Duration.ofMillis(500));
 
   @NotNull
   RetrySpec retryQueryForDownsample = new RetrySpec()
@@ -103,7 +103,7 @@ public class AppProperties {
   @NotNull
   RetrySpec retryDelete = new RetrySpec()
       .setMaxAttempts(3)
-      .setMinBackoff(Duration.ofMillis(100));
+      .setMinBackoff(Duration.ofMillis(500));
 
   @NotNull TagFilter tagFilter = TagFilter.EXCLUDE;
 
