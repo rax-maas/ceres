@@ -13,7 +13,7 @@ import java.time.Instant;
 @Document
 @CompoundIndexes(
     {
-        @CompoundIndex(name = "timeslot_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1, 'setHash': 1}", unique = true),
+        @CompoundIndex(name = "timeslot_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1}", unique = true),
         @CompoundIndex(name = "timeslot_index_pg", def = "{'partition': 1, 'group': 1}")
     }
 )
