@@ -87,65 +87,38 @@ public class DownsampleTrackingService {
   }
 
   private Mono<?> saveDownsampling(Integer partition, String group, Instant timeslot, String setHash) {
-    Query query = new Query();
-    query.addCriteria(Criteria.where("partition").is(partition)
-        .and("group").is(group)
-        .and("timeslot").is(timeslot)
-        .and("setHash").is(setHash));
-    Update update = new Update();
-    update.set("partition", partition)
-        .set("group", group)
-        .set("timeslot", timeslot)
-        .set("setHash", setHash);
+    Query dQuery = downsamplingQuery(partition, group, timeslot, setHash);
+    Update dUpdate = new Update();
+    dUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot).set("setHash", setHash);
 
-    Query query1 = new Query();
-    query1.addCriteria(Criteria.where("partition").is(partition)
-        .and("group").is(group)
-        .and("timeslot").is(timeslot));
-    Update update1 = new Update();
-    update1.set("partition", partition)
-        .set("group", group)
-        .set("timeslot", timeslot);
-    return this.mongoOperations.upsert(query, update, Downsampling.class)
-        .then(this.mongoOperations.upsert(query1, update1, Timeslot.class))
+    Query tsQuery = timeslotQuery(partition, group, timeslot);
+    Update tsUpdate = new Update();
+    tsUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot);
+    return this.mongoOperations.upsert(dQuery, dUpdate, Downsampling.class)
+        .then(this.mongoOperations.upsert(tsQuery, tsUpdate, Timeslot.class))
         .name("saveDownsampling")
         .metrics();
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
     log.trace("getDownsampleSets {} {}", partition, group);
-    long partitionWidth = Duration.parse(group).getSeconds();
-    Query query = new Query();
-    query.addCriteria(Criteria.where("partition").is(partition)
-        .and("group").is(group)
-        .and("timeslot").lt(Instant.now().minusSeconds(partitionWidth)));
-    query.fields().include("timeslot");
-    return this.mongoOperations.findOne(query, Timeslot.class)
+    return this.mongoOperations.findOne(timeslotScanQuery(partition, group), Timeslot.class)
         .name("getDownsampleSets")
         .metrics()
         .flatMapMany(
             ts -> {
               log.info("Got timeslot: {} {} {}",
                   ts.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime(), partition, group);
-              Query query1 = new Query();
-              query1.addCriteria(Criteria.where("partition").is(partition)
-                  .and("group").is(group)
-                  .and("timeslot").is(ts.getTimeslot()));
-              query1.fields().include("setHash");
-              query1.limit((int) properties.getSetHashesProcessLimit());
-
-              Flux<Downsampling> flux = this.mongoOperations.find(query1, Downsampling.class);
+              Query dScanQuery = downsamplingScanQuery(partition, group, ts.getTimeslot());
+              Flux<Downsampling> flux = this.mongoOperations.find(dScanQuery, Downsampling.class);
               return flux.hasElements().flatMapMany(hasElements -> {
                     if (hasElements) {
                       log.info("Got hashes...");
                       return flux.map(d2 -> buildPending(ts.getTimeslot(), d2.getSetHash()));
                     } else {
-                      log.info("Empty hashes...");
-                      Query query2 = new Query();
-                      query2.addCriteria(Criteria.where("partition").is(partition)
-                          .and("group").is(group)
-                          .and("timeslot").is(ts.getTimeslot()));
-                      return this.mongoOperations.remove(query2, Timeslot.class)
+                      log.info("Empty hashes removing timeslot...");
+                      Query tsQuery = timeslotQuery(partition, group, ts.getTimeslot());
+                      return this.mongoOperations.remove(tsQuery, Timeslot.class)
                           .flatMapMany(o -> Flux.empty());
                     }
                   }
@@ -160,14 +133,51 @@ public class DownsampleTrackingService {
 
   private Mono<?> deleteDownsampling(Integer partition, String group, Instant timeslot, String setHash) {
     log.trace("Delete downsampling: {} {} {} {}", partition, group, timeslot, setHash);
+    Query query = downsamplingQuery(partition, group, timeslot, setHash);
+    return this.mongoOperations.remove(query, Downsampling.class)
+            .name("removeHash")
+            .metrics();
+  }
+
+  private Query downsamplingQuery(Integer partition, String group, Instant timeslot, String setHash) {
     Query query = new Query();
     query.addCriteria(Criteria.where("partition").is(partition)
         .and("group").is(group)
         .and("timeslot").is(timeslot)
         .and("setHash").is(setHash));
-    return this.mongoOperations.remove(query, Downsampling.class)
-            .name("removeHash")
-            .metrics();
+    query.withHint("{ partition: 1, group: 1, timeslot: 1, setHash: 1 }");
+    return query;
+  }
+
+  private Query downsamplingScanQuery(Integer partition, String group, Instant timeslot) {
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition)
+        .and("group").is(group)
+        .and("timeslot").is(timeslot));
+    query.fields().include("setHash");
+    query.withHint("{ partition: 1, group: 1 , timeslot: 1}");
+    query.limit((int) properties.getSetHashesProcessLimit());
+    return query;
+  }
+
+  private Query timeslotQuery(Integer partition, String group, Instant timeslot) {
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition)
+        .and("group").is(group)
+        .and("timeslot").is(timeslot));
+    query.withHint("{ partition: 1, group: 1, timeslot: 1 }");
+    return query;
+  }
+
+  private Query timeslotScanQuery(Integer partition, String group) {
+    long partitionWidth = Duration.parse(group).getSeconds();
+    Query query = new Query();
+    query.addCriteria(Criteria.where("partition").is(partition)
+        .and("group").is(group)
+        .and("timeslot").lt(Instant.now().minusSeconds(partitionWidth)));
+    query.fields().include("timeslot");
+    query.withHint("{ partition: 1, group: 1 }");
+    return query;
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
