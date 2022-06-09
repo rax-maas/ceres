@@ -110,16 +110,15 @@ public class DownsampleTrackingService {
               log.info("Got timeslot: {} {} {}",
                   ts.getTimeslot().atZone(ZoneId.systemDefault()).toLocalDateTime(), partition, group);
               Query dScanQuery = downsamplingScanQuery(partition, group, ts.getTimeslot());
-              Flux<Downsampling> flux = this.mongoOperations.find(dScanQuery, Downsampling.class);
-              return flux.hasElements().flatMapMany(hasElements -> {
+              Flux<Downsampling> downsamplingFlux = this.mongoOperations.find(dScanQuery, Downsampling.class);
+              return downsamplingFlux.hasElements().flatMapMany(hasElements -> {
                     if (hasElements) {
                       log.info("Got hashes...");
-                      return flux.map(d2 -> buildPending(ts.getTimeslot(), d2.getSetHash()));
+                      return downsamplingFlux.map(d2 -> buildPending(ts.getTimeslot(), d2.getSetHash()));
                     } else {
                       log.info("Empty hashes removing timeslot...");
                       Query tsQuery = timeslotQuery(partition, group, ts.getTimeslot());
-                      return this.mongoOperations.remove(tsQuery, Timeslot.class)
-                          .flatMapMany(o -> Flux.empty());
+                      return this.mongoOperations.remove(tsQuery, Timeslot.class).flatMapMany(o -> Flux.empty());
                     }
                   }
               );
@@ -155,7 +154,7 @@ public class DownsampleTrackingService {
         .and("group").is(group)
         .and("timeslot").is(timeslot));
     query.fields().include("setHash");
-    query.withHint("{ partition: 1, group: 1 , timeslot: 1}");
+    query.withHint("{ partition: 1, group: 1 , timeslot: 1 }");
     query.limit((int) properties.getSetHashesProcessLimit());
     return query;
   }
@@ -170,11 +169,10 @@ public class DownsampleTrackingService {
   }
 
   private Query timeslotScanQuery(Integer partition, String group) {
-    long partitionWidth = Duration.parse(group).getSeconds();
     Query query = new Query();
     query.addCriteria(Criteria.where("partition").is(partition)
         .and("group").is(group)
-        .and("timeslot").lt(Instant.now().minusSeconds(partitionWidth)));
+        .and("timeslot").lt(Instant.now().minusSeconds(Duration.parse(group).getSeconds())));
     query.fields().include("timeslot");
     query.withHint("{ partition: 1, group: 1 }");
     return query;
