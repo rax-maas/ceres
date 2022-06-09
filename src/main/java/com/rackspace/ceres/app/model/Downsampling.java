@@ -31,6 +31,7 @@ public class Downsampling {
     public String setHash;
 
     public Downsampling(Integer partition, String group, Instant timeslot, String setHash) {
+        this.id = String.format("partition|%d|group|%s|timeslot|%d|hash|%s",partition, group, timeslot.getEpochSecond(), setHash);
         this.partition = partition;
         this.group = group;
         this.timeslot = timeslot;

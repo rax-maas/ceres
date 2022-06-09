@@ -27,6 +27,7 @@ public class Timeslot {
   public Instant timeslot;
 
   public Timeslot(Integer partition, String group, Instant timeslot) {
+    this.id = String.format("partition|%d|group|%s|timeslot|%d", partition, group, timeslot.getEpochSecond());
     this.partition = partition;
     this.group = group;
     this.timeslot = timeslot;
