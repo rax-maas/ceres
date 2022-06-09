@@ -87,21 +87,17 @@ public class DownsampleTrackingService {
   }
 
   private Mono<?> saveDownsampling(Integer partition, String group, Instant timeslot, String setHash) {
-//    Query dQuery = downsamplingQuery(partition, group, timeslot, setHash);
-//    Update dUpdate = new Update();
-//    dUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot).set("setHash", setHash);
-//
-//    Query tsQuery = timeslotQuery(partition, group, timeslot);
-//    Update tsUpdate = new Update();
-//    tsUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot);
-//    return this.mongoOperations.upsert(dQuery, dUpdate, Downsampling.class)
-//        .then(this.mongoOperations.upsert(tsQuery, tsUpdate, Timeslot.class))
-//        .name("saveDownsampling")
-//        .metrics();
-    return this.mongoOperations.save(new Downsampling(partition, group, timeslot, setHash))
-            .then(this.mongoOperations.save(new Timeslot(partition, group, timeslot)))
-            .name("saveDownsampling")
-            .metrics();
+    Query dQuery = downsamplingQuery(partition, group, timeslot, setHash);
+    Update dUpdate = new Update();
+    dUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot).set("setHash", setHash);
+
+    Query tsQuery = timeslotQuery(partition, group, timeslot);
+    Update tsUpdate = new Update();
+    tsUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot);
+    return this.mongoOperations.upsert(dQuery, dUpdate, Downsampling.class)
+        .then(this.mongoOperations.upsert(tsQuery, tsUpdate, Timeslot.class))
+        .name("saveDownsampling")
+        .metrics();
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
