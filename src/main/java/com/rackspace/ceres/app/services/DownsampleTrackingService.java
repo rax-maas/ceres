@@ -174,7 +174,7 @@ public class DownsampleTrackingService {
         .and("group").is(group)
         .and("timeslot").lt(Instant.now().minusSeconds(Duration.parse(group).getSeconds())));
     query.fields().include("timeslot");
-    query.withHint("{ partition: 1, group: 1 }");
+    query.withHint("{ partition: 1, group: 1, timeslot: 1 }");
     return query;
   }
 

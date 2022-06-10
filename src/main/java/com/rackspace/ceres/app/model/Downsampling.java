@@ -15,8 +15,7 @@ import java.util.Set;
 @Document
 @CompoundIndexes(
     {
-        @CompoundIndex(name = "downsampling_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1, 'setHash': 1}", unique = true),
-        @CompoundIndex(name = "downsampling_index_pg", def = "{'partition': 1, 'group': 1}"),
+        @CompoundIndex(name = "downsampling_index_pgts", def = "{'partition': 1, 'group': 1, 'timeslot': 1, 'setHash': 1}", unique = true),
         @CompoundIndex(name = "downsampling_index_pgt", def = "{'partition': 1, 'group': 1, 'timeslot': 1}")
     }
 )
@@ -26,7 +25,6 @@ public class Downsampling {
 
     public Integer partition;
     public String group;
-    @Indexed
     public Instant timeslot;
     public String setHash;
 

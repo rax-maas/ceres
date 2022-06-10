@@ -13,8 +13,7 @@ import java.time.Instant;
 @Document
 @CompoundIndexes(
     {
-        @CompoundIndex(name = "timeslot_index", def = "{'partition': 1, 'group': 1, 'timeslot': 1}", unique = true),
-        @CompoundIndex(name = "timeslot_index_pg", def = "{'partition': 1, 'group': 1}")
+        @CompoundIndex(name = "timeslot_index_pgt", def = "{'partition': 1, 'group': 1, 'timeslot': 1}", unique = true)
     }
 )
 public class Timeslot {
@@ -23,7 +22,6 @@ public class Timeslot {
 
   public Integer partition;
   public String group;
-  @Indexed
   public Instant timeslot;
 
   public Timeslot(Integer partition, String group, Instant timeslot) {
