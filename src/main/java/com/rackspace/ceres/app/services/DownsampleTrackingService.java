@@ -23,6 +23,7 @@ import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.model.Timeslot;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import com.rackspace.ceres.app.utils.WebClientBuffering;
 import com.rackspace.ceres.app.utils.WebClientUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
@@ -30,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -49,16 +49,19 @@ public class DownsampleTrackingService {
   private final DownsampleProperties properties;
   private final HashService hashService;
   private final WebClientUtils webClientUtils;
+  private final WebClientBuffering webClientBuffering;
   private final ReactiveMongoOperations mongoOperations;
 
   @Autowired
   public DownsampleTrackingService(DownsampleProperties properties,
                                    HashService hashService,
                                    WebClientUtils webClientUtils,
+                                   WebClientBuffering webClientBuffering,
                                    ReactiveMongoOperations mongoOperations) {
     this.properties = properties;
     this.hashService = hashService;
     this.webClientUtils = webClientUtils;
+    this.webClientBuffering = webClientBuffering;
     this.mongoOperations = mongoOperations;
   }
 
@@ -87,17 +90,7 @@ public class DownsampleTrackingService {
   }
 
   private Mono<?> saveDownsampling(Integer partition, String group, Instant timeslot, String setHash) {
-    Query dQuery = downsamplingQuery(partition, group, timeslot, setHash);
-    Update dUpdate = new Update();
-    dUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot).set("setHash", setHash);
-
-    Query tsQuery = timeslotQuery(partition, group, timeslot);
-    Update tsUpdate = new Update();
-    tsUpdate.set("partition", partition).set("group", group).set("timeslot", timeslot);
-    return this.mongoOperations.upsert(dQuery, dUpdate, Downsampling.class)
-        .then(this.mongoOperations.upsert(tsQuery, tsUpdate, Timeslot.class))
-        .name("saveDownsampling")
-        .metrics();
+    return this.webClientBuffering.saveDownsampling(partition, group, timeslot, setHash);
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(int partition, String group) {
