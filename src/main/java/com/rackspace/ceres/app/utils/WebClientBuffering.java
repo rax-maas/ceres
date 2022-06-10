@@ -16,11 +16,13 @@ import java.time.Instant;
 public class WebClientBuffering {
   private final ObjectMapper objectMapper;
   private final WebClient webClient;
+  private final DownsampleProperties properties;
 
   public WebClientBuffering(DownsampleProperties properties, ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
-    String URI =
-        String.format("http://%s:%d/api/downsampling", "localhost", 8085);
+    this.properties = properties;
+    String URI = String.format("http://%s:%d/api/downsampling",
+        properties.getMongoBufferingHost(), properties.getMongoBufferingPort());
     this.webClient = WebClient.create(URI);
   }
 

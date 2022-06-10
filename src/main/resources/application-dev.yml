@@ -27,6 +27,8 @@ ceres:
     set-hashes-process-limit: 100
     jobs-host: localhost
     jobs-port: 8082
+    mongo-buffering-host: localhost
+    mongo-buffering-port: 8085
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]
