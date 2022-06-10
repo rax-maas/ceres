@@ -2,8 +2,10 @@ package com.rackspace.ceres.app.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Downsampling;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -12,17 +14,16 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 
+@Slf4j
 @Component
 public class WebClientBuffering {
   private final ObjectMapper objectMapper;
   private final WebClient webClient;
-  private final DownsampleProperties properties;
 
-  public WebClientBuffering(DownsampleProperties properties, ObjectMapper objectMapper) {
+  public WebClientBuffering(ObjectMapper objectMapper, AppProperties properties) {
+    log.info("mongoBufferingHost: {}, mongoBufferingPort: {}", properties.getMongoBufferingHost(), properties.getMongoBufferingPort());
     this.objectMapper = objectMapper;
-    this.properties = properties;
-    String URI = String.format("http://%s:%d/api/downsampling",
-        properties.getMongoBufferingHost(), properties.getMongoBufferingPort());
+    String URI = String.format("http://%s:%d/api/downsampling", properties.getMongoBufferingHost(), properties.getMongoBufferingPort());
     this.webClient = WebClient.create(URI);
   }
 

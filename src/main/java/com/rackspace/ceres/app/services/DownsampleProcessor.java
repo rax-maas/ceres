@@ -94,8 +94,6 @@ public class DownsampleProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("set-hashes-process-limit: {}", properties.getSetHashesProcessLimit());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
-    log.info("mongo-buffering-host: {}", properties.getMongoBufferingHost());
-    log.info("mongo-buffering-port: {}", properties.getMongoBufferingPort());
     log.info("=====================================");
 
     DateTimeUtils.getPartitionWidths(properties.getGranularities())

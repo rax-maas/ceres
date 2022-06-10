@@ -114,4 +114,7 @@ public class AppProperties {
   Duration ingestStartTime = Duration.ofDays(7);
 
   Duration ingestEndTime = Duration.ofDays(1);
+
+  String mongoBufferingHost;
+  Integer mongoBufferingPort;
 }

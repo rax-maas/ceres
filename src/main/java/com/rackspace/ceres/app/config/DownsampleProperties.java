@@ -82,10 +82,6 @@ public class DownsampleProperties {
 
   Integer jobsPort;
 
-  String mongoBufferingHost;
-
-  Integer mongoBufferingPort;
-
   /**
    * Target granularities to downsample from raw data.
    */

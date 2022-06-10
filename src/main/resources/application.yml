@@ -4,8 +4,6 @@ spring:
       keyspace-name: ceres
       schema-action: create_if_not_exists
       local-datacenter: datacenter1
-    mongodb:
-      uri: mongodb://root:myU8KfkjLC@cassandra-mongodb/ceres?authSource=admin
   cache:
     # we have redis, but really just want in-memory caching
     type: simple
