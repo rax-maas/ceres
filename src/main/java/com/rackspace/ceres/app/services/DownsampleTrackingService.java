@@ -16,19 +16,19 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
-import com.rackspace.ceres.app.model.Downsampling;
-import com.rackspace.ceres.app.model.Pending;
-import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -42,6 +42,7 @@ import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 
@@ -59,6 +60,7 @@ public class DownsampleTrackingService {
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
+  private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
 
   private static final String GET_TIMESLOT_QUERY = "SELECT timeslot FROM pending_timeslots WHERE partition = ? AND group = ? AND timeslot <= ? LIMIT 1";
   private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?  AND completed = false LIMIT ? ALLOW FILTERING";
@@ -75,6 +77,7 @@ public class DownsampleTrackingService {
                                    HashService hashService,
                                    MeterRegistry meterRegistry,
                                    AppProperties appProperties,
+                                   @Qualifier("downsample") AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
                                    ReactiveCqlTemplate cqlTemplate) throws UnknownHostException {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
@@ -86,6 +89,7 @@ public class DownsampleTrackingService {
     this.appProperties = appProperties;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
             "type", "write");
+    this.downsampleHashExistenceCache = downsampleHashExistenceCache;
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
@@ -125,21 +129,40 @@ public class DownsampleTrackingService {
         width -> {
           final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
           final long timeslot = normalizedTimeSlot.getEpochSecond();
-          return savePending(partition, width, timeslot)
-              .and(saveDownsampling(partition, width, timeslot, pendingValue));
+          return cacheDownsamplingHash(partition, width, timeslot, pendingValue);
         }
     );
   }
 
+  private Mono<?> cacheDownsamplingHash(Integer partition, String width, long timeslot, String hash) {
+    final CompletableFuture<Boolean> result = downsampleHashExistenceCache.get(
+            new DownsampleSetCacheKey(partition, width, timeslot, hash),
+            (key, executor) -> {
+              log.trace("saving downsampling hash {} {} {} {}", partition, width, timeslot, hash);
+              return saveDownsampling(partition, width, timeslot, hash)
+                      .then(savePending(partition, width, timeslot))
+                      .flatMap(s -> Mono.just(true))
+                      .toFuture();
+            }
+    );
+    return Mono.fromFuture(result);
+  }
+
   private Mono<?> saveDownsampling(Integer partition, String width, long timeslot, String hash) {
-    log.trace("saveDownsampling {} {} {} {}", partition, width, timeslot, hash, false);
+    log.trace("saveDownsampling_ {} {} {} {}", partition, width, timeslot, hash);
     return this.cassandraTemplate.insert(new Downsampling(timeslot, width, partition, hash, false))
+            .name("saveDownsampling")
+            .metrics()
             .retryWhen(appProperties.getRetryInsertDownsampled().build());
   }
 
   private Mono<?> savePending(Integer partition, String width, long timeslot) {
+    log.trace("savePending {} {} {}", partition, width, timeslot);
     Pending pending = new Pending(partition, width, timeslot);
-    return this.cassandraTemplate.insert(pending).retryWhen(appProperties.getRetryInsertDownsampled().build());
+    return this.cassandraTemplate.insert(pending)
+            .name("savePending")
+            .metrics()
+            .retryWhen(appProperties.getRetryInsertDownsampled().build());
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(Long timeslot, int partition, String group) {
@@ -158,7 +181,8 @@ public class DownsampleTrackingService {
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
     final Long timeslot = entry.getTimeSlot().getEpochSecond();
     final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return addToCompletedHashes(partition, group, timeslot, value);
+    return addToCompletedHashes(partition, group, timeslot, value)
+            .and(removeEntryFromCache(partition,group, timeslot, value));
   }
 
   private Mono<?> addToCompletedHashes(Integer partition, String group, Long timeslot, String value) {
@@ -173,6 +197,11 @@ public class DownsampleTrackingService {
                     .doOnError((throwable) -> {
                       log.error("Exception in deleteTimeslot", throwable);
                     }) ;
+  }
+
+  public Mono<Boolean> removeEntryFromCache(Integer partition, String width, Long timeslot, String hash) {
+    downsampleHashExistenceCache.synchronous().invalidate(new DownsampleSetCacheKey(partition, width, timeslot, hash));
+    return Mono.just(true);
   }
 
   private static String encodingPendingValue(String tenant, String seriesSet) {
