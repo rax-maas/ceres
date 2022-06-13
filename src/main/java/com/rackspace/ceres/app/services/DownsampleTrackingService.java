@@ -68,6 +68,7 @@ public class DownsampleTrackingService {
 
   private final Counter dbOperationErrorsCounter;
   private final AppProperties appProperties;
+  private final MeterRegistry meterRegistry;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
@@ -90,6 +91,7 @@ public class DownsampleTrackingService {
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
             "type", "write");
     this.downsampleHashExistenceCache = downsampleHashExistenceCache;
+    this.meterRegistry = meterRegistry;
   }
 
   public Flux<String> checkPartitionJob(Integer partition, String group) {
@@ -174,8 +176,22 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> initJob(int partition, String group) {
-    log.trace("InitJob partition, group {} {}", partition, group);
-    return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
+    return redisTemplate
+            .opsForValue()
+            .setIfAbsent("job|" + partition + "|" + group, "free")
+            .flatMap( updated -> {
+              if(updated) {
+                log.info("InitJob partition, group {} {}", partition, group);
+                meterRegistry.counter("initJob", "partition", String.valueOf(partition), "group", group).increment();
+              }
+              return Mono.just(updated);
+            });
+  }
+
+  public Mono<?> resetJob(int partition, String group) {
+    log.trace("resetJob partition, group {} {}", partition, group);
+    meterRegistry.counter("resetJob", "partition", String.valueOf(partition), "group", group).increment();
+    return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free").doOnError( e -> e.printStackTrace());
   }
 
   public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {

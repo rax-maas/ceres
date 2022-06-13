@@ -55,6 +55,7 @@ public class DownsampleProcessor {
   private final Timer meterTimer;
   private final ScheduledExecutorService executor;
   private final int MIN_SCHEDULING_INTERVAL = 2;
+  private final MeterRegistry meterRegistry;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
@@ -69,6 +70,7 @@ public class DownsampleProcessor {
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
     this.executor = executor;
+    this.meterRegistry = meterRegistry;
   }
 
   @PostConstruct
@@ -116,7 +118,7 @@ public class DownsampleProcessor {
     log.trace("processJob {} {}", partition, partitionWidth);
     trackingService.checkPartitionJob(partition, partitionWidth)
             .flatMap(status -> status.equals("free") ?
-                    processTimeSlot(partition, partitionWidth) : trackingService.initJob(partition, partitionWidth))
+                    processTimeSlot(partition, partitionWidth) : Mono.empty())
             .subscribe(o -> {}, throwable -> log.error("Exception in processJob", throwable));
     executor.schedule(() -> processJob(partition, partitionWidth), nextJobScheduleDelay(), TimeUnit.SECONDS);
   }
@@ -128,15 +130,22 @@ public class DownsampleProcessor {
   private Flux<?> processTimeSlot(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
-            .flatMapMany(timeslot ->
-                    trackingService.getDownsampleSets(timeslot, partition, group)
-                            .switchIfEmpty(Mono.fromRunnable(() -> {
-                              log.trace("Empty downsample hashes. Clearing timeslot {} from pending list for {} {}",timeslot, partition, group);
-                              trackingService.deleteTimeslot(partition, group, timeslot).subscribe();
-                            }))
-                            .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
-                            .then(trackingService.initJob(partition, group))
-            );
+            .flatMapMany(timeslot -> {
+                      this.meterRegistry.counter("processTimeSlot", "partition", String.valueOf(partition), "group", group, "timeslot", String.valueOf(timeslot)).increment();
+                      return trackingService.getDownsampleSets(timeslot, partition, group)
+                              .switchIfEmpty(Mono.fromRunnable(() -> {
+                                log.trace("Empty downsample hashes. Clearing timeslot {} from pending list for {} {}", timeslot, partition, group);
+                                trackingService
+                                        .deleteTimeslot(partition, group, timeslot)
+                                        .then(trackingService.resetJob(partition, group))
+                                        .subscribe();
+                              }))
+                              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
+                              .then(trackingService.resetJob(partition, group));
+                    }
+            ).switchIfEmpty(
+                   Mono.fromRunnable(() -> trackingService.resetJob(partition, group).subscribe())
+            ).doOnError(e -> e.printStackTrace());
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
@@ -152,7 +161,6 @@ public class DownsampleProcessor {
     );
 
     List<Granularity> granularities = DateTimeUtils.filterGroupGranularities(group, properties.getGranularities());
-
     return
         downsampleData(data,
             pendingDownsampleSet.getTenant(),
