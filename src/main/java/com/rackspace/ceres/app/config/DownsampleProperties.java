@@ -88,6 +88,12 @@ public class DownsampleProperties {
   @GranularityValidator
   List<Granularity> granularities;
 
+  /**
+   * Maximum size of the cache that tracks hashes per timeslot.
+   */
+  @Min(0)
+  long downsampleHashCacheSize = 50000;
+
   @Data
   public static class Granularity {
 

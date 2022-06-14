@@ -18,10 +18,12 @@ package com.rackspace.ceres.app.config;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,12 +32,15 @@ public class CacheConfig {
 
   private final MeterRegistry meterRegistry;
   private final AppProperties appProperties;
+  private final DownsampleProperties downsampleProperties;
 
   @Autowired
   public CacheConfig(MeterRegistry meterRegistry,
-                     AppProperties appProperties) {
+                     AppProperties appProperties,
+                     DownsampleProperties downsampleProperties) {
     this.meterRegistry = meterRegistry;
     this.appProperties = appProperties;
+    this.downsampleProperties = downsampleProperties;
   }
 
   @Bean
@@ -49,6 +54,19 @@ public class CacheConfig {
     // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "seriesSetExistence");
 
+    return cache;
+  }
+
+  @Qualifier("downsample")
+  @Bean
+  public AsyncCache<DownsampleSetCacheKey,Boolean> downsampleHashExistenceCache() {
+    final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
+            .newBuilder()
+            .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
+            .recordStats()
+            .buildAsync();
+    // hook up to micrometer since we're not going through Spring Cache
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
     return cache;
   }
 }
