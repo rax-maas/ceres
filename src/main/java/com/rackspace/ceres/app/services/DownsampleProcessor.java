@@ -147,7 +147,10 @@ public class DownsampleProcessor {
           log.info("Got timeslot: {} {} {}", partition, group,
               Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
           return trackingService.getDownsampleSets(timeslot, partition)
-              .switchIfEmpty(Mono.fromRunnable(() -> trackingService.deleteTimeslot(partition, group, timeslot)))
+              .switchIfEmpty(Mono.fromRunnable(() ->
+                      trackingService.deleteTimeslot(partition, group, timeslot)
+                              .subscribe(o -> {}, throwable -> {})
+              ))
               .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group), properties.getMaxConcurrentDownsampleHashes())
               .then(trackingService.deleteTimeslot(partition, group, timeslot));
         });
