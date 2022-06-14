@@ -37,8 +37,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -54,15 +52,15 @@ public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
   private final HashService hashService;
-  private final String hostname;
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
 
-  private static final String GET_TIMESLOT_QUERY = "SELECT timeslot FROM pending_timeslots WHERE partition = ? AND group = ? AND timeslot <= ? LIMIT 1";
-  private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?  AND completed = false LIMIT ? ALLOW FILTERING";
-  private static final String REMOVE_DOWNSAMPLING_TIMESLOT_PARTITION = "DELETE FROM downsampling_hashes WHERE timeslot = ? AND group = ? AND partition = ?";
+  private static final String GET_TIMESLOT_QUERY =
+      "SELECT timeslot FROM pending_timeslots WHERE partition = ? AND group = ? AND timeslot <= ? LIMIT 1 ALLOW FILTERING";
+  private static final String GET_HASHES_TO_DOWNSAMPLE =
+      "SELECT hash FROM downsampling_hashes WHERE partition = ? ALLOW FILTERING";
 
   private final Counter dbOperationErrorsCounter;
   private final AppProperties appProperties;
@@ -75,42 +73,46 @@ public class DownsampleTrackingService {
                                    HashService hashService,
                                    MeterRegistry meterRegistry,
                                    AppProperties appProperties,
-                                   ReactiveCqlTemplate cqlTemplate) throws UnknownHostException {
+                                   ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
     this.properties = properties;
-    this.hostname = InetAddress.getLocalHost().getHostName();
     this.hashService = hashService;
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.appProperties = appProperties;
-    dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
-            "type", "write");
+    this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors","type", "write");
   }
 
-  public Flux<String> checkPartitionJob(Integer partition, String group) {
+  public Flux<String> claimJob(Integer partition, String group) {
     String hostName = System.getenv("HOSTNAME");
-    Long now = Instant.now().getEpochSecond();
-    Long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
+    long now = Instant.now().getEpochSecond();
+    long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
     return redisTemplate.execute(
-            this.redisGetJob,
-            List.of(),
-            List.of(partition.toString(),
-                    group,
-                    hostName == null ? "localhost" : hostName,
-                    now.toString(),
-                    maxJobDuration.toString())
-            );
+        this.redisGetJob,
+        List.of(),
+        List.of(partition.toString(),
+            group,
+            hostName == null ? "localhost" : hostName,
+            Long.toString(now),
+            Long.toString(maxJobDuration))
+    );
+  }
+
+  public Mono<?> freeJob(int partition, String group) {
+    log.trace("InitJob partition, group {} {}", partition, group);
+    return redisTemplate.opsForValue().set(String.format("job|%d|%s", partition, group), "free");
   }
 
   public Mono<Long> getTimeSlot(Integer partition, String group) {
     long nowSeconds = nowEpochSeconds();
     long partitionWidth = Duration.parse(group).getSeconds();
     return this.cqlTemplate.queryForObject(GET_TIMESLOT_QUERY,
-            Long.class, partition, group, nowSeconds-partitionWidth).doOnError(error -> {
-              log.error("getTimeSlot failed", error);
-              dbOperationErrorsCounter.increment();
-    });
+            Long.class, partition, group, nowSeconds - partitionWidth)
+        .doOnError(error -> {
+          log.error("getTimeSlot failed", error);
+          dbOperationErrorsCounter.increment();
+        });
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -118,72 +120,53 @@ public class DownsampleTrackingService {
       return Mono.empty();
     }
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
-    final String pendingValue = encodingPendingValue(tenant, seriesSetHash);
+    final String setHash = encodeSetHash(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-
+    // TODO: batch all these inserts!!
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         width -> {
           final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
           final long timeslot = normalizedTimeSlot.getEpochSecond();
-          return savePending(partition, width, timeslot)
-              .and(saveDownsampling(partition, width, timeslot, pendingValue));
+          // TODO this should be add to batch
+          return savePending(partition, width, timeslot).and(saveDownsampling(partition, setHash));
         }
     );
   }
 
-  private Mono<?> saveDownsampling(Integer partition, String width, long timeslot, String hash) {
-    log.trace("saveDownsampling {} {} {} {}", partition, width, timeslot, hash, false);
-    return this.cassandraTemplate.insert(new Downsampling(timeslot, width, partition, hash, false))
-            .retryWhen(appProperties.getRetryInsertDownsampled().build());
+  private Mono<?> saveDownsampling(Integer partition, String setHash) {
+    log.trace("saveDownsampling {} {}", partition, setHash);
+    return this.cassandraTemplate.insert(new Downsampling(partition, setHash))
+        .retryWhen(appProperties.getRetryInsertDownsampled().build());
   }
 
-  private Mono<?> savePending(Integer partition, String width, long timeslot) {
-    Pending pending = new Pending(partition, width, timeslot);
+  private Mono<?> savePending(Integer partition, String group, long timeslot) {
+    Pending pending = new Pending(partition, group, timeslot);
     return this.cassandraTemplate.insert(pending).retryWhen(appProperties.getRetryInsertDownsampled().build());
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(Long timeslot, int partition, String group) {
     log.trace("getDownsampleSets {} {} {}", timeslot, partition, group);
-    return this
-            .cqlTemplate
-            .queryForFlux(GET_HASHES_TO_DOWNSAMPLE, String.class, timeslot, group, partition, properties.getSetHashesProcessLimit())
-            .map(hash -> buildPending(timeslot, hash));
-  }
-
-  public Mono<?> initJob(int partition, String group) {
-    log.trace("InitJob partition, group {} {}", partition, group);
-    return redisTemplate.opsForValue().set("job|" + partition + "|" + group, "free");
-  }
-
-  public Mono<?> complete(PendingDownsampleSet entry, Integer partition, String group) {
-    final Long timeslot = entry.getTimeSlot().getEpochSecond();
-    final String value = encodingPendingValue(entry.getTenant(), entry.getSeriesSetHash());
-    return addToCompletedHashes(partition, group, timeslot, value);
-  }
-
-  private Mono<?> addToCompletedHashes(Integer partition, String group, Long timeslot, String value) {
-    return this.cassandraTemplate.insert(new Downsampling(timeslot, group, partition, value, true));
+    return this.cqlTemplate
+        .queryForFlux(GET_HASHES_TO_DOWNSAMPLE, String.class, partition)
+        .map(setHash -> buildPending(timeslot, setHash));
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
-    log.debug("deleting partition, group, timeslot {} {} {}", partition, group, timeslot);
-    return
-            this.cassandraTemplate.delete(new Pending(partition, group, timeslot))
-                    .and(this.cqlTemplate.execute(REMOVE_DOWNSAMPLING_TIMESLOT_PARTITION,timeslot, group, partition))
-                    .doOnError((throwable) -> {
-                      log.error("Exception in deleteTimeslot", throwable);
-                    }) ;
+    log.info("delete pending timeslot {} {} {}", partition, group, timeslot);
+    return this.cassandraTemplate.delete(new Pending(partition, group, timeslot))
+        .doOnError((throwable) -> log.error("Exception in deleteTimeslot", throwable));
   }
 
-  private static String encodingPendingValue(String tenant, String seriesSet) {
+  private static String encodeSetHash(String tenant, String seriesSet) {
     return tenant + DELIM + seriesSet;
   }
 
-  private static PendingDownsampleSet buildPending(Long timeslot, String pendingValue) {
-    final int splitValueAt = pendingValue.indexOf(DELIM);
+  private static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
+    log.trace("build pending: {} {}", timeslot, setHash);
+    final int splitValueAt = setHash.indexOf(DELIM);
     return new PendingDownsampleSet()
-        .setTenant(pendingValue.substring(0, splitValueAt))
-        .setSeriesSetHash(pendingValue.substring(1 + splitValueAt))
+        .setTenant(setHash.substring(0, splitValueAt))
+        .setSeriesSetHash(setHash.substring(1 + splitValueAt))
         .setTimeSlot(Instant.ofEpochSecond(timeslot));
   }
 }

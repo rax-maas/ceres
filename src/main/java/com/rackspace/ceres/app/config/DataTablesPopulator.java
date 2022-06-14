@@ -72,7 +72,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
     dataDownsampledTableSpecs()
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
-            .flatMap( spec -> createTable(downsamplingHashesTableSpec(), session))
+            .flatMap( spec -> createTable(downsamplingHashesTableSpec(appProperties.getRawTtl()), session))
             .flatMap( spec -> createTable(pendingTimeslotTableSpec(), session))
         .subscribe();
   }
@@ -131,16 +131,14 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
-  private CreateTableSpecification downsamplingHashesTableSpec() {
+  private CreateTableSpecification downsamplingHashesTableSpec(Duration ttl) {
     log.info("creating downsampling_hashes table");
     return CreateTableSpecification
             .createTable("downsampling_hashes")
             .ifNotExists()
-            .partitionKeyColumn("timeslot", DataTypes.BIGINT)
-            .partitionKeyColumn("group", DataTypes.TEXT)
             .partitionKeyColumn("partition", DataTypes.INT)
             .clusteredKeyColumn("hash", DataTypes.TEXT)
-            .column("completed", DataTypes.BOOLEAN);
+            .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false);
   }
 
   private CreateTableSpecification pendingTimeslotTableSpec() {

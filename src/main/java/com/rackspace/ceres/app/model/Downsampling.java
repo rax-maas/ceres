@@ -13,13 +13,8 @@ import java.util.Set;
 @AllArgsConstructor
 @Table("downsampling_hashes")
 public class Downsampling {
-    @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 0)
-    private long timeslot;
     @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1)
-    private String group;
-    @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 2)
     private int partition;
-    @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 3)
+    @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 2)
     private String hash;
-    private boolean completed;
 }
