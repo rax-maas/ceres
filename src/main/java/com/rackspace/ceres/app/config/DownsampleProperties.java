@@ -94,6 +94,9 @@ public class DownsampleProperties {
   @Min(0)
   long downsampleHashCacheSize = 50000;
 
+  @Min(1)
+  int maxConcurrentDownsampleHashes = 10;
+
   @Data
   public static class Granularity {
 

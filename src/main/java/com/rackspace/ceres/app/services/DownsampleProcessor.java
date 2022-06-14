@@ -148,7 +148,7 @@ public class DownsampleProcessor {
               Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
           return trackingService.getDownsampleSets(timeslot, partition)
               .switchIfEmpty(Mono.fromRunnable(() -> trackingService.deleteTimeslot(partition, group, timeslot)))
-              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group))
+              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group), properties.getMaxConcurrentDownsampleHashes())
               .then(trackingService.deleteTimeslot(partition, group, timeslot));
         });
   }
