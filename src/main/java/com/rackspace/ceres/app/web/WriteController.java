@@ -77,7 +77,6 @@ public class WriteController {
 
     final Flux<Metric> results = dataWriteService.ingest(
         metrics
-            .filter(this::isValidTimestamp)
             .map(metric -> {
               String tenant;
               filterMetricTags(metric);
@@ -86,7 +85,6 @@ public class WriteController {
               } else {
                 tenant = metric.getTags().remove(appProperties.getTenantTag());
               }
-
               return Tuples.of(tenant, metric);
             })
     );
@@ -113,15 +111,6 @@ public class WriteController {
           Mono.just(ResponseEntity.noContent().build())
       );
     }
-  }
-
-  private boolean isValidTimestamp(Metric metric) {
-    Instant currentInstant = Instant.now();
-    Duration startTime = appProperties.getIngestStartTime();
-    Duration endTime = appProperties.getIngestEndTime();
-    var startPeriod = currentInstant.minus(startTime.getSeconds(), SECONDS);
-    var endPeriod = currentInstant.plus(endTime.getSeconds(), SECONDS);
-    return metric.getTimestamp().isAfter(startPeriod) && metric.getTimestamp().isBefore(endPeriod);
   }
 
   private void filterMetricTags(Metric metric) {
