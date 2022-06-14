@@ -89,6 +89,7 @@ public class DownsampleTrackingService {
   }
 
   public Flux<String> claimJob(Integer partition, String group) {
+    log.trace("claim job partition, group {} {}", partition, group);
     String hostName = System.getenv("HOSTNAME");
     long now = Instant.now().getEpochSecond();
     long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
@@ -104,7 +105,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> freeJob(int partition, String group) {
-    log.trace("InitJob partition, group {} {}", partition, group);
+    log.trace("free job partition, group {} {}", partition, group);
     return redisTemplate.opsForValue().set(String.format("job|%d|%s", partition, group), "free");
   }
 
@@ -175,14 +176,9 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
-    log.info("delete pending timeslot {} {} {}", partition, group, timeslot);
+    log.info("delete timeslot {} {} {}", partition, group, timeslot);
     return this.cassandraTemplate.delete(new Pending(partition, group, timeslot))
         .doOnError((throwable) -> log.error("Exception in deleteTimeslot", throwable));
-  }
-
-  public Mono<Boolean> removeEntryFromCache(Integer partition, String width, Long timeslot, String hash) {
-    downsampleHashExistenceCache.synchronous().invalidate(new DownsampleSetCacheKey(partition, width, timeslot, hash));
-    return Mono.just(true);
   }
 
   private static String encodeSetHash(String tenant, String setHash) {
