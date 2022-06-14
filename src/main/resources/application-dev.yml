@@ -22,11 +22,9 @@ ceres:
     partitions: 4
     initial-processing-delay: 5s
     max-downsample-job-duration: 10m
+    max-concurrent-downsample-hashes: 1
     processing-threads: 5
     downsample-spread-period: 5s
-    set-hashes-process-limit: 100
-    jobs-host: localhost
-    jobs-port: 8082
   tag-filter: truncate
   tag-value-limit: 50
   excluded-tag-keys: ["ip_address"]

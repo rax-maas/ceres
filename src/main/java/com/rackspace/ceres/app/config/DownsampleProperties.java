@@ -73,16 +73,6 @@ public class DownsampleProperties {
   Duration downsampleSpreadPeriod = Duration.ofMinutes(1);
 
   /**
-   * Sets a limit on how many series set hashes that can be processed in on task
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  int setHashesProcessLimit;
-
-  String jobsHost;
-
-  Integer jobsPort;
-
-  /**
    * Target granularities to downsample from raw data.
    */
   @GranularityValidator
@@ -95,7 +85,7 @@ public class DownsampleProperties {
   long downsampleHashCacheSize = 50000;
 
   @Min(1)
-  int maxConcurrentDownsampleHashes = 10;
+  int maxConcurrentDownsampleHashes = 1;
 
   @Data
   public static class Granularity {

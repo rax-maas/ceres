@@ -104,7 +104,7 @@ public class DownsampleProcessor {
     log.info("Downsampling configuration parameters");
     log.info("=====================================");
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
-    log.info("set-hashes-process-limit: {}", properties.getSetHashesProcessLimit());
+    log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
     log.info("=====================================");
 
@@ -147,11 +147,8 @@ public class DownsampleProcessor {
           log.info("Got timeslot: {} {} {}", partition, group,
               Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
           return trackingService.getDownsampleSets(timeslot, partition)
-              .switchIfEmpty(Mono.fromRunnable(() ->
-                      trackingService.deleteTimeslot(partition, group, timeslot)
-                              .subscribe(o -> {}, throwable -> {})
-              ))
-              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group), properties.getMaxConcurrentDownsampleHashes())
+              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group),
+                  properties.getMaxConcurrentDownsampleHashes())
               .then(trackingService.deleteTimeslot(partition, group, timeslot));
         });
   }
