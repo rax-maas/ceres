@@ -82,7 +82,7 @@ public class DownsampleProperties {
    * Maximum size of the cache that tracks hashes per timeslot.
    */
   @Min(0)
-  long downsampleHashCacheSize = 50000;
+  long downsampleHashCacheSize = 500000;
 
   @Min(1)
   int maxConcurrentDownsampleHashes = 1;

@@ -20,6 +20,7 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ public class CacheConfig {
   }
 
   @Bean
-  public AsyncCache<SeriesSetCacheKey,Boolean/*exists*/> seriesSetExistenceCache() {
+  public AsyncCache<SeriesSetCacheKey, Boolean/*exists*/> seriesSetExistenceCache() {
     final AsyncCache<SeriesSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(appProperties.getSeriesSetCacheSize())
@@ -59,14 +60,26 @@ public class CacheConfig {
 
   @Qualifier("downsample")
   @Bean
-  public AsyncCache<DownsampleSetCacheKey,Boolean> downsampleHashExistenceCache() {
+  public AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache() {
     final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
-            .newBuilder()
-            .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
-            .recordStats()
-            .buildAsync();
+        .newBuilder()
+        .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
+        .recordStats()
+        .buildAsync();
     // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
+    return cache;
+  }
+
+  @Qualifier("downsample")
+  @Bean
+  public AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache() {
+    final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(10000)
+        .recordStats()
+        .buildAsync();
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "timeslotExistenceCache");
     return cache;
   }
 }

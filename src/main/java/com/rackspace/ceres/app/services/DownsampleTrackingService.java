@@ -59,6 +59,7 @@ public class DownsampleTrackingService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
+  private final AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache;
 
   private static final String GET_HASHES_TO_DOWNSAMPLE =
       "SELECT hash FROM downsampling_hashes WHERE partition = ? ALLOW FILTERING";
@@ -75,6 +76,7 @@ public class DownsampleTrackingService {
                                    MeterRegistry meterRegistry,
                                    AppProperties appProperties,
                                    @Qualifier("downsample") AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
+                                   @Qualifier("downsample") AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
                                    ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
@@ -83,8 +85,9 @@ public class DownsampleTrackingService {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.appProperties = appProperties;
-    this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors","type", "write");
+    this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors", "type", "write");
     this.downsampleHashExistenceCache = downsampleHashExistenceCache;
+    this.timeslotExistenceCache = timeslotExistenceCache;
   }
 
   public Flux<String> claimJob(Integer partition, String group) {
@@ -136,11 +139,24 @@ public class DownsampleTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final String setHash = encodeSetHash(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-    return cacheDownsamplingHash(partition, setHash).then(saveTimeslots(partition, timestamp));
+    return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp));
+  }
+
+  private Mono<?> saveDownsampling(Integer partition, String setHash) {
+    final CompletableFuture<Boolean> result = downsampleHashExistenceCache.get(
+        new DownsampleSetCacheKey(partition, setHash),
+        (key, executor) ->
+            this.cassandraTemplate.insert(new Downsampling(partition, setHash))
+                .name("saveDownsampling")
+                .metrics()
+                .retryWhen(appProperties.getRetryInsertDownsampled().build())
+            .flatMap(s -> Mono.just(true))
+            .toFuture()
+    );
+    return Mono.fromFuture(result);
   }
 
   private Mono<?> saveTimeslots(int partition, Instant timestamp) {
-    // TODO cache these also!!
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         group -> {
           final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
@@ -150,43 +166,29 @@ public class DownsampleTrackingService {
     ).then(Mono.empty());
   }
 
-  private Mono<?> cacheDownsamplingHash(Integer partition, String setHash) {
-    final CompletableFuture<Boolean> result = downsampleHashExistenceCache.get(
-            new DownsampleSetCacheKey(partition, setHash),
-            (key, executor) -> {
-              // TODO: This cache doesn't seem to work. I got 500 different hashes to test with but it still keeps saving
-              log.trace("saving downsampling hash {} {}", partition, setHash);
-              return saveDownsampling(partition, setHash)
-                      .flatMap(s -> Mono.just(true))
-                      .toFuture();
-            }
+  private Mono<?> saveTimeslot(Integer partition, String group, Long timeslot) {
+    final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
+        new TimeslotCacheKey(partition, group, timeslot),
+        (key, executor) -> {
+          log.info("Saving timeslot {} {} {}", partition, group, timeslot);
+          String pendingKey = String.format("pending|%d|%s", partition, group);
+          return redisTemplate.opsForSet().add(pendingKey, timeslot.toString())
+              .flatMap(s -> Mono.just(true))
+              .toFuture();
+        }
     );
     return Mono.fromFuture(result);
-  }
-
-  private Mono<?> saveDownsampling(Integer partition, String setHash) {
-    log.trace("saveDownsampling_ {} {}", partition, setHash);
-    return this.cassandraTemplate.insert(new Downsampling(partition, setHash))
-            .name("saveDownsampling")
-            .metrics()
-            .retryWhen(appProperties.getRetryInsertDownsampled().build());
-  }
-
-  private Mono<?> saveTimeslot(Integer partition, String group, Long timeslot) {
-    log.trace("saveTimeslot {} {} {}", partition, group, timeslot);
-    String key = String.format("pending|%d|%s", partition, group);
-    return redisTemplate.opsForSet().add(key, timeslot.toString());
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
     String key = String.format("pending|%d|%s", partition, group);
     return redisTemplate.opsForSet().remove(key, timeslot.toString())
         .flatMap(result -> {
-          log.info("Delete timeslot result: {} {} {} {}", result, partition, group,
-              Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
-          return Mono.just(result);
-        }
-    );
+              log.info("Delete timeslot result: {} {} {} {}", result, partition, group,
+                  Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
+              return Mono.just(result);
+            }
+        );
   }
 
   public Flux<PendingDownsampleSet> getDownsampleSets(Long timeslot, int partition) {

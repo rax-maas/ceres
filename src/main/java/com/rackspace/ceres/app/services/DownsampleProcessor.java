@@ -106,6 +106,7 @@ public class DownsampleProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
+    log.info("downsample-hash-cache-size: {}", properties.getDownsampleHashCacheSize());
     log.info("=====================================");
 
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
