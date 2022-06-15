@@ -95,7 +95,7 @@ public class DownsampleProcessor {
 
   private int nextJobScheduleDelay() {
     int maxInterval = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
-    int MIN_SCHEDULING_INTERVAL = 2;
+    int MIN_SCHEDULING_INTERVAL = 1;
     return new Random().nextInt(maxInterval - MIN_SCHEDULING_INTERVAL) + MIN_SCHEDULING_INTERVAL;
   }
 
@@ -120,16 +120,14 @@ public class DownsampleProcessor {
         .flatMap(status -> {
           if (status.equals("free")) {
             log.trace("Job claimed: {} {}", partition, group);
-            return processTimeSlot(partition, group)
-                .doOnError(Throwable::printStackTrace)
-                .then(trackingService.freeJob(partition, group));
+            return processTimeSlot(partition, group);
           } else {
-            return Mono.empty();
+            return Flux.empty();
           }
         }).subscribe(o -> {}, throwable -> {
           log.error("Exception in processJob", throwable);
-          trackingService.freeJob(partition, group).subscribe(o -> {});
         });
+    trackingService.freeJob(partition, group).subscribe(o -> {}, throwable -> {});
     executor.schedule(() -> processJob(partition, group), nextJobScheduleDelay(), TimeUnit.SECONDS);
   }
 
@@ -140,16 +138,19 @@ public class DownsampleProcessor {
   private Flux<?> processTimeSlot(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
-        .flatMapMany(timeslot -> {
+        .flatMapMany(timeslotString -> {
+          long timeslot = Long.parseLong(timeslotString);
           this.meterRegistry.counter(
               "processTimeSlot", "partition",
-              String.valueOf(partition), "group", group, "timeslot", String.valueOf(timeslot)).increment();
+              String.valueOf(partition), "group", group, "timeslot", timeslotString).increment();
           log.info("Got timeslot: {} {} {}", partition, group,
               Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
           return trackingService.getDownsampleSets(timeslot, partition)
               .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group),
                   properties.getMaxConcurrentDownsampleHashes())
-              .then(trackingService.deleteTimeslot(partition, group, timeslot));
+              // TODO: figure out why this doesn't work!!! !@#$!@$%@#$%@#$%
+//              .then(trackingService.deleteTimeslot(partition, group, timeslot))
+              .doOnError(Throwable::printStackTrace);
         });
   }
 
