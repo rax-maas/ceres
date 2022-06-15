@@ -60,8 +60,6 @@ public class DownsampleTrackingService {
   private final RedisScript<String> redisGetJob;
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
 
-  private static final String GET_TIMESLOT_QUERY =
-      "SELECT timeslot FROM pending_timeslots WHERE partition = ? AND group = ? AND timeslot <= ? LIMIT 1 ALLOW FILTERING";
   private static final String GET_HASHES_TO_DOWNSAMPLE =
       "SELECT hash FROM downsampling_hashes WHERE partition = ? ALLOW FILTERING";
 

@@ -95,8 +95,8 @@ public class DownsampleProcessor {
 
   private int nextJobScheduleDelay() {
     int maxInterval = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
-    int MIN_SCHEDULING_INTERVAL = 1;
-    return new Random().nextInt(maxInterval - MIN_SCHEDULING_INTERVAL) + MIN_SCHEDULING_INTERVAL;
+    int minSchedulingInterval = 1;
+    return new Random().nextInt(maxInterval - minSchedulingInterval) + minSchedulingInterval;
   }
 
   private void initializeJobs() {
