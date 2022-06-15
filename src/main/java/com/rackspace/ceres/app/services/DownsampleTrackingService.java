@@ -136,24 +136,27 @@ public class DownsampleTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final String setHash = encodeSetHash(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
-    // TODO: batch all these inserts!!
-    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        width -> {
-          final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(width)));
-          final long timeslot = normalizedTimeSlot.getEpochSecond();
-          // TODO this should be add to batch
-          return cacheDownsamplingHash(partition, width, timeslot, setHash);
-        }
-    );
+    return cacheDownsamplingHash(partition, setHash).then(saveTimeslots(partition, timestamp));
   }
 
-  private Mono<?> cacheDownsamplingHash(Integer partition, String width, long timeslot, String setHash) {
+  private Mono<?> saveTimeslots(int partition, Instant timestamp) {
+    // TODO cache these also!!
+    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
+        group -> {
+          final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
+          final long timeslot = normalizedTimeSlot.getEpochSecond();
+          return saveTimeslot(partition, group, timeslot);
+        }
+    ).then(Mono.empty());
+  }
+
+  private Mono<?> cacheDownsamplingHash(Integer partition, String setHash) {
     final CompletableFuture<Boolean> result = downsampleHashExistenceCache.get(
-            new DownsampleSetCacheKey(partition, width, timeslot, setHash),
+            new DownsampleSetCacheKey(partition, setHash),
             (key, executor) -> {
-              log.trace("saving downsampling hash {} {} {} {}", partition, width, timeslot, setHash);
+              // TODO: This cache doesn't seem to work. I got 500 different hashes to test with but it still keeps saving
+              log.trace("saving downsampling hash {} {}", partition, setHash);
               return saveDownsampling(partition, setHash)
-                      .then(saveTimeslot(partition, width, timeslot))
                       .flatMap(s -> Mono.just(true))
                       .toFuture();
             }

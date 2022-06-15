@@ -21,7 +21,5 @@ import lombok.Data;
 @Data
 public class DownsampleSetCacheKey {
   final Integer partition;
-  final String width;
-  final long timeslot;
   final String hash;
 }
