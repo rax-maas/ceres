@@ -116,17 +116,15 @@ public class DownsampleProcessor {
   private void processJob(int partition, String group) {
     log.trace("processJob {} {}", partition, group);
     trackingService.claimJob(partition, group)
-        .flatMap(status -> {
-          if (status.equals("free")) {
-            log.trace("Job claimed: {} {}", partition, group);
-            return processTimeSlot(partition, group);
-          } else {
-            return Flux.empty();
-          }
-        }).subscribe(o -> {}, throwable -> {
-          log.error("Exception in processJob", throwable);
-        });
-    trackingService.freeJob(partition, group).subscribe(o -> {}, throwable -> {});
+            .flatMap(status -> {
+              if (status.equals("free")) {
+                log.trace("Job claimed: {} {}", partition, group);
+                return processTimeSlot(partition, group)
+                        .then(trackingService.freeJob(partition, group));
+              } else {
+                return Flux.empty();
+              }
+            }).subscribe(o -> {}, Throwable::printStackTrace);
     executor.schedule(() -> processJob(partition, group), nextJobScheduleDelay(), TimeUnit.SECONDS);
   }
 
@@ -137,19 +135,18 @@ public class DownsampleProcessor {
   private Flux<?> processTimeSlot(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
-        .flatMapMany(timeslotString -> {
-          long timeslot = Long.parseLong(timeslotString);
-          this.meterRegistry.counter(
-              "processTimeSlot", "partition",
-              String.valueOf(partition), "group", group, "timeslot", timeslotString).increment();
-          log.info("Got timeslot: {} {} {}", partition, group, DateTimeUtils.epochToLocalDateTime(timeslot));
-          return trackingService.getDownsampleSets(timeslot, partition)
-              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group),
-                  properties.getMaxConcurrentDownsampleHashes())
-              // TODO: figure out why this doesn't work!!! !@#$!@$%@#$%@#$%
-//              .then(trackingService.deleteTimeslot(partition, group, timeslot))
-              .doOnError(Throwable::printStackTrace);
-        });
+            .flatMap(timeslotString -> {
+              long timeslot = Long.parseLong(timeslotString);
+              log.info("Got timeslot: {} {} {}", partition, group, DateTimeUtils.epochToLocalDateTime(timeslot));
+              return trackingService.getDownsampleSets(timeslot, partition)
+                      .name("processTimeSlot")
+                      .tag("partition", String.valueOf(partition))
+                      .tag("group", group)
+                      .metrics()
+                      .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group), properties.getMaxConcurrentDownsampleHashes())
+                      .then(trackingService.deleteTimeslot(partition, group, timeslot))
+                      .doOnError(Throwable::printStackTrace);
+            });
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
@@ -172,6 +169,8 @@ public class DownsampleProcessor {
             granularities.iterator()
         )
             .name("downsample.set")
+            .tag("partition", String.valueOf(partition))
+            .tag("group", group)
             .metrics()
             .doOnSuccess(o ->
                 log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",

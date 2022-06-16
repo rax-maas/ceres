@@ -60,8 +60,7 @@ public class DownsampleTrackingService {
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
   private final AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache;
 
-  private static final String GET_HASHES_TO_DOWNSAMPLE =
-      "SELECT hash FROM downsampling_hashes WHERE partition = ? ALLOW FILTERING";
+  private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE partition = ?";
 
   private final AppProperties appProperties;
 
@@ -72,8 +71,8 @@ public class DownsampleTrackingService {
                                    DownsampleProperties properties,
                                    SeriesSetService hashService,
                                    AppProperties appProperties,
-                                   @Qualifier("downsample") AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
-                                   @Qualifier("downsample") AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
+                                   AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
+                                   AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
                                    ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
@@ -107,15 +106,12 @@ public class DownsampleTrackingService {
     return redisTemplate.opsForValue().set(encodeJobKey(partition, group), "free");
   }
 
-  public Mono<String> getTimeSlot(Integer partition, String group) {
+  public Flux<String> getTimeSlot(Integer partition, String group) {
     long nowSeconds = nowEpochSeconds();
     long partitionWidth = Duration.parse(group).getSeconds();
     return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
         .sort()
-        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth))
-        .next()
-        // TODO remove this when the other things starts working!!
-        .flatMap(t -> deleteTimeslot(partition, group, Long.parseLong(t)).then(Mono.just(t)));
+        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth)).take(1);
   }
 
   private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {

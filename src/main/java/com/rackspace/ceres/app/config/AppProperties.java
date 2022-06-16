@@ -83,17 +83,17 @@ public class AppProperties {
   @NotNull
   RetrySpec retryInsertMetadata = new RetrySpec()
       .setMaxAttempts(5)
-      .setMinBackoff(Duration.ofMillis(500));
+      .setMinBackoff(Duration.ofMillis(100));
 
   @NotNull
   RetrySpec retryInsertRaw = new RetrySpec()
       .setMaxAttempts(5)
-      .setMinBackoff(Duration.ofMillis(500));
+      .setMinBackoff(Duration.ofMillis(100));
 
   @NotNull
   RetrySpec retryInsertDownsampled = new RetrySpec()
       .setMaxAttempts(5)
-      .setMinBackoff(Duration.ofMillis(500));
+      .setMinBackoff(Duration.ofMillis(100));
 
   @NotNull
   RetrySpec retryQueryForDownsample = new RetrySpec()

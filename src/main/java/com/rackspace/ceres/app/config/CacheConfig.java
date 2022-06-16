@@ -58,7 +58,6 @@ public class CacheConfig {
     return cache;
   }
 
-  @Qualifier("downsample")
   @Bean
   public AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache() {
     final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
@@ -71,7 +70,6 @@ public class CacheConfig {
     return cache;
   }
 
-  @Qualifier("downsample")
   @Bean
   public AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache() {
     final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
