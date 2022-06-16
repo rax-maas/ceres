@@ -19,12 +19,6 @@ docker-compose exec cassandra \
   cqlsh -e "CREATE KEYSPACE IF NOT EXISTS ceres WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"
 ```
 
-Start up the rollup jobs application:
-```shell script
-git clone git@github.com:racker/ceres-rollup-jobs.git
-```
-Follow start up instructions in /ceres-rollup-jobs/README.md
-
 Start the ingest/query application:
 ```shell script
 mvn spring-boot:run
