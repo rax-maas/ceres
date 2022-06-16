@@ -20,14 +20,13 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import org.springframework.stereotype.Service;
-
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.springframework.stereotype.Service;
 
 @SuppressWarnings("UnstableApiUsage") // due to guava
 @Service
@@ -60,5 +59,16 @@ public class SeriesSetService {
         // r4oa9hFoLqxF3eAXYrLb6g==
         // so two trailing padding characters are not useful for our string encoding needs
         .substring(0,22);
+  }
+
+  public HashCode getHashCode(String string1, String string2) {
+    return hashFunction.newHasher()
+        .putString(string1, CHARSET)
+        .putString(string2, CHARSET)
+        .hash();
+  }
+
+  public int getPartition(HashCode hashCode, int partitions) {
+    return Hashing.consistentHash(hashCode, partitions);
   }
 }

@@ -21,6 +21,7 @@ import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
+import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
@@ -51,7 +52,7 @@ import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
-  private final HashService hashService;
+  private final SeriesSetService hashService;
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
   private final ReactiveStringRedisTemplate redisTemplate;
@@ -69,7 +70,7 @@ public class DownsampleTrackingService {
                                    ReactiveCassandraTemplate cassandraTemplate,
                                    RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
-                                   HashService hashService,
+                                   SeriesSetService hashService,
                                    AppProperties appProperties,
                                    @Qualifier("downsample") AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
                                    @Qualifier("downsample") AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
