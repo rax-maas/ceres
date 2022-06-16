@@ -7,6 +7,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -142,19 +144,11 @@ public class DateTimeUtils {
             .collect(Collectors.toList());
   }
 
-  public static String isoTimeUtcPlusSeconds(long seconds) {
-    return isoTimeUtcPlusMilliSeconds(seconds * 1000);
-  }
-
-  public static String isoTimeUtcPlusMilliSeconds(long milliSeconds) {
-    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-    df.setTimeZone(TimeZone.getTimeZone("UTC"));
-    Date now = new Date();
-    now.setTime(now.getTime() + milliSeconds);
-    return df.format(now);
-  }
-
   public static long nowEpochSeconds() {
     return Instant.now().getEpochSecond();
+  }
+
+  public static LocalDateTime epochToLocalDateTime(long epochSeconds) {
+    return Instant.ofEpochSecond(epochSeconds).atZone(ZoneId.systemDefault()).toLocalDateTime();
   }
 }

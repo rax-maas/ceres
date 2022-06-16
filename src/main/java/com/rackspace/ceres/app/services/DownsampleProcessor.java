@@ -35,7 +35,6 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -106,7 +105,6 @@ public class DownsampleProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
-    log.info("downsample-hash-cache-size: {}", properties.getDownsampleHashCacheSize());
     log.info("=====================================");
 
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
@@ -144,8 +142,7 @@ public class DownsampleProcessor {
           this.meterRegistry.counter(
               "processTimeSlot", "partition",
               String.valueOf(partition), "group", group, "timeslot", timeslotString).increment();
-          log.info("Got timeslot: {} {} {}", partition, group,
-              Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
+          log.info("Got timeslot: {} {} {}", partition, group, DateTimeUtils.epochToLocalDateTime(timeslot));
           return trackingService.getDownsampleSets(timeslot, partition)
               .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group),
                   properties.getMaxConcurrentDownsampleHashes())
@@ -180,8 +177,7 @@ public class DownsampleProcessor {
                 log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                     pendingDownsampleSet.getSeriesSetHash(),
                     pendingDownsampleSet.getTimeSlot().getEpochSecond(),
-                    Instant.ofEpochSecond(pendingDownsampleSet.getTimeSlot().getEpochSecond())
-                        .atZone(ZoneId.systemDefault()).toLocalDateTime(),
+                    DateTimeUtils.epochToLocalDateTime(pendingDownsampleSet.getTimeSlot().getEpochSecond()),
                     partition, group))
             .checkpoint();
   }

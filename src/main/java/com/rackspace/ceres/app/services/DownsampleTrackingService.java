@@ -21,10 +21,11 @@ import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
+import com.rackspace.ceres.app.model.Downsampling;
+import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +40,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -49,8 +49,6 @@ import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 @Service
 @Slf4j
 public class DownsampleTrackingService {
-
-  private static final String DELIM = "|";
 
   private final DownsampleProperties properties;
   private final HashService hashService;
@@ -64,7 +62,6 @@ public class DownsampleTrackingService {
   private static final String GET_HASHES_TO_DOWNSAMPLE =
       "SELECT hash FROM downsampling_hashes WHERE partition = ? ALLOW FILTERING";
 
-  private final Counter dbOperationErrorsCounter;
   private final AppProperties appProperties;
 
   @Autowired
@@ -73,7 +70,6 @@ public class DownsampleTrackingService {
                                    RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
                                    HashService hashService,
-                                   MeterRegistry meterRegistry,
                                    AppProperties appProperties,
                                    @Qualifier("downsample") AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
                                    @Qualifier("downsample") AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
@@ -85,7 +81,6 @@ public class DownsampleTrackingService {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.appProperties = appProperties;
-    this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors", "type", "write");
     this.downsampleHashExistenceCache = downsampleHashExistenceCache;
     this.timeslotExistenceCache = timeslotExistenceCache;
   }
@@ -108,37 +103,32 @@ public class DownsampleTrackingService {
 
   public Mono<?> freeJob(int partition, String group) {
     log.trace("free job partition, group {} {}", partition, group);
-    return redisTemplate.opsForValue().set(String.format("job|%d|%s", partition, group), "free");
+    return redisTemplate.opsForValue().set(encodeJobKey(partition, group), "free");
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
-    String key = String.format("pending|%d|%s", partition, group);
     long nowSeconds = nowEpochSeconds();
     long partitionWidth = Duration.parse(group).getSeconds();
-    return this.redisTemplate.opsForSet().scan(key)
+    return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
         .sort()
-        .filter(timeslot -> isTimeslotDue(timeslot, partition, group, nowSeconds, partitionWidth))
+        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth))
         .next()
         // TODO remove this when the other things starts working!!
         .flatMap(t -> deleteTimeslot(partition, group, Long.parseLong(t)).then(Mono.just(t)));
   }
 
-  private boolean isTimeslotDue(String timeslot, Integer partition, String group, long nowSeconds, long partitionWidth) {
-    boolean isDue = Long.parseLong(timeslot) < nowSeconds - partitionWidth;
-    if (isDue) {
-      log.trace("is due: {} {} {} {}",
-          partition, group, timeslot, Long.parseLong(timeslot) < nowSeconds - partitionWidth);
-    }
-    return isDue;
+  private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {
+    return Long.parseLong(timeslot) < nowSeconds - partitionWidth;
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
     if (!properties.isTrackingEnabled()) {
+      log.error("Partitions are not configured");
       return Mono.empty();
     }
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
-    final String setHash = encodeSetHash(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
+    final String setHash = encodeSetHash(tenant, seriesSetHash);
     return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp));
   }
 
@@ -160,8 +150,7 @@ public class DownsampleTrackingService {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         group -> {
           final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
-          final long timeslot = normalizedTimeSlot.getEpochSecond();
-          return saveTimeslot(partition, group, timeslot);
+          return saveTimeslot(partition, group, normalizedTimeSlot.getEpochSecond());
         }
     ).then(Mono.empty());
   }
@@ -170,9 +159,8 @@ public class DownsampleTrackingService {
     final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
         new TimeslotCacheKey(partition, group, timeslot),
         (key, executor) -> {
-          log.info("Saving timeslot {} {} {}", partition, group, timeslot);
-          String pendingKey = String.format("pending|%d|%s", partition, group);
-          return redisTemplate.opsForSet().add(pendingKey, timeslot.toString())
+          log.trace("Saving timeslot {} {} {}", partition, group, timeslot);
+          return redisTemplate.opsForSet().add(encodeTimeslotKey(partition, group), timeslot.toString())
               .flatMap(s -> Mono.just(true))
               .toFuture();
         }
@@ -181,11 +169,10 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
-    String key = String.format("pending|%d|%s", partition, group);
-    return redisTemplate.opsForSet().remove(key, timeslot.toString())
+    return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), timeslot.toString())
         .flatMap(result -> {
-              log.info("Delete timeslot result: {} {} {} {}", result, partition, group,
-                  Instant.ofEpochSecond(timeslot).atZone(ZoneId.systemDefault()).toLocalDateTime());
+              log.info("Deleted timeslot: {} {} {} {}", result, partition, group,
+                  DateTimeUtils.epochToLocalDateTime(timeslot));
               return Mono.just(result);
             }
         );
@@ -198,12 +185,20 @@ public class DownsampleTrackingService {
   }
 
   private static String encodeSetHash(String tenant, String setHash) {
-    return tenant + DELIM + setHash;
+    return String.format("%s|%s", tenant, setHash);
+  }
+
+  private static String encodeTimeslotKey(int partition, String group) {
+    return String.format("pending|%d|%s", partition, group);
+  }
+
+  private static String encodeJobKey(int partition, String group) {
+    return String.format("job|%d|%s", partition, group);
   }
 
   private static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
     log.trace("build pending: {} {}", timeslot, setHash);
-    final int splitValueAt = setHash.indexOf(DELIM);
+    final int splitValueAt = setHash.indexOf("|");
     return new PendingDownsampleSet()
         .setTenant(setHash.substring(0, splitValueAt))
         .setSeriesSetHash(setHash.substring(1 + splitValueAt))

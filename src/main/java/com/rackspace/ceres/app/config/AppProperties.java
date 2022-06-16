@@ -78,7 +78,7 @@ public class AppProperties {
    * Maximum size of the cache that tracks series-sets that have been persisted into Cassandra.
    */
   @Min(0)
-  long seriesSetCacheSize = 50000;
+  long seriesSetCacheSize = 2000000;
 
   @NotNull
   RetrySpec retryInsertMetadata = new RetrySpec()
