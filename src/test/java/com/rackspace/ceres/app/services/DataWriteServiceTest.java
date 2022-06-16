@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
+import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.Metric;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -45,7 +46,11 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -138,10 +143,11 @@ class DataWriteServiceTest {
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
+      Instant metricTime = validMetricTime();
       final Metric metric = dataWriteService.ingest(
           tenantId,
           new Metric()
-              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setTimestamp(metricTime)
               .setValue(Math.random())
               .setMetric(metricName)
               .setTags(tags)
@@ -149,8 +155,8 @@ class DataWriteServiceTest {
           .block();
 
       assertThat(metric).isNotNull();
-
-      assertViaQuery(tenantId, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash, metric);
+      Instant metricQueryTime = metricTime.with(new TemporalNormalizer(Duration.ofHours(1)));
+      assertViaQuery(tenantId, metricQueryTime, seriesSetHash, metric);
 
       verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(), metric.getTags());
       verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
@@ -193,13 +199,14 @@ class DataWriteServiceTest {
       when(downsampleTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
+      Instant metricTime = validMetricTime();
       final Metric metric1 = new Metric()
-          .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+          .setTimestamp(metricTime)
           .setValue(Math.random())
           .setMetric(metricName1)
           .setTags(tags);
       final Metric metric2 = new Metric()
-          .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+          .setTimestamp(metricTime)
           .setValue(Math.random())
           .setMetric(metricName2)
           .setTags(tags);
@@ -209,8 +216,9 @@ class DataWriteServiceTest {
           Tuples.of(tenant2, metric2)
       )).then().block();
 
-      assertViaQuery(tenant1, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash1, metric1);
-      assertViaQuery(tenant2, Instant.parse("2020-09-12T18:00:00.0Z"), seriesSetHash2, metric2);
+      Instant metricQueryTime = metricTime.with(new TemporalNormalizer(Duration.ofHours(1)));
+      assertViaQuery(tenant1, metricQueryTime, seriesSetHash1, metric1);
+      assertViaQuery(tenant2, metricQueryTime, seriesSetHash2, metric2);
 
       verify(metadataService).storeMetadata(tenant1, seriesSetHash1, metric1.getMetric(),
           metric1.getTags());
@@ -244,7 +252,7 @@ class DataWriteServiceTest {
       Mono<?> result = dataWriteService.ingest(
           tenantId,
           new Metric()
-              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setTimestamp(validMetricTime())
               .setValue(Math.random())
               .setMetric(metricName)
               .setTags(tags));
@@ -267,7 +275,7 @@ class DataWriteServiceTest {
       Mono<?> result = dataWriteService.ingest(
           tenantId,
           new Metric()
-              .setTimestamp(Instant.parse("2020-09-12T18:42:23.658447900Z"))
+              .setTimestamp(validMetricTime())
               .setValue(Math.random())
               .setMetric(metricName)
               .setTags(tags));
@@ -299,6 +307,59 @@ class DataWriteServiceTest {
           throwable.getMessage().equals("400 BAD_REQUEST \"metricGroup tag and resource tag must be present\"")).verify();
     }
 
+    @Test
+    void testInvalidOldMetric() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+              "os", "linux",
+              "host", "h-1",
+              "deployment", "prod",
+              "metricGroup", "group",
+              "resource", RandomStringUtils.randomAlphabetic(5)
+      );
+
+      Mono<?> result = dataWriteService.ingest(
+              tenantId,
+              new Metric()
+                      .setTimestamp(Instant.now().minus(8, ChronoUnit.DAYS))
+                      .setValue(Math.random())
+                      .setMetric(metricName)
+                      .setTags(tags));
+
+      StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
+              throwable.getMessage().equals("400 BAD_REQUEST \"Metric timestamp is out of bounds\"")).verify();
+    }
+
+    @Test
+    void testInvalidFutureMetric() {
+      final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+      final String metricName = RandomStringUtils.randomAlphabetic(5);
+      final Map<String, String> tags = Map.of(
+              "os", "linux",
+              "host", "h-1",
+              "deployment", "prod",
+              "metricGroup", "group",
+              "resource", RandomStringUtils.randomAlphabetic(5)
+      );
+
+      Mono<?> result = dataWriteService.ingest(
+              tenantId,
+              new Metric()
+                      .setTimestamp(Instant.now().plus(2, ChronoUnit.DAYS))
+                      .setValue(Math.random())
+                      .setMetric(metricName)
+                      .setTags(tags));
+
+      StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ServerWebInputException &&
+              throwable.getMessage().equals("400 BAD_REQUEST \"Metric timestamp is out of bounds\"")).verify();
+    }
+
+    private Instant validMetricTime() {
+      // Random Metric within valid bounds of ingestion time
+      return Instant.now().atZone(ZoneOffset.UTC).withHour(18).withMinute(42).withSecond(23).toInstant();
+    }
+
     private void assertViaQuery(String tenant, Instant timeSlot, String seriesSetHash,
                                 Metric metric) {
       final List<Row> results = cqlTemplate.queryForRows(
@@ -312,7 +373,7 @@ class DataWriteServiceTest {
       assertThat(results).isNotNull();
       assertThat(results).hasSize(1);
       // only millisecond resolution retained by cassandra
-      assertThat(results.get(0).getInstant(0)).isEqualTo("2020-09-12T18:42:23.658Z");
+      assertThat(results.get(0).getInstant(0)).isEqualTo(metric.getTimestamp().truncatedTo(ChronoUnit.MILLIS));
       assertThat(results.get(0).getDouble(1)).isEqualTo(metric.getValue());
     }
 

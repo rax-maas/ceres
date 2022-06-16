@@ -34,7 +34,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
+
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 @Service
 @Slf4j
@@ -77,10 +81,10 @@ public class DataWriteService {
   public Mono<Metric> ingest(String tenant, Metric metric) {
     log.trace("Ingesting metric={} for tenant={}", metric, tenant);
 
-    String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
-    String resourceTag = metric.getTags().get(LABEL_RESOURCE);
-    if (!StringUtils.hasText(metricGroupTag) || !StringUtils.hasText(resourceTag)) {
-      return Mono.error(new ServerWebInputException("metricGroup tag and resource tag must be present"));
+    try {
+      validateMetric(metric);
+    } catch (ServerWebInputException ex) {
+      return Mono.error(ex);
     }
 
     cleanTags(metric.getTags());
@@ -95,6 +99,26 @@ public class DataWriteService {
             .and(storeMetricGroup(tenant, metric))
             .and(storeDeviceData(tenant, metric))
             .then(Mono.just(metric));
+  }
+
+  private void validateMetric(Metric metric) {
+    String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
+    String resourceTag = metric.getTags().get(LABEL_RESOURCE);
+    if (!StringUtils.hasText(metricGroupTag) || !StringUtils.hasText(resourceTag)) {
+      throw new ServerWebInputException("metricGroup tag and resource tag must be present");
+    }
+    if(!isValidTimestamp(metric)) {
+      throw new ServerWebInputException("Metric timestamp is out of bounds");
+    }
+  }
+
+  private boolean isValidTimestamp(Metric metric) {
+    Instant currentInstant = Instant.now();
+    Duration startTime = appProperties.getIngestStartTime();
+    Duration endTime = appProperties.getIngestEndTime();
+    var startPeriod = currentInstant.minus(startTime.getSeconds(), SECONDS);
+    var endPeriod = currentInstant.plus(endTime.getSeconds(), SECONDS);
+    return metric.getTimestamp().isAfter(startPeriod) && metric.getTimestamp().isBefore(endPeriod);
   }
 
   private void cleanTags(Map<String, String> tags) {

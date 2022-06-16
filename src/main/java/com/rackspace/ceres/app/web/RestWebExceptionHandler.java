@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.web;
 
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.boot.autoconfigure.web.WebProperties;
@@ -30,13 +29,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.ServerCodecConfigurer;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.server.RequestPredicates;
-import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.RouterFunctions;
-import org.springframework.web.reactive.function.server.ServerRequest;
-import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.reactive.function.server.*;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -69,7 +66,7 @@ public class RestWebExceptionHandler extends
     Map<String, Object> body = getErrorAttributes(serverRequest, ErrorAttributeOptions.of(
         Include.EXCEPTION, Include.MESSAGE, Include.STACK_TRACE));
     String exceptionClass = (String) body.get("exception");
-    logErrorMessage(serverRequest, (String) body.get("trace"));
+    logErrorMessage(serverRequest, (String) body.get("trace"), exceptionClass);
     body.remove("trace");
     return respondWith(body, exceptionClass);
   }
@@ -109,7 +106,12 @@ public class RestWebExceptionHandler extends
    * @param serverRequest
    * @param stackTrace
    */
-  private void logErrorMessage(ServerRequest serverRequest, String stackTrace) {
+  private void logErrorMessage(ServerRequest serverRequest, String stackTrace, String exceptionClass) {
+    if (exceptionClass.equals(ServerWebInputException.class.getName())) {
+      // avoid logs cluttering for bad requests
+      log.trace("Web request for uri {} failed with exception {}", serverRequest.uri(), stackTrace);
+      return;
+    }
     log.warn("Web request for uri {} failed with exception {}", serverRequest.uri(), stackTrace);
   }
 }
