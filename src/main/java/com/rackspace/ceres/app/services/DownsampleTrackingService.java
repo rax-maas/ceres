@@ -106,12 +106,14 @@ public class DownsampleTrackingService {
     return redisTemplate.opsForValue().set(encodeJobKey(partition, group), "free");
   }
 
-  public Flux<String> getTimeSlot(Integer partition, String group) {
+  public Mono<String> getTimeSlot(Integer partition, String group) {
     long nowSeconds = nowEpochSeconds();
     long partitionWidth = Duration.parse(group).getSeconds();
     return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
         .sort()
-        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth));
+        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth))
+        .next()
+        .flatMap(t -> deleteTimeslot(partition, group, Long.parseLong(t)).then(Mono.just(t)));
   }
 
   private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {

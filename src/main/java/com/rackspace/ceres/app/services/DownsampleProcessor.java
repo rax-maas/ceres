@@ -119,12 +119,12 @@ public class DownsampleProcessor {
             .flatMap(status -> {
               if (status.equals("free")) {
                 log.trace("Job claimed: {} {}", partition, group);
-                return processTimeSlot(partition, group)
-                        .then(trackingService.freeJob(partition, group));
+                return processTimeSlot(partition, group);
               } else {
                 return Flux.empty();
               }
             }).subscribe(o -> {}, Throwable::printStackTrace);
+    trackingService.freeJob(partition, group).subscribe(o -> {}, throwable -> {});
     executor.schedule(() -> processJob(partition, group), nextJobScheduleDelay(), TimeUnit.SECONDS);
   }
 
@@ -135,7 +135,7 @@ public class DownsampleProcessor {
   private Flux<?> processTimeSlot(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
-            .flatMap(timeslotString -> {
+            .flatMapMany(timeslotString -> {
               long timeslot = Long.parseLong(timeslotString);
               log.info("Got timeslot: {} {} {}", partition, group, DateTimeUtils.epochToLocalDateTime(timeslot));
               return trackingService.getDownsampleSets(timeslot, partition)
