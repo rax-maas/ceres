@@ -111,7 +111,7 @@ public class DownsampleTrackingService {
     long partitionWidth = Duration.parse(group).getSeconds();
     return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
         .sort()
-        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth)).take(1);
+        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth));
   }
 
   private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {
