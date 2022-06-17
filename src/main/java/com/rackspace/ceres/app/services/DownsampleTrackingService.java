@@ -112,8 +112,7 @@ public class DownsampleTrackingService {
     return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
         .sort()
         .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth))
-        .next()
-        .flatMap(t -> deleteTimeslot(partition, group, Long.parseLong(t)).then(Mono.just(t)));
+        .next();
   }
 
   private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {
