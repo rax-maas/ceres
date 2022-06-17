@@ -144,7 +144,6 @@ public class DownsampleProcessor {
                       .tag("group", group)
                       .metrics()
                       .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group), properties.getMaxConcurrentDownsampleHashes())
-                      .then(trackingService.deleteTimeslot(partition, group, timeslot))
                       .doOnError(Throwable::printStackTrace);
             });
   }
