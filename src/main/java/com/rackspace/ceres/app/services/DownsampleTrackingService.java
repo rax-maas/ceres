@@ -21,7 +21,6 @@ import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
-import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
@@ -30,7 +29,6 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -107,16 +105,28 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
-    long nowSeconds = nowEpochSeconds();
     long partitionWidth = Duration.parse(group).getSeconds();
-    return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
+    String key = encodeTimeslotKey(partition, group);
+    return this.redisTemplate.opsForSet().scan(key)
         .sort()
-        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth))
-        .next();
+        .filter(t -> isTimeslotDue(t, partitionWidth))
+        .next()
+        .flatMap(timeslot -> {
+              this.timeslotExistenceCache.synchronous()
+                  .invalidate(new TimeslotCacheKey(partition, group, Long.parseLong(timeslot)));
+              return this.redisTemplate.opsForSet().remove(key, timeslot)
+                  .then(this.redisTemplate.opsForSet().add(key, String.format("%s|in-progress", timeslot)))
+                  .then(Mono.just(timeslot));
+            }
+        );
   }
 
-  private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {
-    return Long.parseLong(timeslot) < nowSeconds - partitionWidth;
+  private boolean isTimeslotDue(String timeslot, long partitionWidth) {
+    if (timeslot.matches(".*in-progress")) {
+      // TODO: Check if this is a hanging timeslot and if so put it back into pending after some time
+      return false;
+    }
+    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -167,7 +177,8 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
-    return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), timeslot.toString())
+    return redisTemplate.opsForSet()
+        .remove(encodeTimeslotKey(partition, group), String.format("%d|in-progress", timeslot))
         .flatMap(result -> {
               log.info("Deleted timeslot: {} {} {} {}", result, partition, group,
                   DateTimeUtils.epochToLocalDateTime(timeslot));
