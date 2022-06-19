@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -109,7 +110,7 @@ public class DownsampleTrackingService {
     String key = encodeTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .sort()
-        .filter(t -> isTimeslotDue(t, partitionWidth))
+        .filter(t -> isTimeslotDue(partition, group, t, partitionWidth))
         .next()
         .flatMap(timeslot -> {
               this.timeslotExistenceCache.synchronous()
@@ -121,9 +122,16 @@ public class DownsampleTrackingService {
         );
   }
 
-  private boolean isTimeslotDue(String timeslot, long partitionWidth) {
+  private boolean isTimeslotDue(int partition, String group, String timeslot, long partitionWidth) {
     if (timeslot.matches(".*in-progress")) {
-      // TODO: Check if this is a hanging timeslot and if so put it back into pending after some time
+      long ts = Long.parseLong(timeslot.split("\\|")[0]);
+      if (ts < (nowEpochSeconds() - partitionWidth * 3)) {
+        // This timeslot is hanging in state in-progress
+        log.warn("Setting in-progress timeslot back to pending: {} {} {}", partition, group, epochToLocalDateTime(ts));
+        String key = encodeTimeslotKey(partition, group);
+        this.redisTemplate.opsForSet().remove(key, timeslot)
+            .then(this.redisTemplate.opsForSet().add(key, Long.toString(ts))).subscribe();
+      }
       return false;
     }
     return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
@@ -180,8 +188,7 @@ public class DownsampleTrackingService {
     return redisTemplate.opsForSet()
         .remove(encodeTimeslotKey(partition, group), String.format("%d|in-progress", timeslot))
         .flatMap(result -> {
-              log.info("Deleted timeslot: {} {} {} {}", result, partition, group,
-                  DateTimeUtils.epochToLocalDateTime(timeslot));
+              log.info("Deleted timeslot: {} {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
               return Mono.just(result);
             }
         );
