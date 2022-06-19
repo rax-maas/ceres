@@ -1,6 +1,7 @@
 package com.rackspace.ceres.app.utils;
 
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
+import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.RelativeTime;
 
 import java.text.DateFormat;
@@ -150,5 +151,9 @@ public class DateTimeUtils {
 
   public static LocalDateTime epochToLocalDateTime(long epochSeconds) {
     return Instant.ofEpochSecond(epochSeconds).atZone(ZoneId.systemDefault()).toLocalDateTime();
+  }
+
+  public static Instant normalizedTimeslot(Instant timestamp, String group) {
+    return timestamp.with(new TemporalNormalizer(Duration.parse(group)));
   }
 }

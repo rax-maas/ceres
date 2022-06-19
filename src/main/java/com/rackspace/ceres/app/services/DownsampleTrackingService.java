@@ -109,14 +109,14 @@ public class DownsampleTrackingService {
     long partitionWidth = Duration.parse(group).getSeconds();
     String key = encodeTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
-        .sort()
+        .sort() // Make sure oldest timeslot is first
         .filter(t -> isTimeslotDue(partition, group, t, partitionWidth))
         .next()
         .flatMap(timeslot -> {
               this.timeslotExistenceCache.synchronous()
                   .invalidate(new TimeslotCacheKey(partition, group, Long.parseLong(timeslot)));
               return this.redisTemplate.opsForSet().remove(key, timeslot)
-                  .then(this.redisTemplate.opsForSet().add(key, String.format("%s|in-progress", timeslot)))
+                  .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
                   .then(Mono.just(timeslot));
             }
         );
@@ -130,11 +130,12 @@ public class DownsampleTrackingService {
         log.warn("Setting in-progress timeslot back to pending: {} {} {}", partition, group, epochToLocalDateTime(ts));
         String key = encodeTimeslotKey(partition, group);
         this.redisTemplate.opsForSet().remove(key, timeslot)
-            .then(this.redisTemplate.opsForSet().add(key, Long.toString(ts))).subscribe();
+            .and(this.redisTemplate.opsForSet().add(key, Long.toString(ts))).subscribe();
       }
       return false;
+    } else {
+      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
     }
-    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -165,8 +166,8 @@ public class DownsampleTrackingService {
   private Mono<?> saveTimeslots(int partition, Instant timestamp) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         group -> {
-          final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
-          return saveTimeslot(partition, group, normalizedTimeSlot.getEpochSecond());
+          final Instant normalizedTimeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
+          return saveTimeslot(partition, group, normalizedTimeslot.getEpochSecond());
         }
     ).then(Mono.empty());
   }
@@ -186,7 +187,7 @@ public class DownsampleTrackingService {
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
     return redisTemplate.opsForSet()
-        .remove(encodeTimeslotKey(partition, group), String.format("%d|in-progress", timeslot))
+        .remove(encodeTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
               log.info("Deleted timeslot: {} {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
               return Mono.just(result);
@@ -206,6 +207,14 @@ public class DownsampleTrackingService {
 
   private static String encodeTimeslotKey(int partition, String group) {
     return String.format("pending|%d|%s", partition, group);
+  }
+
+  private static String encodeTimeslotInProgress(String timeslot) {
+    return String.format("%s|in-progress", timeslot);
+  }
+
+  private static String encodeTimeslotInProgress(long timeslot) {
+    return String.format("%d|in-progress", timeslot);
   }
 
   private static String encodeJobKey(int partition, String group) {
