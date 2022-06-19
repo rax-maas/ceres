@@ -20,11 +20,9 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
@@ -42,8 +40,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -57,7 +55,6 @@ public class DownsampleTrackingService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
-  private final AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache;
 
   private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE partition = ?";
 
@@ -71,7 +68,6 @@ public class DownsampleTrackingService {
                                    SeriesSetService hashService,
                                    AppProperties appProperties,
                                    AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
-                                   AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
                                    ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
@@ -81,7 +77,6 @@ public class DownsampleTrackingService {
     this.cassandraTemplate = cassandraTemplate;
     this.appProperties = appProperties;
     this.downsampleHashExistenceCache = downsampleHashExistenceCache;
-    this.timeslotExistenceCache = timeslotExistenceCache;
   }
 
   public Flux<String> claimJob(Integer partition, String group) {
@@ -112,13 +107,9 @@ public class DownsampleTrackingService {
         .sort() // Make sure oldest timeslot is first
         .filter(t -> isTimeslotDue(partition, group, t, partitionWidth))
         .next()
-        .flatMap(timeslot -> {
-              this.timeslotExistenceCache.synchronous()
-                  .invalidate(new TimeslotCacheKey(partition, group, Long.parseLong(timeslot)));
-              return this.redisTemplate.opsForSet().remove(key, timeslot)
-                  .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
-                  .then(Mono.just(timeslot));
-            }
+        .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
+            .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
+            .then(Mono.just(timeslot))
         );
   }
 
@@ -166,23 +157,11 @@ public class DownsampleTrackingService {
   private Mono<?> saveTimeslots(int partition, Instant timestamp) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         group -> {
-          final Instant normalizedTimeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
-          return saveTimeslot(partition, group, normalizedTimeslot.getEpochSecond());
+          Long normalizedTimeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
+          return redisTemplate.opsForSet()
+              .add(encodeTimeslotKey(partition, group), normalizedTimeslot.toString());
         }
     ).then(Mono.empty());
-  }
-
-  private Mono<?> saveTimeslot(Integer partition, String group, Long timeslot) {
-    final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
-        new TimeslotCacheKey(partition, group, timeslot),
-        (key, executor) -> {
-          log.trace("Saving timeslot {} {} {}", partition, group, timeslot);
-          return redisTemplate.opsForSet().add(encodeTimeslotKey(partition, group), timeslot.toString())
-              .flatMap(s -> Mono.just(true))
-              .toFuture();
-        }
-    );
-    return Mono.fromFuture(result);
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {

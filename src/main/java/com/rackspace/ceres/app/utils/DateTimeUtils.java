@@ -153,7 +153,7 @@ public class DateTimeUtils {
     return Instant.ofEpochSecond(epochSeconds).atZone(ZoneId.systemDefault()).toLocalDateTime();
   }
 
-  public static Instant normalizedTimeslot(Instant timestamp, String group) {
-    return timestamp.with(new TemporalNormalizer(Duration.parse(group)));
+  public static Long normalizedTimeslot(Instant timestamp, String group) {
+    return timestamp.with(new TemporalNormalizer(Duration.parse(group))).getEpochSecond();
   }
 }

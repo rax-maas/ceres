@@ -20,11 +20,9 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -67,17 +65,6 @@ public class CacheConfig {
         .buildAsync();
     // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
-    return cache;
-  }
-
-  @Bean
-  public AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache() {
-    final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
-        .newBuilder()
-        .maximumSize(10000)
-        .recordStats()
-        .buildAsync();
-    CaffeineCacheMetrics.monitor(meterRegistry, cache, "timeslotExistenceCache");
     return cache;
   }
 }
