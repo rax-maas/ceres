@@ -123,6 +123,8 @@ public class MetadataService {
                             )
                             .name("metadataExists")
                             .metrics()
+                            .retryWhen(appProperties.getRetryInsertMetadata().build())
+                            .doOnError(t -> log.error("Exception in exists check "+t.getMessage()))
                             .doOnNext(exists -> {
                               if (exists) {
                                 cassandraHit.increment();

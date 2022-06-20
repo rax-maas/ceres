@@ -60,4 +60,15 @@ public class SeriesSetService {
         // so two trailing padding characters are not useful for our string encoding needs
         .substring(0,22);
   }
+
+  public HashCode getHashCode(String string1, String string2) {
+    return hashFunction.newHasher()
+        .putString(string1, CHARSET)
+        .putString(string2, CHARSET)
+        .hash();
+  }
+
+  public int getPartition(HashCode hashCode, int partitions) {
+    return Hashing.consistentHash(hashCode, partitions);
+  }
 }

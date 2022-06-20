@@ -16,8 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.datastax.oss.driver.api.core.NoNodeAvailableException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
@@ -28,13 +26,8 @@ import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.env.Environment;
-import org.springframework.data.cassandra.CassandraConnectionFailureException;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
-import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -45,9 +38,8 @@ import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
@@ -55,162 +47,144 @@ import java.util.stream.IntStream;
 @Profile("downsample")
 public class DownsampleProcessor {
 
-  private final Environment env;
-  private final ObjectMapper objectMapper;
-  private final DownsampleProperties downsampleProperties;
-  private final DownsampleTrackingService downsampleTrackingService;
-  private final TaskScheduler taskScheduler;
+  private final DownsampleProperties properties;
+  private final DownsampleTrackingService trackingService;
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
-  private List<ScheduledFuture<?>> scheduled;
-  private List<ScheduledFuture<?>> partitionJobsScheduled;
-  private ScheduledFuture<?> jobsScheduled;
   private final Timer meterTimer;
+  private final ScheduledExecutorService executor;
+  private final MeterRegistry meterRegistry;
 
   @Autowired
-  public DownsampleProcessor(Environment env,
-                             ObjectMapper objectMapper,
-                             DownsampleProperties downsampleProperties,
-                             DownsampleTrackingService downsampleTrackingService,
-                             @Qualifier("downsampleTaskScheduler") TaskScheduler taskScheduler,
+  public DownsampleProcessor(DownsampleProperties properties,
+                             DownsampleTrackingService trackingService,
                              QueryService queryService,
                              DataWriteService dataWriteService,
-                             MeterRegistry meterRegistry) {
-    this.env = env;
-    this.objectMapper = objectMapper;
-    this.downsampleProperties = downsampleProperties;
-    this.downsampleTrackingService = downsampleTrackingService;
-    this.taskScheduler = taskScheduler;
+                             MeterRegistry meterRegistry,
+                             ScheduledExecutorService executor) {
+    this.properties = properties;
+    this.trackingService = trackingService;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
+    this.executor = executor;
+    this.meterRegistry = meterRegistry;
   }
 
   @PostConstruct
   public void setupSchedulers() {
-    if (downsampleProperties.getGranularities() == null ||
-        downsampleProperties.getGranularities().isEmpty()) {
+    if (properties.getGranularities() == null ||
+        properties.getGranularities().isEmpty()) {
       throw new IllegalStateException("Granularities are not configured!");
     }
-
-    // We initialize the job queue here
-    setupJobScheduler(Instant.now().plus(downsampleProperties.getInitialProcessingDelay()));
-  }
-
-  private void setupJobScheduler(Instant when) {
-    jobsScheduled = taskScheduler.schedule(this::processJobs, when.plusSeconds(new Random().nextInt(5)));
-  }
-
-  private void processJobs() {
-    partitionJobsScheduled = IntStream.rangeClosed(1, 4)
-        .mapToObj(job -> taskScheduler.schedule(
-            () -> processJob(job), Instant.now().plusSeconds(new Random().nextInt(10))
-        )).collect(Collectors.toList());
-    setupJobScheduler(Instant.now().plusSeconds(10)); // Schedule the next time
-  }
-
-  private void processJob(Integer job) {
-    long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    downsampleTrackingService.checkPartitionJobs(
-        job, DateTimeUtils.isoTimeUtcPlusSeconds(0),
-                    DateTimeUtils.isoTimeUtcPlusSeconds(processPeriodSeconds))
-        .flatMap(result -> {
-          if (result) {
-            log.trace("Processing partition job: {}...", job);
-            processPartitions(job);
-          }
-          return Mono.empty();
-        }).subscribe(o -> {}, throwable -> {});
-  }
-
-  private void processPartitions(int job) {
-    scheduled = partitionsToProcess(job)
-        .mapToObj(partition -> taskScheduler.schedule(
-            () -> processPartition(partition),
-            Instant.now().plusSeconds(deltaSeconds(job, partition))
-        )).collect(Collectors.toList());
-  }
-
-  private long deltaSeconds(int job, int partition) {
-    // We want to space out all the partitions evenly in time between jobs
-    long processPeriodSeconds = downsampleProperties.getDownsampleProcessPeriod().toSeconds();
-    long deltaSeconds = processPeriodSeconds/16;
-    return (partition - ((job - 1) * 16L)) * deltaSeconds;
-  }
-
-  private IntStream partitionsToProcess(int job) {
-    int numPartitions = 16;
-    return IntStream.rangeClosed(numPartitions * (job - 1), numPartitions * job - 1);
+    executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
+    executor.schedule(this::initializeJobs, properties.getInitialProcessingDelay().getSeconds(), TimeUnit.SECONDS);
   }
 
   @PreDestroy
   public void stop() {
-    if (scheduled != null) {
-      scheduled.forEach(scheduledFuture -> scheduledFuture.cancel(false));
-    }
+    executor.shutdown();
   }
 
-  private void processPartition(int partition) {
-    log.trace("Downsampling partition {}", partition);
+  private void initializeRedisJobs() {
+    DateTimeUtils.getPartitionWidths(properties.getGranularities())
+        .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
+            .forEach((partition) -> initRedisJob(partition, width)));
+  }
 
-    downsampleTrackingService
-        .retrieveReadyOnes(partition)
-        .flatMap(this::processDownsampleSet)
-        .subscribe(o -> {}, throwable -> {
-          if (Exceptions.isRetryExhausted(throwable)) {
-            throwable = throwable.getCause();
-          }
-          if (isNoNodeAvailable(throwable)) {
-            log.warn("Failed to process partition={}: {}", partition, throwable.getMessage());
-          } else {
-            log.warn("Failed to process partition={}", partition, throwable);
-          }
+  private int nextJobScheduleDelay() {
+    int maxInterval = Long.valueOf(properties.getDownsampleSpreadPeriod().getSeconds()).intValue();
+    int minSchedulingInterval = 1;
+    return Math.min(new Random().nextInt(maxInterval) + minSchedulingInterval, maxInterval);
+  }
+
+  private void initializeJobs() {
+    log.info("Start downsampling jobs");
+    log.info("Downsampling configuration parameters");
+    log.info("=====================================");
+    log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
+    log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
+    log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
+    log.info("=====================================");
+
+    DateTimeUtils.getPartitionWidths(properties.getGranularities())
+        .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
+            .forEach((partition) -> executor.schedule(
+                () -> processJob(partition, width), nextJobScheduleDelay(), TimeUnit.SECONDS)));
+  }
+
+  private void processJob(int partition, String group) {
+    log.trace("processJob {} {}", partition, group);
+    trackingService.claimJob(partition, group)
+            .flatMap(status -> status.equals("free") ?
+                processTimeSlot(partition, group).then(trackingService.freeJob(partition, group)) : Flux.empty()
+            ).subscribe(o -> {}, Throwable::printStackTrace);
+    executor.schedule(() -> processJob(partition, group), nextJobScheduleDelay(), TimeUnit.SECONDS);
+  }
+
+  private void initRedisJob(int partition, String group) {
+    trackingService.freeJob(partition, group).subscribe(o -> {}, throwable -> {});
+  }
+
+  private Flux<?> processTimeSlot(int partition, String group) {
+    log.trace("processTimeSlot {} {}", partition, group);
+    return trackingService.getTimeSlot(partition, group)
+        .flatMapMany(timeslotString -> {
+          long timeslot = Long.parseLong(timeslotString);
+          log.info("Got timeslot: {} {} {}", partition, group, DateTimeUtils.epochToLocalDateTime(timeslot));
+          return trackingService.getDownsampleSets(timeslot, partition)
+              .name("processTimeSlot")
+              .tag("partition", String.valueOf(partition))
+              .tag("group", group)
+              .metrics()
+              .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group),
+                  properties.getMaxConcurrentDownsampleHashes())
+              .then(trackingService.deleteTimeslot(partition, group, timeslot))
+              .doOnError(Throwable::printStackTrace);
         });
   }
 
-  private static boolean isNoNodeAvailable(Throwable throwable) {
-    if (throwable instanceof CassandraConnectionFailureException) {
-      return throwable.getCause() instanceof NoNodeAvailableException;
-    }
-    return false;
-  }
-
-  private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet) {
+  private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {
+    log.trace("processDownsampleSet {} {} {}", pendingDownsampleSet, partition, group);
     Duration downsamplingDelay = Duration.between(pendingDownsampleSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
-
-    log.trace("Processing downsample set {}", pendingDownsampleSet);
 
     final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
         pendingDownsampleSet.getTenant(),
         pendingDownsampleSet.getSeriesSetHash(),
         pendingDownsampleSet.getTimeSlot(),
-        pendingDownsampleSet.getTimeSlot().plus(downsampleProperties.getTimeSlotWidth())
+        pendingDownsampleSet.getTimeSlot().plus(Duration.parse(group))
     );
 
+    List<Granularity> granularities = DateTimeUtils.filterGroupGranularities(group, properties.getGranularities());
     return
         downsampleData(data,
             pendingDownsampleSet.getTenant(),
             pendingDownsampleSet.getSeriesSetHash(),
-            downsampleProperties.getGranularities().iterator()
+            granularities.iterator()
         )
             .name("downsample.set")
+            .tag("partition", String.valueOf(partition))
+            .tag("group", group)
             .metrics()
-            .then(
-                downsampleTrackingService.complete(pendingDownsampleSet)
-            )
-            .doOnSuccess(o -> log.trace("Completed downsampling of {}", pendingDownsampleSet))
+            .doOnSuccess(o ->
+                log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                    pendingDownsampleSet.getSeriesSetHash(),
+                    pendingDownsampleSet.getTimeSlot().getEpochSecond(),
+                    DateTimeUtils.epochToLocalDateTime(pendingDownsampleSet.getTimeSlot().getEpochSecond()),
+                    partition, group))
             .checkpoint();
   }
 
   /**
-   * Downsamples the given data into the next granularity, stores that data,
+   * Downsample the given data into the next granularity, stores that data,
    * and recurses until the remaining granularities are processed.
-   * @param data a flux of either raw {@link SingleValueSet}s or
-   * aggregated {@link AggregatedValueSet}s from the prior granularity.
-   * @param tenant the tenant of the pending downsample set
-   * @param seriesSet the series-set of the pending downsample set
-   * @param granularities remaining granularties to process
+   *
+   * @param data          a flux of either raw {@link SingleValueSet}s or
+   *                      aggregated {@link AggregatedValueSet}s from the prior granularity.
+   * @param tenant        the tenant of the pending downsample set
+   * @param seriesSet     the series-set of the pending downsample set
+   * @param granularities remaining granularities to process
    * @return a mono that completes when the aggregated data has been stored
    */
   public Mono<?> downsampleData(Flux<? extends ValueSet> data,
@@ -232,24 +206,21 @@ public class DownsampleProcessor {
             .windowUntilChanged(
                 valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
             // ...and then do the aggregation math on those
-            .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())
-            ));
+            .concatMap(valueSetFlux ->
+                valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
 
-    // expand the aggregated volue-sets into individual data points to be stored
-    final Flux<DataDownsampled> expanded = expandAggregatedData(
-        aggregated, tenant, seriesSet);
+    // expand the aggregated volume-sets into individual data points to be stored
+    final Flux<DataDownsampled> expanded = expandAggregatedData(aggregated, tenant, seriesSet);
 
-    return
-        dataWriteService.storeDownsampledData(expanded)
-            .then(
-                // ...and recurse into remaining granularities
-                downsampleData(aggregated, tenant, seriesSet, granularities)
-            )
-            .checkpoint();
+    return dataWriteService.storeDownsampledData(expanded)
+        .then(
+            // ...and recurse into remaining granularities
+            downsampleData(aggregated, tenant, seriesSet, granularities)
+        )
+        .checkpoint();
   }
 
-  public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant,
-                                                    String seriesSet) {
+  public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant, String seriesSet) {
     return aggs.flatMap(agg -> Flux.just(
         data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
         data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),

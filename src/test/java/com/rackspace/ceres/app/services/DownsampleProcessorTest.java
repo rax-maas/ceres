@@ -42,6 +42,7 @@ import reactor.test.StepVerifier;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,6 +87,9 @@ class DownsampleProcessorTest {
   @MockBean
   MeterRegistry meterRegistry;
 
+  @MockBean
+  ScheduledExecutorService executorService;
+
   @Autowired
   DownsampleProcessor downsampleProcessor;
 
@@ -94,12 +98,6 @@ class DownsampleProcessorTest {
 
   @Captor
   ArgumentCaptor<Flux<DataDownsampled>> dataDownsampledCaptor;
-
-  @Test
-  void partitionsToProcessConfig() {
-    assertThat(downsampleProperties.getPartitionsToProcess())
-        .containsExactly(0, 1,3,4,5);
-  }
 
   @Test
   void aggregateSomeRawData() {

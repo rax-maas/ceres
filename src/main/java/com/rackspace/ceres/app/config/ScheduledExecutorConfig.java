@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Rackspace US, Inc.
+ * Copyright 2022 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,30 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.rackspace.ceres.app.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.task.TaskSchedulerBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.TaskScheduler;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Configuration
-public class SchedulerConfig {
+public class ScheduledExecutorConfig {
+    private final DownsampleProperties downsampleProperties;
 
-  private final DownsampleProperties downsampleProperties;
+    @Autowired
+    public ScheduledExecutorConfig(DownsampleProperties downsampleProperties) {
+        this.downsampleProperties = downsampleProperties;
+    }
 
-  @Autowired
-  public SchedulerConfig(DownsampleProperties downsampleProperties) {
-    this.downsampleProperties = downsampleProperties;
-  }
-
-  @Bean
-  public TaskScheduler downsampleTaskScheduler() {
-    return new TaskSchedulerBuilder()
-        .poolSize(downsampleProperties.getProcessingThreads())
-        .threadNamePrefix("downsample")
-        .build();
-  }
+    @Bean
+    public ScheduledExecutorService scheduledExecutorService() {
+        return Executors.newScheduledThreadPool(downsampleProperties.getProcessingThreads());
+    }
 }

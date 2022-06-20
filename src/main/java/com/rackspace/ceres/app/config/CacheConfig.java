@@ -18,10 +18,13 @@ package com.rackspace.ceres.app.config;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,16 +33,19 @@ public class CacheConfig {
 
   private final MeterRegistry meterRegistry;
   private final AppProperties appProperties;
+  private final DownsampleProperties downsampleProperties;
 
   @Autowired
   public CacheConfig(MeterRegistry meterRegistry,
-                     AppProperties appProperties) {
+                     AppProperties appProperties,
+                     DownsampleProperties downsampleProperties) {
     this.meterRegistry = meterRegistry;
     this.appProperties = appProperties;
+    this.downsampleProperties = downsampleProperties;
   }
 
   @Bean
-  public AsyncCache<SeriesSetCacheKey,Boolean/*exists*/> seriesSetExistenceCache() {
+  public AsyncCache<SeriesSetCacheKey, Boolean/*exists*/> seriesSetExistenceCache() {
     final AsyncCache<SeriesSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(appProperties.getSeriesSetCacheSize())
@@ -49,6 +55,29 @@ public class CacheConfig {
     // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "seriesSetExistence");
 
+    return cache;
+  }
+
+  @Bean
+  public AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache() {
+    final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
+        .recordStats()
+        .buildAsync();
+    // hook up to micrometer since we're not going through Spring Cache
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
+    return cache;
+  }
+
+  @Bean
+  public AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache() {
+    final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(10000)
+        .recordStats()
+        .buildAsync();
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "timeslotExistenceCache");
     return cache;
   }
 }

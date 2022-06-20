@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.services;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.CacheConfig;
+import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
@@ -57,7 +58,7 @@ import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtil
 }, properties = {
     "ceres.series-set-cache-size=1"
 })
-@EnableConfigurationProperties(AppProperties.class)
+@EnableConfigurationProperties({AppProperties.class, DownsampleProperties.class})
 public class MetadataServiceCachingTest {
 
   @MockBean

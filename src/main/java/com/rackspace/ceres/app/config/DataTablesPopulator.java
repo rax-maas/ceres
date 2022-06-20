@@ -72,6 +72,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
     dataDownsampledTableSpecs()
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
+            .flatMap( spec -> createTable(downsamplingHashesTableSpec(appProperties.getRawTtl()), session))
         .subscribe();
   }
 
@@ -127,6 +128,16 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
         .with(TableOption.COMPACTION, compactionOptions(ttl))
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
+  }
+
+  private CreateTableSpecification downsamplingHashesTableSpec(Duration ttl) {
+    log.info("creating downsampling_hashes table");
+    return CreateTableSpecification
+            .createTable("downsampling_hashes")
+            .ifNotExists()
+            .partitionKeyColumn("partition", DataTypes.INT)
+            .clusteredKeyColumn("hash", DataTypes.TEXT)
+            .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false);
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {

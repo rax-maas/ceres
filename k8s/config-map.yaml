@@ -3,32 +3,44 @@ kind: ConfigMap
 metadata:
   name: ceres
 data:
-  partitions.json: |-
-    {
-      "ceres-0": "0-15",
-      "ceres-1": "16-31",
-      "ceres-2": "32-47",
-      "ceres-3": "48-63"
-    }
   application.yml: |-
     ceres:
       downsample:
-        downsample-process-period: 896s # must be multiple of 16!
         granularities:
+          - width: 1m
+            ttl: 14d
+            partitionWidth: 15m
           - width: 5m
             ttl: 14d
-            partitionWidth: 6h
+            partitionWidth: 15m
+          - width: 15m
+            ttl: 14d
+            partitionWidth: 30m
+          - width: 30m
+            ttl: 14d
+            partitionWidth: 30m
           - width: 1h
+            ttl: 30d
+            partitionWidth: 1h
+          - width: 6h
+            ttl: 30d
+            partitionWidth: 6h
+          - width: 12h
             ttl: 365d
-            partitionWidth: 24h
-        partitions: 64
-        partitions-mapping-file: /config/partitions.json
-        # must be multiple of max granularity width
-        time-slot-width: 1h
-        processing-threads: 2
+            partitionWidth: 12h
+        partitions: 128
+        initial-processing-delay: 1m
+        max-downsample-job-duration: 1m
+        processing-threads: 5
+        downsample-spread-period: 1m
+        set-hashes-process-limit: 200
       raw-ttl: 2d
       series-set-cache-size: 2000000
       tenant-tag: tenant
+    spring:
+      data:
+        cassandra:
+          keyspace-name: ceres
     logging:
       level:
         com.rackspace.ceres.app: debug

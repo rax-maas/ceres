@@ -17,12 +17,6 @@
 package com.rackspace.ceres.app.config;
 
 import com.rackspace.ceres.app.config.configValidator.GranularityValidator;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationFormat;
@@ -30,6 +24,12 @@ import org.springframework.boot.convert.DurationStyle;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @ConfigurationProperties("ceres.downsample")
 @Component
@@ -47,23 +47,11 @@ public class DownsampleProperties {
     return partitions > 0;
   }
 
-  @DurationUnit(ChronoUnit.HOURS)
-  Duration timeSlotWidth = Duration.ofHours(1);
-
-  /**
-   * The amount of time to allow for the lastTouch of pending downsample sets to remain stable.
-   * This is mainly useful for handling backfilled data where this delay ensures that all metrics
-   * have likely been ingested for the slot.
-   */
-  @DurationUnit(ChronoUnit.MINUTES)
-  Duration lastTouchDelay = Duration.ofMinutes(5);
-
   /**
    * The amount of time to wait after startup before the downsample processing starts.
-   * Each partition is staggered by up to an additional 50% of this duration.
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  Duration initialProcessingDelay = Duration.ofMinutes(1);
+  Duration initialProcessingDelay = Duration.ofSeconds(5);
 
   /**
    * The number of threads allocated to process downsampling partitions.
@@ -73,28 +61,31 @@ public class DownsampleProperties {
   int processingThreads = Runtime.getRuntime().availableProcessors();
 
   /**
-   * Specifies how often pending downsample sets will be retrieved and processed.
+   * Max time a downsampling job can be locked
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  Duration downsampleProcessPeriod = Duration.ofMinutes(1);
+  Duration maxDownsampleJobDuration = Duration.ofMinutes(1);
 
   /**
-   * Comma separated list of partitions or ranges of partitions, such as "0,5-8,12,15-18"
+   * Specifies how wide in time the jobs will be spread out
    */
-  IntegerSet partitionsToProcess;
-
-  /**
-   * Can be used instead of <code>partitionsToProcess</code> to provide a shared JSON file
-   * that contains a map of hostname to comma separated list of partitions or ranges of partitions.
-   * This property is ignored if <code>partitionsToProcess</code> is configured.
-   */
-  Path partitionsMappingFile;
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration downsampleSpreadPeriod = Duration.ofMinutes(1);
 
   /**
    * Target granularities to downsample from raw data.
    */
   @GranularityValidator
   List<Granularity> granularities;
+
+  /**
+   * Maximum size of the cache that tracks hashes per timeslot.
+   */
+  @Min(0)
+  long downsampleHashCacheSize = 2000000;
+
+  @Min(1)
+  int maxConcurrentDownsampleHashes = 1;
 
   @Data
   public static class Granularity {

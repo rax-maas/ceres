@@ -8,7 +8,9 @@ Content-Type: application/json
     "tenant": "t-1",
     "os": "linux",
     "host": "h-1",
-    "deployment": "prod"
+    "deployment": "prod",
+     "metricGroup": "cpu",
+     "resource": "device-123456"
   },
   "timestamp": {{$timestamp}},
   "value": {{$randomInt}}
