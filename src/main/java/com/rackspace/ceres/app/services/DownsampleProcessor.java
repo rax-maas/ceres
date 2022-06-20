@@ -53,7 +53,6 @@ public class DownsampleProcessor {
   private final DataWriteService dataWriteService;
   private final Timer meterTimer;
   private final ScheduledExecutorService executor;
-  private final MeterRegistry meterRegistry;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
@@ -68,7 +67,6 @@ public class DownsampleProcessor {
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
     this.executor = executor;
-    this.meterRegistry = meterRegistry;
   }
 
   @PostConstruct
