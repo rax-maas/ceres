@@ -73,7 +73,6 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
             .flatMap( spec -> createTable(downsamplingHashesTableSpec(appProperties.getRawTtl()), session))
-            .flatMap( spec -> createTable(pendingTimeslotTableSpec(), session))
         .subscribe();
   }
 
@@ -139,16 +138,6 @@ public class DataTablesPopulator implements KeyspacePopulator {
             .partitionKeyColumn("partition", DataTypes.INT)
             .clusteredKeyColumn("hash", DataTypes.TEXT)
             .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false);
-  }
-
-  private CreateTableSpecification pendingTimeslotTableSpec() {
-    log.info("creating pending_timeslots table");
-    return CreateTableSpecification
-            .createTable("pending_timeslots")
-            .ifNotExists()
-            .partitionKeyColumn("partition", DataTypes.INT)
-            .partitionKeyColumn("group", DataTypes.TEXT)
-            .clusteredKeyColumn("timeslot", DataTypes.BIGINT);
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {

@@ -34,8 +34,6 @@ data:
         processing-threads: 5
         downsample-spread-period: 1m
         set-hashes-process-limit: 200
-        jobs-host: 10.80.6.120
-        jobs-port: 8080
       raw-ttl: 2d
       series-set-cache-size: 2000000
       tenant-tag: tenant

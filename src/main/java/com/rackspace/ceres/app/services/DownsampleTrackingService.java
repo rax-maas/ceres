@@ -49,6 +49,7 @@ import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
+  private final AppProperties appProperties;
   private final SeriesSetService hashService;
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveCassandraTemplate cassandraTemplate;
@@ -57,8 +58,6 @@ public class DownsampleTrackingService {
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
 
   private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE partition = ?";
-
-  private final AppProperties appProperties;
 
   @Autowired
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
