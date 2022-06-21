@@ -21,6 +21,7 @@ import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -33,10 +34,12 @@ import java.time.Instant;
 import java.util.List;
 
 import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
 @Slf4j
+@Profile("downsample")
 public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
@@ -79,23 +82,70 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
-    long nowSeconds = nowEpochSeconds();
     long partitionWidth = Duration.parse(group).getSeconds();
-    return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
-        .sort()
-        .filter(timeslot -> isTimeslotDue(timeslot, nowSeconds, partitionWidth))
-        .next();
+    String key = encodeTimeslotKey(partition, group);
+    return this.redisTemplate.opsForSet().scan(key)
+        .sort() // Make sure oldest timeslot is first
+        .filter(t -> isTimeslotDue(partition, group, t, partitionWidth))
+        .next()
+        .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
+            .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
+            .then(Mono.just(timeslot))
+        );
   }
 
-  private boolean isTimeslotDue(String timeslot, long nowSeconds, long partitionWidth) {
-    return Long.parseLong(timeslot) < nowSeconds - partitionWidth;
+  public Mono<String> getDelayedTimeSlot(Integer partition, String group) {
+    String key = encodeDelayedTimeslotKey(partition, group);
+    return this.redisTemplate.opsForSet().scan(key)
+        .sort() // Make sure oldest timeslot is first
+        .filter(this::isReady)
+        .next()
+        .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
+            .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
+            .then(Mono.just(timeslot))
+        );
+  }
+
+  private boolean isTimeslotDue(int partition, String group, String timeslot, long partitionWidth) {
+    if (isInProgress(timeslot)) {
+      long ts = Long.parseLong(timeslot.split("\\|")[0]);
+      if (ts < (nowEpochSeconds() - partitionWidth * 3)) {
+        // This timeslot is hanging in state in-progress
+        log.warn("Setting in-progress timeslot back to pending: {} {} {}", partition, group, epochToLocalDateTime(ts));
+        String key = encodeTimeslotKey(partition, group);
+        this.redisTemplate.opsForSet().remove(key, timeslot)
+            .and(this.redisTemplate.opsForSet().add(key, Long.toString(ts))).subscribe();
+      }
+      return false;
+    } else {
+      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
+    }
+  }
+
+  private boolean isInProgress(String timeslot) {
+    return timeslot.matches(".*in-progress");
+  }
+
+  private boolean isReady(String timeslot) {
+    return !timeslot.matches(".*in-progress");
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
-    return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), timeslot.toString())
+    return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
-              log.info("Deleted timeslot: {} {} {} {}", result, partition, group,
-                  DateTimeUtils.epochToLocalDateTime(timeslot));
+              log.info("Deleted timeslot: {} {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
+              return Mono.just(result);
+            }
+        );
+  }
+
+  public Mono<?> deleteDelayedTimeslot(Integer partition, String group, String timeslot) {
+    String [] tsArray = timeslot.split("\\|");
+    long ts = Long.parseLong(tsArray[0]);
+    return redisTemplate.opsForSet()
+        .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
+        .flatMap(result -> {
+              log.info("Deleted delayed timeslot: {} {} {} {}", result, partition, group, epochToLocalDateTime(ts));
               return Mono.just(result);
             }
         );
@@ -111,8 +161,20 @@ public class DownsampleTrackingService {
     return String.format("pending|%d|%s", partition, group);
   }
 
+  private static String encodeTimeslotInProgress(String timeslot) {
+    return String.format("%s|in-progress", timeslot);
+  }
+
+  private static String encodeTimeslotInProgress(long timeslot) {
+    return String.format("%d|in-progress", timeslot);
+  }
+
   private static String encodeJobKey(int partition, String group) {
     return String.format("job|%d|%s", partition, group);
+  }
+
+  private static String encodeDelayedTimeslotKey(int partition, String group) {
+    return String.format("delayed|%d|%s", partition, group);
   }
 
   private static PendingDownsampleSet buildPending(Long timeslot, String setHash) {

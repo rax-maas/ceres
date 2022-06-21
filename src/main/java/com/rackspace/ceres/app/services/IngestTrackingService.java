@@ -20,7 +20,6 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.Downsampling;
 import com.rackspace.ceres.app.model.TimeslotCacheKey;
@@ -28,6 +27,7 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
 @Slf4j
+@Profile("ingest")
 public class IngestTrackingService {
 
   private final DownsampleProperties properties;
@@ -76,7 +77,7 @@ public class IngestTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
     final String setHash = encodeSetHash(tenant, seriesSetHash);
-    return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp));
+    return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp, setHash));
   }
 
   private Mono<?> saveDownsampling(Integer partition, String setHash) {
@@ -93,11 +94,19 @@ public class IngestTrackingService {
     return Mono.fromFuture(result);
   }
 
-  private Mono<?> saveTimeslots(int partition, Instant timestamp) {
+  private Mono<?> saveTimeslots(int partition, Instant timestamp, String setHash) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         group -> {
-          final Instant normalizedTimeSlot = timestamp.with(new TemporalNormalizer(Duration.parse(group)));
-          return saveTimeslot(partition, group, normalizedTimeSlot.getEpochSecond());
+          final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(timestamp, group);
+          long partitionWidth = Duration.parse(group).getSeconds();
+          if (normalizedTimeSlot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
+            // Delayed timeslot, downsampling happened in the past
+            return redisTemplate.opsForSet().add(
+                encodeDelayedTimeslotKey(partition, group), String.format("%d|%s", normalizedTimeSlot, setHash));
+          } else {
+            // Downsampling in the future
+            return saveTimeslot(partition, group, normalizedTimeSlot);
+          }
         }
     ).then(Mono.empty());
   }
@@ -121,5 +130,9 @@ public class IngestTrackingService {
 
   private static String encodeTimeslotKey(int partition, String group) {
     return String.format("pending|%d|%s", partition, group);
+  }
+
+  private static String encodeDelayedTimeslotKey(int partition, String group) {
+    return String.format("delayed|%d|%s", partition, group);
   }
 }
