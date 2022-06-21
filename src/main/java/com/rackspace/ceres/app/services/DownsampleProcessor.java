@@ -150,8 +150,8 @@ public class DownsampleProcessor {
   private Flux<?> processTimeSlot(int partition, String group) {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
-        .flatMapMany(timeslotString -> {
-          long timeslot = Long.parseLong(timeslotString);
+        .flatMapMany(ts -> {
+          long timeslot = Long.parseLong(ts);
           log.info("Got timeslot: {} {} {}", partition, group, DateTimeUtils.epochToLocalDateTime(timeslot));
           return trackingService.getDownsampleSets(timeslot, partition)
               .name("processTimeSlot")

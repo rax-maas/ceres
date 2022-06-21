@@ -90,12 +90,8 @@ public class DownsampleTrackingService {
     String key = encodeTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .sort() // Make sure oldest timeslot is first
-        .filter(t -> isTimeslotDue(partition, group, t, partitionWidth))
-        .next()
-        .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
-            .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
-            .then(Mono.just(timeslot))
-        );
+        .filter(t -> isTimeslotDue(t, partitionWidth))
+        .next();
   }
 
   public Mono<String> getDelayedTimeSlot(Integer partition, String group) {
@@ -110,20 +106,8 @@ public class DownsampleTrackingService {
         );
   }
 
-  private boolean isTimeslotDue(int partition, String group, String timeslot, long partitionWidth) {
-    if (isInProgress(timeslot)) {
-      long ts = Long.parseLong(timeslot.split("\\|")[0]);
-      if (ts < (nowEpochSeconds() - partitionWidth * 3)) {
-        // This timeslot is hanging in state in-progress
-        log.warn("Setting in-progress timeslot back to pending: {} {} {}", partition, group, epochToLocalDateTime(ts));
-        String key = encodeTimeslotKey(partition, group);
-        this.redisTemplate.opsForSet().remove(key, timeslot)
-            .and(this.redisTemplate.opsForSet().add(key, Long.toString(ts))).subscribe();
-      }
-      return false;
-    } else {
-      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
-    }
+  private boolean isTimeslotDue(String timeslot, long partitionWidth) {
+    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
   }
 
   private boolean isDelayedTimeslotReady(String timeslot, int partition, String group) {
@@ -149,7 +133,7 @@ public class DownsampleTrackingService {
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
-    return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
+    return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), timeslot.toString())
         .flatMap(result -> {
               log.info("Deleted timeslot: {} {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
               return Mono.just(result);
@@ -181,10 +165,6 @@ public class DownsampleTrackingService {
 
   private static String encodeTimeslotInProgress(String timeslot) {
     return String.format("%s|in-progress", timeslot);
-  }
-
-  private static String encodeTimeslotInProgress(long timeslot) {
-    return String.format("%d|in-progress", timeslot);
   }
 
   private static String encodeJobKey(int partition, String group) {
