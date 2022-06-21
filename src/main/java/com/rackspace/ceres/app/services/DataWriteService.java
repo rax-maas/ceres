@@ -51,7 +51,7 @@ public class DataWriteService {
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
-  private final DownsampleTrackingService downsampleTrackingService;
+  private final IngestTrackingService ingestTrackingService;
   private final AppProperties appProperties;
   private final Counter dbOperationErrorsCounter;
 
@@ -61,14 +61,14 @@ public class DataWriteService {
                           MetadataService metadataService,
                           DataTablesStatements dataTablesStatements,
                           TimeSlotPartitioner timeSlotPartitioner,
-                          DownsampleTrackingService downsampleTrackingService,
+                          IngestTrackingService ingestTrackingService,
                           AppProperties appProperties, MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.seriesSetService = seriesSetService;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
-    this.downsampleTrackingService = downsampleTrackingService;
+    this.ingestTrackingService = ingestTrackingService;
     this.appProperties = appProperties;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "write");
@@ -95,7 +95,7 @@ public class DataWriteService {
             .name("ingest")
             .metrics()
             .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
-            .and(downsampleTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+            .and(ingestTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
             .and(storeMetricGroup(tenant, metric))
             .and(storeDeviceData(tenant, metric))
             .then(Mono.just(metric));
