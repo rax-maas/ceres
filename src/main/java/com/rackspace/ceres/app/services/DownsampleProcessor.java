@@ -89,7 +89,8 @@ public class DownsampleProcessor {
   private void initializeRedisJobs() {
     DateTimeUtils.getPartitionWidths(properties.getGranularities())
         .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
-            .forEach((partition) -> initRedisJob(partition, width)));
+            .forEach((partition) -> initPartitionGroupJobs(partition, width)));
+    IntStream.rangeClosed(0, properties.getPartitions() - 1).forEach(this::initDelayedPartitionJobs);
   }
 
   private void initializeJobs() {
@@ -109,12 +110,10 @@ public class DownsampleProcessor {
   }
 
   private void initializeDelayedTimeslotJobs() {
-    DateTimeUtils.getPartitionWidths(properties.getGranularities())
-        .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
-            .forEach((partition) -> executor.schedule(
-                () ->
-                    processDelayedTimeslotJob(partition, width),
-                properties.getDownsampleDelayedTimeslotPeriod().getSeconds(), TimeUnit.SECONDS)));
+    IntStream.rangeClosed(0, properties.getPartitions() - 1)
+        .forEach((partition) -> executor.schedule(
+            () -> processDelayedTimeslotJob(partition),
+            properties.getDownsampleDelayedTimeslotPeriod().getSeconds(), TimeUnit.SECONDS));
   }
 
   private void processJob(int partition, String group) {
@@ -126,14 +125,14 @@ public class DownsampleProcessor {
     executor.schedule(() -> processJob(partition, group), nextJobScheduleDelay(), TimeUnit.SECONDS);
   }
 
-  private void processDelayedTimeslotJob(int partition, String group) {
-    log.trace("processDelayedTimeslotJob {} {}", partition, group);
-    trackingService.claimJob(partition, group)
+  private void processDelayedTimeslotJob(int partition) {
+    log.trace("processDelayedTimeslotJob {}", partition);
+    trackingService.claimJob(partition)
         .flatMap(status -> status.equals("free") ?
-            processDelayedTimeSlot(partition, group).then(trackingService.freeJob(partition, group)) : Flux.empty()
+            processDelayedTimeSlot(partition)
+                .then(trackingService.freeJob(partition)) : Flux.empty()
         ).subscribe();
-    executor.schedule(() ->
-            processDelayedTimeslotJob(partition, group),
+    executor.schedule(() -> processDelayedTimeslotJob(partition),
         properties.getDownsampleDelayedTimeslotPeriod().getSeconds(), TimeUnit.SECONDS);
   }
 
@@ -143,8 +142,12 @@ public class DownsampleProcessor {
     return Math.min(new Random().nextInt(maxInterval) + minSchedulingInterval, maxInterval);
   }
 
-  private void initRedisJob(int partition, String group) {
-    trackingService.freeJob(partition, group).subscribe(o -> {}, throwable -> {});
+  private void initPartitionGroupJobs(int partition, String group) {
+    trackingService.freeJob(partition, group).subscribe();
+  }
+
+  private void initDelayedPartitionJobs(int partition) {
+    trackingService.freeJob(partition).subscribe();
   }
 
   private Flux<?> processTimeSlot(int partition, String group) {
@@ -164,20 +167,19 @@ public class DownsampleProcessor {
               .doOnError(Throwable::printStackTrace);
         });
   }
-
-  private Flux<?> processDelayedTimeSlot(int partition, String group) {
-    log.trace("processDelayedTimeSlot {} {}", partition, group);
-    return trackingService.getDelayedTimeSlots(partition, group)
-        .map(tsString -> buildDownsampleSet(partition, group, tsString))
+  private Flux<?> processDelayedTimeSlot(int partition) {
+    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities()))
+        .flatMap(group -> trackingService.getDelayedTimeSlots(partition, group)
+            .map(tsString -> buildDownsampleSet(partition, group, tsString))
             .name("processDelayedTimeSlot")
             .tag("partition", String.valueOf(partition))
             .tag("group", group)
             .metrics()
-            .flatMap(downsampleSet ->
-                    Mono.from(processDownsampleSet(downsampleSet, partition, group)).then(
-                trackingService.deleteDelayedTimeslot(partition, group, encodeDelayedTimeslot(downsampleSet))
-            ), properties.getMaxConcurrentDownsampleHashes())
-            .doOnError(Throwable::printStackTrace);
+            .flatMap(downsampleSet -> Mono.from(processDownsampleSet(downsampleSet, partition, group))
+                    .then(trackingService.deleteDelayedTimeslot(partition, group, encodeDelayedTimeslot(downsampleSet))),
+                properties.getMaxConcurrentDownsampleHashes())
+            .doOnError(Throwable::printStackTrace)
+        );
   }
 
   private PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {

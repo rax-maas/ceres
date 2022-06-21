@@ -28,4 +28,10 @@ public class RedisConfig {
     Resource scriptSource = new ClassPathResource("check-job.lua");
     return RedisScript.of(scriptSource, String.class);
   }
+
+  @Bean
+  public RedisScript<String> redisGetDelayedJob() {
+    Resource scriptSource = new ClassPathResource("check-delayed-job.lua");
+    return RedisScript.of(scriptSource, String.class);
+  }
 }

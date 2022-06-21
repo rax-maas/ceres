@@ -3,16 +3,16 @@ ceres:
     granularities:
       - width: 5s
         ttl: 1h
-        partitionWidth: 30s
+        partitionWidth: 1m
       - width: 10s
         ttl: 1h
-        partitionWidth: 30s
+        partitionWidth: 1m
       - width: 30s
         ttl: 1h
-        partitionWidth: 30s
+        partitionWidth: 1m
       - width: 1m
         ttl: 1h
-        partitionWidth: 1m
+        partitionWidth: 5m
       - width: 5m
         ttl: 1h
         partitionWidth: 5m
