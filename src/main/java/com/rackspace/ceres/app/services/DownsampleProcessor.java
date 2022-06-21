@@ -167,17 +167,17 @@ public class DownsampleProcessor {
 
   private Flux<?> processDelayedTimeSlot(int partition, String group) {
     log.trace("processDelayedTimeSlot {} {}", partition, group);
-    return trackingService.getDelayedTimeSlot(partition, group)
-        .flatMapMany(tsString ->
-            Flux.fromIterable(List.of(buildDownsampleSet(partition, group, tsString)))
+    return trackingService.getDelayedTimeSlots(partition, group)
+        .map(tsString -> buildDownsampleSet(partition, group, tsString))
             .name("processDelayedTimeSlot")
             .tag("partition", String.valueOf(partition))
             .tag("group", group)
             .metrics()
-            .flatMap(downsampleSet -> processDownsampleSet(downsampleSet, partition, group),
-                properties.getMaxConcurrentDownsampleHashes())
-            .then(trackingService.deleteDelayedTimeslot(partition, group, tsString))
-            .doOnError(Throwable::printStackTrace));
+            .flatMap(downsampleSet ->
+                    Mono.from(processDownsampleSet(downsampleSet, partition, group)).then(
+                trackingService.deleteDelayedTimeslot(partition, group, encodeDelayedTimeslot(downsampleSet))
+            ), properties.getMaxConcurrentDownsampleHashes())
+            .doOnError(Throwable::printStackTrace);
   }
 
   private PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {
@@ -190,6 +190,10 @@ public class DownsampleProcessor {
         .setTenant(tenant)
         .setSeriesSetHash(setHash)
         .setTimeSlot(Instant.ofEpochSecond(ts));
+  }
+
+  private String encodeDelayedTimeslot(PendingDownsampleSet set) {
+    return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
 
   private Publisher<?> processDownsampleSet(PendingDownsampleSet pendingDownsampleSet, int partition, String group) {

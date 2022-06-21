@@ -94,16 +94,14 @@ public class DownsampleTrackingService {
         .next();
   }
 
-  public Mono<String> getDelayedTimeSlot(Integer partition, String group) {
+  public Flux<String> getDelayedTimeSlots(Integer partition, String group) {
     String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .sort() // Make sure oldest timeslot is first
         .filter(ts -> isDelayedTimeslotReady(ts, partition, group))
-        .next()
         .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
-            .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
-            .then(Mono.just(timeslot))
-        );
+                .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
+            .then(Mono.just(timeslot)));
   }
 
   private boolean isTimeslotDue(String timeslot, long partitionWidth) {
