@@ -41,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
 @Slf4j
-@Profile("ingest")
 public class IngestTrackingService {
 
   private final DownsampleProperties properties;
