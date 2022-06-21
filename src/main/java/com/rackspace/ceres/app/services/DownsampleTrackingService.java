@@ -16,9 +16,9 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -32,6 +32,7 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
 import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
@@ -43,6 +44,7 @@ import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
 public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
+  private final AppProperties appProperties;
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
@@ -53,10 +55,12 @@ public class DownsampleTrackingService {
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
+                                   AppProperties appProperties,
                                    ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
     this.properties = properties;
+    this.appProperties = appProperties;
     this.cqlTemplate = cqlTemplate;
   }
 
@@ -98,7 +102,7 @@ public class DownsampleTrackingService {
     String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .sort() // Make sure oldest timeslot is first
-        .filter(this::isReady)
+        .filter(ts -> isDelayedTimeslotReady(ts, partition, group))
         .next()
         .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
             .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
@@ -122,12 +126,26 @@ public class DownsampleTrackingService {
     }
   }
 
-  private boolean isInProgress(String timeslot) {
-    return timeslot.matches(".*in-progress");
+  private boolean isDelayedTimeslotReady(String timeslot, int partition, String group) {
+    if (isInProgress(timeslot)) {
+      long ts = Long.parseLong(timeslot.split("\\|")[0]);
+      if (ts < (nowEpochSeconds() - appProperties.getIngestStartTime().getSeconds())) {
+        // This delayed timeslot is hanging in state in-progress
+        log.warn("Setting delayed in-progress timeslot back to pending: {} {} {}",
+            partition, group, epochToLocalDateTime(ts));
+        String key = encodeDelayedTimeslotKey(partition, group);
+        this.redisTemplate.opsForSet().remove(key, timeslot)
+            .and(this.redisTemplate.opsForSet().add(key, timeslot.replace("|in-progress", "")))
+            .subscribe();
+      }
+      return false;
+    } else {
+      return true;
+    }
   }
 
-  private boolean isReady(String timeslot) {
-    return !timeslot.matches(".*in-progress");
+  private boolean isInProgress(String timeslot) {
+    return timeslot.matches(".*in-progress");
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
