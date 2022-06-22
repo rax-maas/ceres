@@ -43,9 +43,9 @@ public class DelayedTrackingService {
 
   @Autowired
   public DelayedTrackingService(ReactiveStringRedisTemplate redisTemplate,
-                                   DownsampleProperties properties,
-                                   AppProperties appProperties,
-                                   RedisScript<String> redisGetDelayedJob) {
+                                DownsampleProperties properties,
+                                AppProperties appProperties,
+                                RedisScript<String> redisGetDelayedJob) {
     this.redisTemplate = redisTemplate;
     this.redisGetDelayedJob = redisGetDelayedJob;
     this.properties = properties;
@@ -123,11 +123,11 @@ public class DelayedTrackingService {
     return String.format("delayed|%d|%s", partition, group);
   }
 
-  private boolean isInProgress(String timeslot) {
+  public boolean isInProgress(String timeslot) {
     return timeslot.matches(".*in-progress");
   }
 
-  public PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {
+  public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {
     String [] tsArray = timeslot.split("\\|");
     long ts = Long.parseLong(tsArray[0]);
     log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(ts));
@@ -139,7 +139,7 @@ public class DelayedTrackingService {
         .setTimeSlot(Instant.ofEpochSecond(ts));
   }
 
-  public String encodeDelayedTimeslot(PendingDownsampleSet set) {
+  public static String encodeDelayedTimeslot(PendingDownsampleSet set) {
     return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
 }

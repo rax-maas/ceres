@@ -87,7 +87,7 @@ public class DownsampleTrackingService {
         .next();
   }
 
-  private boolean isTimeslotDue(String timeslot, long partitionWidth) {
+  public boolean isTimeslotDue(String timeslot, long partitionWidth) {
     return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
   }
 
@@ -114,7 +114,7 @@ public class DownsampleTrackingService {
     return String.format("job|%d|%s", partition, group);
   }
 
-  private static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
+  public static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
     log.trace("build pending: {} {}", timeslot, setHash);
     final int splitValueAt = setHash.indexOf("|");
     return new PendingDownsampleSet()

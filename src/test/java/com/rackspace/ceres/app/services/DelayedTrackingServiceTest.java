@@ -16,9 +16,9 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.utils.DateTimeUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,48 +26,53 @@ import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @SpringBootTest(classes = {
     RedisAutoConfiguration.class
 })
-@EnableConfigurationProperties(DownsampleProperties.class)
+@EnableConfigurationProperties({DownsampleProperties.class, AppProperties.class})
 @ActiveProfiles(profiles = {"test"})
-class DownsampleTrackingServiceTest {
+class DelayedTrackingServiceTest {
   @Autowired
   DownsampleProperties properties;
-  @MockBean
-  ReactiveCqlTemplate cqlTemplate;
+  @Autowired
+  AppProperties appProperties;
   @MockBean
   ReactiveStringRedisTemplate redisTemplate;
   @MockBean
-  RedisScript<String> redisGetJob;
+  RedisScript<String> redisGetDelayedJob;
 
   @Test
-  public void isTimeslotDue() {
-    Long t1 = DateTimeUtils.normalizedTimeslot(Instant.now(), "PT15M");
-    long partitionWidth = Duration.parse("PT15M").getSeconds();
-    DownsampleTrackingService downsampleTrackingService =
-        new DownsampleTrackingService(redisTemplate, redisGetJob, properties, cqlTemplate);
-    Assertions.assertFalse(downsampleTrackingService.isTimeslotDue(t1.toString(), partitionWidth));
-    Long t2 = DateTimeUtils.normalizedTimeslot(Instant.now().minus(15, ChronoUnit.MINUTES), "PT15M");
-    Assertions.assertTrue(downsampleTrackingService.isTimeslotDue(t2.toString(), partitionWidth));
+  public void isInProgress() {
+    String timeslotInProgress = "1655868939|t-1|my-little-hash|in-progress";
+    DelayedTrackingService delayedTrackingService =
+        new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob);
+    Assertions.assertTrue(delayedTrackingService.isInProgress(timeslotInProgress));
+    String timeslot = "1655868939|t-1|my-little-hash";
+    Assertions.assertFalse(delayedTrackingService.isInProgress(timeslot));
   }
 
   @Test
-  public void buildPending() {
-    Long timeslot = DateTimeUtils.normalizedTimeslot(Instant.now(), "PT15M");
-    String setHash = String.format("%s|%s", "t-1", "my-hash-string");
-    PendingDownsampleSet set = DownsampleTrackingService.buildPending(timeslot, setHash);
-    Assertions.assertEquals(Instant.ofEpochSecond(timeslot), set.getTimeSlot());
-    Assertions.assertEquals("my-hash-string", set.getSeriesSetHash());
+  public void buildPendingSet() {
+    String timeslot = "1655868939|t-1|my-little-hash";
+    PendingDownsampleSet set = DelayedTrackingService.buildDownsampleSet(1, "PT15M", timeslot);
+    Assertions.assertEquals(Instant.ofEpochSecond(1655868939), set.getTimeSlot());
+    Assertions.assertEquals("my-little-hash", set.getSeriesSetHash());
     Assertions.assertEquals("t-1", set.getTenant());
+  }
+
+  @Test
+  public void encodeDelayedTimeslot() {
+    String timeslot = "1655868939|t-1|my-little-hash";
+    PendingDownsampleSet set = DelayedTrackingService.buildDownsampleSet(1, "PT15M", timeslot);
+    Assertions.assertEquals(Instant.ofEpochSecond(1655868939), set.getTimeSlot());
+    Assertions.assertEquals("my-little-hash", set.getSeriesSetHash());
+    Assertions.assertEquals("t-1", set.getTenant());
+    Assertions.assertEquals(timeslot, DelayedTrackingService.encodeDelayedTimeslot(set));
   }
 }
