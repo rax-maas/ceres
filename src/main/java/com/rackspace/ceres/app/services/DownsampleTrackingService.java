@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import lombok.extern.slf4j.Slf4j;
@@ -33,21 +32,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-import static com.rackspace.ceres.app.utils.DateTimeUtils.nowEpochSeconds;
-import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
 
-@SuppressWarnings("UnstableApiUsage") // guava
 @Service
 @Slf4j
 @Profile("downsample")
 public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
-  private final AppProperties appProperties;
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
-  private final RedisScript<String> redisGetDelayedJob;
 
   private static final String GET_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM downsampling_hashes WHERE partition = ?";
 
@@ -55,14 +50,10 @@ public class DownsampleTrackingService {
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
-                                   AppProperties appProperties,
-                                   ReactiveCqlTemplate cqlTemplate,
-                                   RedisScript<String> redisGetDelayedJob) {
+                                   ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
-    this.redisGetDelayedJob = redisGetDelayedJob;
     this.properties = properties;
-    this.appProperties = appProperties;
     this.cqlTemplate = cqlTemplate;
   }
 
@@ -82,28 +73,9 @@ public class DownsampleTrackingService {
     );
   }
 
-  public Flux<String> claimJob(Integer partition) {
-    String hostName = System.getenv("HOSTNAME");
-    long now = Instant.now().getEpochSecond();
-    long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
-    return redisTemplate.execute(
-        this.redisGetDelayedJob,
-        List.of(),
-        List.of(partition.toString(),
-            hostName == null ? "localhost" : hostName,
-            Long.toString(now),
-            Long.toString(maxJobDuration))
-    );
-  }
-
   public Mono<?> freeJob(int partition, String group) {
     log.trace("free job partition, group {} {}", partition, group);
     return redisTemplate.opsForValue().set(encodeJobKey(partition, group), "free");
-  }
-
-  public Mono<?> freeJob(int partition) {
-    log.trace("free job partition {}", partition);
-    return redisTemplate.opsForValue().set(encodeJobKey(partition), "free");
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
@@ -115,54 +87,14 @@ public class DownsampleTrackingService {
         .next();
   }
 
-  public Flux<String> getDelayedTimeSlots(Integer partition, String group) {
-    String key = encodeDelayedTimeslotKey(partition, group);
-    return this.redisTemplate.opsForSet().scan(key)
-        .sort() // Make sure oldest timeslot is first
-        .filter(ts -> isDelayedTimeslotReady(ts, partition, group))
-        .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
-                .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
-            .then(Mono.just(timeslot)));
-  }
-
   private boolean isTimeslotDue(String timeslot, long partitionWidth) {
     return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
-  }
-
-  private boolean isDelayedTimeslotReady(String timeslot, int partition, String group) {
-    if (isInProgress(timeslot)) {
-      long ts = Long.parseLong(timeslot.split("\\|")[0]);
-      if (ts < (nowEpochSeconds() - appProperties.getIngestStartTime().getSeconds())) {
-        // This delayed timeslot is hanging in state in-progress
-        log.warn("Setting delayed in-progress timeslot back to pending: {} {} {}",
-            partition, group, epochToLocalDateTime(ts));
-        String key = encodeDelayedTimeslotKey(partition, group);
-        this.redisTemplate.opsForSet().remove(key, timeslot)
-            .and(this.redisTemplate.opsForSet().add(key, timeslot.replace("|in-progress", "")))
-            .subscribe();
-      }
-      return false;
-    } else {
-      return true;
-    }
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
     return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), timeslot.toString())
         .flatMap(result -> {
               log.info("Deleted timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
-              return Mono.just(result);
-            }
-        );
-  }
-
-  public Mono<?> deleteDelayedTimeslot(Integer partition, String group, String timeslot) {
-    String [] tsArray = timeslot.split("\\|");
-    long ts = Long.parseLong(tsArray[0]);
-    return redisTemplate.opsForSet()
-        .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
-        .flatMap(result -> {
-              log.info("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(ts));
               return Mono.just(result);
             }
         );
@@ -178,24 +110,8 @@ public class DownsampleTrackingService {
     return String.format("pending|%d|%s", partition, group);
   }
 
-  private static String encodeTimeslotInProgress(String timeslot) {
-    return String.format("%s|in-progress", timeslot);
-  }
-
   private static String encodeJobKey(int partition, String group) {
     return String.format("job|%d|%s", partition, group);
-  }
-
-  private static String encodeJobKey(int partition) {
-    return String.format("job|%d", partition);
-  }
-
-  private static String encodeDelayedTimeslotKey(int partition, String group) {
-    return String.format("delayed|%d|%s", partition, group);
-  }
-
-  private boolean isInProgress(String timeslot) {
-    return timeslot.matches(".*in-progress");
   }
 
   private static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
