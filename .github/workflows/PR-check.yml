@@ -28,6 +28,9 @@ jobs:
         java-version: '14'
         distribution: 'adopt-hotspot'
 
+    - name: alternatives
+      run: sudo alternatives --list && sudo alternatives --set java /opt/hostedtoolcache/Java_Adopt_jdk/14.0.2-12/x64/bin/java
+
     - run: echo $JAVA_HOME
     - run: sudo java --version
 
