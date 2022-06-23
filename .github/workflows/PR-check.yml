@@ -20,7 +20,7 @@ jobs:
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
     - name: Setup Maven Action
-      uses: s4u/maven-settings-action@v2.6.0
+      uses: s4u/setup-maven-action@1.4.0
       with:
         java-version: 8
         maven-version: '3.6.3'
