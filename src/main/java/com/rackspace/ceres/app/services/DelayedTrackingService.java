@@ -109,7 +109,7 @@ public class DelayedTrackingService {
     return redisTemplate.opsForSet()
         .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
-              log.info("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(ts));
+              log.trace("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(ts));
               return Mono.just(result);
             }
         );
@@ -130,7 +130,7 @@ public class DelayedTrackingService {
   public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {
     String [] tsArray = timeslot.split("\\|");
     long ts = Long.parseLong(tsArray[0]);
-    log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(ts));
+    log.trace("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(ts));
     String tenant = tsArray[1];
     String setHash = tsArray[2];
     return new PendingDownsampleSet()
