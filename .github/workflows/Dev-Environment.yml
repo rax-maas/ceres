@@ -1,14 +1,16 @@
-name: PR Check
+name: Dev-Environment
 
 on: 
-  push:
+  pull_request:
+    types: [ closed ]
+    branches: 
+      - main
     paths-ignore:
       - '.github/workflows/**'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
 
     steps:
     - uses: actions/checkout@v3
@@ -36,4 +38,7 @@ jobs:
       run: mvn -B verify -s .mvn/settings.xml
 
     - name: Image build
-      run: docker build -t dummy-container .
+      run: docker build -t gcr.io/ceres-dev-222017/testdevops:latest .
+
+    - name: Image push
+      run: docker push gcr.io/ceres-dev-222017/testdevops:latest .
