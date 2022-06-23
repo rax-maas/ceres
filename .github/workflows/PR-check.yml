@@ -12,6 +12,9 @@ jobs:
     - name: 'test'
       run: 'git branch'
 
+    - name: 'test'
+      run: 'ls target'
+
     - uses: 'google-github-actions/auth@v0'
       with:
         credentials_json: '${{ secrets.GCP_DEV }}'
@@ -23,7 +26,7 @@ jobs:
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
     - name: .m2 forder [*** fix it please ***]
-      run: sed -i 's*/root/.m2/*./.m2/*g' .mvn/settings.xml
+      run: sed -i 's*/root/.m2/*./.m2/*g' ./.mvn/settings.xml
 
     - name: Set up JDK
       uses: actions/setup-java@v3
@@ -31,8 +34,15 @@ jobs:
         java-version: '14'
         distribution: 'adopt-hotspot'
 
-    - run: echo $JAVA_HOME
-    - run: java --version
-
     - name: Build with Maven
       run: mvn -B verify -s .mvn/settings.xml
+
+  Docker:
+    runs-on: ubuntu-latest 
+
+    steps:
+    - name: 'test'
+      run: 'ls'
+    
+    - name: 'test'
+      run: 'ls target'
