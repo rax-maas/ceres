@@ -29,4 +29,4 @@ jobs:
         distribution: 'adopt'
 
     - name: Build with Maven
-      run: mvn -B verify -s .mvn/settings.xml
+      run: sudo mvn -B verify -s .mvn/settings.xml
