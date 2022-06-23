@@ -22,7 +22,7 @@ jobs:
     - name: Setup Maven Action
       uses: s4u/setup-maven-action@v1.4.0
       with:
-        java-version: 8
+        java-version: 14
         maven-version: '3.6.3'
 
     - run: echo $JAVA_HOME
