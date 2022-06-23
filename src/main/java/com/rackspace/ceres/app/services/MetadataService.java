@@ -53,6 +53,8 @@ import static org.springframework.data.cassandra.core.query.Query.query;
 public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
+  private static final String LABEL_METRIC_GROUP = "metricGroup";
+  private static final String LABEL_RESOURCE = "resource";
   private static final String DELIM = "|";
   private static final String TAG_VALUE_REGEX = ".*\\{.*\\}$";
   private final ReactiveCqlTemplate cqlTemplate;
@@ -109,8 +111,7 @@ public class MetadataService {
     this.appProperties = appProperties;
   }
 
-  public Publisher<?> storeMetadata(String tenant, String seriesSetHash,
-                                    String metricName, Map<String, String> tags) {
+  public Publisher<?> storeMetadata(String tenant, String seriesSetHash, Metric metric) {
     final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
             new SeriesSetCacheKey(tenant, seriesSetHash),
             (key, executor) ->
@@ -136,7 +137,7 @@ public class MetadataService {
                             .flatMap(exists -> exists ?
                                     Mono.just(true) :
                                     // not cached, so store the metadata to be sure
-                                    storeMetadataInCassandra(tenant, seriesSetHash, metricName, tags)
+                                    storeMetadataInCassandra(tenant, seriesSetHash, metric)
                                             .map(it -> true))
                             .toFuture()
     );
@@ -150,8 +151,12 @@ public class MetadataService {
         .doOnError(e -> writeDbOperationErrorsCounter.increment());
   }
 
-  private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash,
-                                           String metricName, Map<String, String> tags) {
+  private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash, Metric metric) {
+    String updatedAt = metric.getTimestamp().toString();
+    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
+    String device = metric.getTags().get(LABEL_RESOURCE);
+    String metricName = metric.getMetric();
+    Map<String,String> tags = metric.getTags();
     return cassandraTemplate.insert(
         new SeriesSetHash()
             .setTenant(tenant)
@@ -162,6 +167,12 @@ public class MetadataService {
         .retryWhen(
             appProperties.getRetryInsertMetadata().build()
         )
+            .and(this.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)).retryWhen(
+                    appProperties.getRetryInsertMetadata().build()
+            )
+            .and(this.updateDeviceAddMetricName(tenant, device, metricName, updatedAt)).retryWhen(
+                    appProperties.getRetryInsertMetadata().build()
+            )
         .and(
             cassandraTemplate.insert(
                 new MetricName().setTenant(tenant)

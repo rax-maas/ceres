@@ -143,7 +143,7 @@ class QueryServiceTest {
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
+    when(metadataService.storeMetadata(any(), any(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
@@ -199,7 +199,7 @@ class QueryServiceTest {
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
+    when(metadataService.storeMetadata(any(), any(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
@@ -253,7 +253,7 @@ class QueryServiceTest {
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
+    when(metadataService.storeMetadata(any(), any(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
@@ -300,7 +300,7 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
+    when(metadataService.storeMetadata(any(), any(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
@@ -364,7 +364,7 @@ class QueryServiceTest {
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.storeMetadata(any(), any(), any(), any()))
+    when(metadataService.storeMetadata(any(), any(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
