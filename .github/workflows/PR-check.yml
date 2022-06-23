@@ -20,7 +20,7 @@ jobs:
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
     - name: Install Java
-      run: sudo sudo apt update && sudo apt install openjdk-14-jdk
+      run: sudo sudo apt-get update && sudo apt-get install openjdk-14-jdk
 
     - run: echo $JAVA_HOME
     - run: java --version
