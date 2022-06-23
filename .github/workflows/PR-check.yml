@@ -9,9 +9,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: 'test'
-      run: 'git branch'
-
     - uses: 'google-github-actions/auth@v0'
       with:
         credentials_json: '${{ secrets.GCP_DEV }}'
@@ -22,8 +19,11 @@ jobs:
     - name: 'Use gcloud CLI'
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
-    - name: Set up JDK
-      run: sudo apt install oracle-java14-installer
+    - name: Setup Maven Action
+      uses: s4u/setup-maven-action@2.6.0
+      with:
+        java-version: 8
+        maven-version: '3.6.3'
 
     - run: echo $JAVA_HOME
     - run: java --version
