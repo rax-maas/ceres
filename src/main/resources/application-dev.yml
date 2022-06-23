@@ -1,18 +1,9 @@
 ceres:
   downsample:
     granularities:
-      - width: 5s
-        ttl: 1h
-        partitionWidth: 30s
-      - width: 10s
-        ttl: 1h
-        partitionWidth: 30s
-      - width: 30s
-        ttl: 1h
-        partitionWidth: 30s
       - width: 1m
         ttl: 1h
-        partitionWidth: 1m
+        partitionWidth: 5m
       - width: 5m
         ttl: 1h
         partitionWidth: 5m
@@ -25,6 +16,7 @@ ceres:
     max-concurrent-downsample-hashes: 1
     processing-threads: 5
     downsample-spread-period: 2s
+    downsample-delayed-timeslot-period: 10s
     downsample-hash-cache-size: 10000
   tag-filter: truncate
   tag-value-limit: 50

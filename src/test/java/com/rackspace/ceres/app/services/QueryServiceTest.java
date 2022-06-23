@@ -106,7 +106,7 @@ class QueryServiceTest {
   SeriesSetService seriesSetService;
 
   @MockBean
-  DownsampleTrackingService downsampleTrackingService;
+  IngestTrackingService ingestTrackingService;
 
   @Autowired
   DownsampleProcessor downsampleProcessor;
@@ -140,7 +140,7 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.storeMetadata(any(), any(), any(), any()))
@@ -196,7 +196,7 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.storeMetadata(any(), any(), any(), any()))
@@ -250,7 +250,7 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.storeMetadata(any(), any(), any(), any()))
@@ -361,7 +361,7 @@ class QueryServiceTest {
     final String seriesSetHash = seriesSetService
         .hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     when(metadataService.storeMetadata(any(), any(), any(), any()))
