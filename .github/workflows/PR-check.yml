@@ -12,9 +12,6 @@ jobs:
     - name: 'test'
       run: 'git branch'
 
-    - name: 'test'
-      run: 'ls target'
-
     - uses: 'google-github-actions/auth@v0'
       with:
         credentials_json: '${{ secrets.GCP_DEV }}'
@@ -37,8 +34,12 @@ jobs:
     - name: Build with Maven
       run: mvn -B verify -s .mvn/settings.xml
 
+    - name: 'test'
+      run: 'ls target'
+
   Docker:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
+    needs: [Compile]
 
     steps:
     - name: 'test'
