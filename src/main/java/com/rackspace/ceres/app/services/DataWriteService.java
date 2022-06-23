@@ -94,10 +94,8 @@ public class DataWriteService {
     return storeRawData(tenant, metric, seriesSetHash)
             .name("ingest")
             .metrics()
-            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric.getMetric(), metric.getTags()))
+            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric))
             .and(ingestTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-            .and(storeMetricGroup(tenant, metric))
-            .and(storeDeviceData(tenant, metric))
             .then(Mono.just(metric));
   }
 
@@ -178,21 +176,5 @@ public class DataWriteService {
         .retryWhen(appProperties.getRetryInsertDownsampled().build())
         .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();
-  }
-
-  private Mono<?> storeMetricGroup(String tenant, Metric metric) {
-    String updatedAt = metric.getTimestamp().toString();
-    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
-    String metricName = metric.getMetric();
-    return metadataService.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)
-        .doOnError(e -> dbOperationErrorsCounter.increment());
-  }
-
-  private Mono<?> storeDeviceData(String tenant, Metric metric) {
-    String updatedAt = metric.getTimestamp().toString();
-    String device = metric.getTags().get(LABEL_RESOURCE);
-    String metricName = metric.getMetric();
-    return metadataService.updateDeviceAddMetricName(tenant, device, metricName, updatedAt)
-        .doOnError(e -> dbOperationErrorsCounter.increment());
   }
 }

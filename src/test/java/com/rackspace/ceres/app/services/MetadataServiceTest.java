@@ -220,7 +220,7 @@ class MetadataServiceTest {
     Mono.ignoreElements(
         metadataService.storeMetadata(
             tenantId,
-            unhashedSeriesSet(metricName, tags), metric.getMetric(), metric.getTags()
+            unhashedSeriesSet(metricName, tags), metric
         )
     )
         .block();
