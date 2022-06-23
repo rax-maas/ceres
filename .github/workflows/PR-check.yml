@@ -22,12 +22,8 @@ jobs:
     - name: 'Use gcloud CLI'
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
-    - name: Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '14'
-        distribution: zulu
-        java-package: jdk
+    - name: Set up JDK
+      run: sudo apt install oracle-java14-installer
 
     - run: echo $JAVA_HOME
     - run: java --version
