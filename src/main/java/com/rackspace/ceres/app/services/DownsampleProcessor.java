@@ -163,16 +163,16 @@ public class DownsampleProcessor {
   private Flux<?> processDelayedTimeSlot(int partition) {
     return Flux.fromIterable(getPartitionWidths(properties.getGranularities()))
         .flatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
-            .map(tsString -> DelayedTrackingService.buildDownsampleSet(partition, group, tsString))
-            .name("processDelayedTimeSlot")
-            .tag("partition", String.valueOf(partition))
-            .tag("group", group)
-            .metrics()
-            .flatMap(downsampleSet -> Mono.from(processDownsampleSet(downsampleSet, partition, group))
-                    .then(delayedTrackingService.deleteDelayedTimeslot(
-                        partition, group, DelayedTrackingService.encodeDelayedTimeslot(downsampleSet))),
-                properties.getMaxConcurrentDownsampleHashes())
-            .doOnError(Throwable::printStackTrace)
+                .map(tsString -> DelayedTrackingService.buildDownsampleSet(partition, group, tsString))
+                .name("processDelayedTimeSlot")
+                .tag("partition", String.valueOf(partition))
+                .tag("group", group)
+                .metrics()
+                .flatMap(downsampleSet -> Mono.from(processDownsampleSet(downsampleSet, partition, group))
+                        .then(delayedTrackingService.deleteDelayedTimeslot(
+                            partition, group, DelayedTrackingService.encodeDelayedTimeslot(downsampleSet))))
+                .doOnError(Throwable::printStackTrace),
+            properties.getMaxConcurrentDownsampleHashes()
         );
   }
 

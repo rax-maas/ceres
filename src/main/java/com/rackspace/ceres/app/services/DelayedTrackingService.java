@@ -75,28 +75,33 @@ public class DelayedTrackingService {
     String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .sort() // Make sure oldest timeslot is first
-        .filter(ts -> isDelayedTimeslotReady(ts, partition, group))
-        .flatMap(timeslot -> this.redisTemplate.opsForSet().remove(key, timeslot)
-            .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
-            .then(Mono.just(timeslot)));
+        .filter(ts -> isNotInProgress(ts, partition, group))
+        .flatMap(timeslot -> isInProgress(timeslot) ? Mono.just(timeslot) :
+            this.redisTemplate.opsForSet().remove(key, timeslot)
+                .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
+                .then(Mono.just(timeslot))
+        );
   }
 
-  private boolean isDelayedTimeslotReady(String timeslot, int partition, String group) {
-    if (isInProgress(timeslot)) {
-      long ts = Long.parseLong(timeslot.split("\\|")[0]);
-      if (ts < (nowEpochSeconds() - appProperties.getIngestStartTime().getSeconds())) {
+
+  public boolean isInProgress(String timeslot) {
+    return timeslot.matches(".*in-progress");
+  }
+
+  public boolean isNotInProgress(String timeslot, int partition, String group) {
+    boolean isNotInProgress = true;
+    if (timeslot.matches(".*in-progress")) {
+      long tsLongValue = Long.parseLong(timeslot.split("\\|")[0]);
+      if (tsLongValue < (nowEpochSeconds() - appProperties.getIngestStartTime().getSeconds())) {
         // This delayed timeslot is hanging in state in-progress
-        log.warn("Setting delayed in-progress timeslot back to pending: {} {} {}",
-            partition, group, epochToLocalDateTime(ts));
-        String key = encodeDelayedTimeslotKey(partition, group);
-        this.redisTemplate.opsForSet().remove(key, timeslot)
-            .and(this.redisTemplate.opsForSet().add(key, timeslot.replace("|in-progress", "")))
-            .subscribe();
+        log.warn("Delayed in-progress timeslot is hanging: {} {} {}",
+            partition, group, epochToLocalDateTime(tsLongValue));
+        // It's hanging so we consider it not in-progress
+      } else {
+        isNotInProgress = false;
       }
-      return false;
-    } else {
-      return true;
     }
+    return isNotInProgress;
   }
 
   public Mono<?> deleteDelayedTimeslot(Integer partition, String group, String timeslot) {
@@ -121,10 +126,6 @@ public class DelayedTrackingService {
 
   private static String encodeDelayedTimeslotKey(int partition, String group) {
     return String.format("delayed|%d|%s", partition, group);
-  }
-
-  public boolean isInProgress(String timeslot) {
-    return timeslot.matches(".*in-progress");
   }
 
   public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {

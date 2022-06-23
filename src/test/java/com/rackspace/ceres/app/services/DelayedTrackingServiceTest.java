@@ -48,13 +48,33 @@ class DelayedTrackingServiceTest {
   RedisScript<String> redisGetDelayedJob;
 
   @Test
-  public void isInProgress() {
-    String timeslotInProgress = "1655868939|t-1|my-little-hash|in-progress";
+  public void isNotInProgress() {
     DelayedTrackingService delayedTrackingService =
         new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob);
+    String timeslotInProgress = String.format("%d|t-1|my-little-hash|in-progress", Instant.now().getEpochSecond());
+    Assertions.assertFalse(delayedTrackingService.isNotInProgress(timeslotInProgress, 1, "PT15M"));
+    String timeslotNotInProgress = String.format("%d|t-1|my-little-hash", Instant.now().getEpochSecond());
+    Assertions.assertTrue(delayedTrackingService.isNotInProgress(timeslotNotInProgress, 1, "PT15M"));
+   }
+
+  @Test
+  public void isInProgressHanging() {
+    DelayedTrackingService delayedTrackingService =
+        new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob);
+    String timeslotHangingInProgress =
+        String.format("%d|t-1|my-little-hash|in-progress",
+            Instant.now().minusSeconds(appProperties.getIngestStartTime().getSeconds() + 1).getEpochSecond());
+    Assertions.assertTrue(delayedTrackingService.isNotInProgress(timeslotHangingInProgress, 1, "PT15M"));
+  }
+
+  @Test
+  public void isInProgress() {
+    DelayedTrackingService delayedTrackingService =
+        new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob);
+    String timeslotInProgress = String.format("%d|t-1|my-little-hash|in-progress", Instant.now().getEpochSecond());
     Assertions.assertTrue(delayedTrackingService.isInProgress(timeslotInProgress));
-    String timeslot = "1655868939|t-1|my-little-hash";
-    Assertions.assertFalse(delayedTrackingService.isInProgress(timeslot));
+    String timeslotNotInProgress = String.format("%d|t-1|my-little-hash", Instant.now().getEpochSecond());
+    Assertions.assertFalse(delayedTrackingService.isInProgress(timeslotNotInProgress));
   }
 
   @Test
