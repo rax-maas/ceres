@@ -19,11 +19,8 @@ jobs:
     - name: 'Use gcloud CLI'
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
-    - name: Setup Maven Action
-      uses: s4u/setup-maven-action@v1.4.0
-      with:
-        java-version: 14
-        maven-version: '3.6.3'
+    - name: Install Java
+      run: sudo sudo apt update && sudo apt install openjdk-14-jdk
 
     - run: echo $JAVA_HOME
     - run: java --version
