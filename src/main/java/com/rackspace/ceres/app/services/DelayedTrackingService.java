@@ -74,7 +74,6 @@ public class DelayedTrackingService {
   public Flux<String> getDelayedTimeSlots(Integer partition, String group) {
     String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
-        .sort() // Make sure oldest timeslot is first
         .filter(ts -> isNotInProgress(ts, partition, group))
         .flatMap(timeslot -> isInProgress(timeslot) ? Mono.just(timeslot) :
             this.redisTemplate.opsForSet().remove(key, timeslot)
