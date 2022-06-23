@@ -1,7 +1,7 @@
 name: PR Check
 
 on: 
-  push:
+  pull_request:
     paths-ignore:
       - '.github/workflows/**'
 
