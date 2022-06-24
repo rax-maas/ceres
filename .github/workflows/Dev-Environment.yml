@@ -43,7 +43,7 @@ jobs:
       run: docker build -t gcr.io/ceres-dev-222017/testdevops:latest .
 
     - name: Docker login
-      run: gcloud auth configure-docker gcr.io
+      run: gcloud auth configure-docker gcr.io -q
 
     - name: Image push
       run: docker push gcr.io/ceres-dev-222017/testdevops:latest
