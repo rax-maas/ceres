@@ -16,7 +16,6 @@
 
 package com.rackspace.ceres.app.services;
 
-import com.rackspace.ceres.app.config.DownsampleCacheConfig;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
@@ -46,19 +45,16 @@ public class DownsampleProcessor {
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private final Timer meterTimer;
-  private final DownsampleCacheConfig downsampleCacheConfig;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
                              QueryService queryService,
                              DataWriteService dataWriteService,
-                             MeterRegistry meterRegistry,
-                             DownsampleCacheConfig downsampleCacheConfig) {
+                             MeterRegistry meterRegistry) {
     this.properties = properties;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
-    this.downsampleCacheConfig = downsampleCacheConfig;
   }
 
   public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
@@ -73,41 +69,30 @@ public class DownsampleProcessor {
         pendingSet.getTimeSlot().plus(Duration.parse(group))
     );
 
-    this.downsampleCacheConfig.dataPoints().put("PT0S", data);
-
     return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
         .flatMap(granularity ->
-            downsampleData(data,
-                pendingSet.getTenant(),
-                pendingSet.getSeriesSetHash(),
-                granularity
-            )
+            downsampleData(data, pendingSet, granularity)
             .name("downsample.set")
             .tag("partition", String.valueOf(partition))
                 .tag("group", group)
                 .metrics()
-                .doOnSuccess(o -> {
-                      log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
-                          pendingSet.getSeriesSetHash(),
-                          pendingSet.getTimeSlot().getEpochSecond(),
-                          epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
-                          partition, group);
-                    }
+                .doOnSuccess(o ->
+                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                        pendingSet.getSeriesSetHash(),
+                        pendingSet.getTimeSlot().getEpochSecond(),
+                        epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
+                        partition, group)
                 ),
-            1
+            properties.getMaxConcurrentDownsampleHashes()
         );
   }
 
-  public Mono<?> downsampleData(Flux<? extends ValueSet> data,
-                                String tenant,
-                                String seriesSet,
-                                Granularity granularity) {
-    log.info("downsampleData {} {} {}", tenant, seriesSet, granularity);
-
+  public Mono<?> downsampleData(
+      Flux<? extends ValueSet> data, PendingDownsampleSet pendingSet, Granularity granularity) {
+    log.info("downsampleData {} {}", pendingSet, granularity);
     final TemporalNormalizer normalizer = new TemporalNormalizer(granularity.getWidth());
 
-    final Flux<AggregatedValueSet> aggregated =
-        data
+    final Flux<AggregatedValueSet> aggregated = data
             .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
             // group the incoming data by granularity-time-window
             .windowUntilChanged(
@@ -116,11 +101,9 @@ public class DownsampleProcessor {
             .concatMap(valueSetFlux ->
                 valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
 
-    this.downsampleCacheConfig.dataPoints().put(granularity.getWidth().toString(), aggregated);
-    this.downsampleCacheConfig.dataPoints().remove("PT0S");
-
     // expand the aggregated volume-sets into individual data points to be stored
-    final Flux<DataDownsampled> expanded = expandAggregatedData(aggregated, tenant, seriesSet);
+    final Flux<DataDownsampled> expanded =
+        expandAggregatedData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash());
 
     return dataWriteService.storeDownsampledData(expanded).checkpoint();
   }
