@@ -30,12 +30,7 @@ import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
-import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbFilter;
-import com.rackspace.ceres.app.model.FilterType;
+import com.rackspace.ceres.app.model.*;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -285,194 +280,203 @@ class QueryServiceTest {
         }).verifyComplete();
   }
 
-//  @Test
-//  void testQueryDownsampledWithMetricName() {
-//    final String tenant = randomAlphanumeric(10);
-//    final String metricName = RandomStringUtils.randomAlphabetic(5);
-//    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-//    final Map<String, String> tags = Map.of(
-//        "os", "linux",
-//        "host", "h-1",
-//        "deployment", "prod",
-//        "metricGroup", metricGroup
-//    );
-//
-//    final String seriesSetHash = seriesSetService
-//        .hash(metricName, tags);
-//
-//    when(metadataService.storeMetadata(any(), any(), any()))
-//        .thenReturn(Mono.empty());
-//
-//    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-//        .thenReturn(Flux.just(seriesSetHash));
-//
-//    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-//    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-//        .thenReturn(Mono.just(metricNameAndTags));
-//    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-//        .thenReturn(Mono.empty());
-//
-//    dataWriteService.ingest(
-//        tenant,
-//        new Metric()
-//            .setTimestamp(Instant.now())
-//            .setValue(Math.random())
-//            .setMetric(metricName)
-//            .setTags(tags)
-//    ).subscribe();
-//
-//    downsampleProcessor.downsampleData(
-//        Flux.just(
-//            singleValue(Instant.now().toString(), 1.2),
-//            singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
-//            singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
-//            singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
-//        ), tenant, seriesSetHash,
-//        List.of(granularity(1, 12), granularity(2, 24)).iterator()
-//    ).block();
-//
-//    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(2), tags,
-//        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
-//        .assertNext(result -> {
-//          assertThat(result).isNotEmpty();
-//          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
-//          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
-//          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
-//        }).verifyComplete();
-//  }
+  @Test
+  void testQueryDownsampledWithMetricName() {
+    final String tenant = randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup
+    );
 
-//  @Test
-//  void testQueryDownsampledWithMetricGroup() {
-//    final String tenant = randomAlphanumeric(10);
-//    final String metricName = RandomStringUtils.randomAlphabetic(5);
-//    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-//    final String resource = RandomStringUtils.randomAlphabetic(5);
-//    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
-//
-//    final Map<String, String> tags = Map.of(
-//        "os", "linux",
-//        "host", "h-1",
-//        "deployment", "prod",
-//        "metricGroup", metricGroup,
-//        "resource", resource,
-//        "monitoring_system", monitoring_system
-//    );
-//
-//    final String seriesSetHash = seriesSetService
-//        .hash(metricName, tags);
-//
-//    when(ingestTrackingService.track(any(), anyString(), any()))
-//        .thenReturn(Mono.empty());
-//
-//    when(metadataService.storeMetadata(any(), any(), any()))
-//        .thenReturn(Mono.empty());
-//
-//    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-//        .thenReturn(Flux.just(seriesSetHash));
-//
-//    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
-//    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-//        .thenReturn(Mono.just(metricNameAndTags));
-//    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-//        .thenReturn(Mono.empty());
-//    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-//        .thenReturn(Mono.empty());
-//    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
-//
-//    dataWriteService.ingest(
-//        tenant,
-//        new Metric()
-//            .setTimestamp(Instant.now())
-//            .setValue(Math.random())
-//            .setMetric(metricName)
-//            .setTags(tags)
-//    ).block();
-//
-//    downsampleProcessor.downsampleData(
-//        Flux.just(
-//            singleValue(Instant.now().toString(), 1.2),
-//            singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
-//            singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
-//            singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
-//        ), tenant, seriesSetHash,
-//        List.of(granularity(1, 12), granularity(2, 24)).iterator()
-//    ).block();
-//
-//    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
-//        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
-//        .assertNext(result -> {
-//          assertThat(result).isNotEmpty();
-//          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
-//          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
-//          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
-//        }).verifyComplete();
-//  }
+    final String seriesSetHash = seriesSetService
+        .hash(metricName, tags);
 
-//  @Test
-//  void testTsdbQueryDownsampled() {
-//    final Long epochSecondsNow = Long.valueOf(1616686440);
-//    final Long epochSecondsNowPlus2Min = Long.valueOf(1616686440 + 120);
-//    final String tenant = randomAlphanumeric(10);
-//    final Instant now = Instant.ofEpochSecond(epochSecondsNow.longValue());
-//    final Instant start = now.minusSeconds(5 * 60);
-//    final Instant end = now.plusSeconds(24 * 60 * 60);
-//    final String metricName = RandomStringUtils.randomAlphabetic(5);
-//
-//    final Map<String, String> tags = Map.of(
-//            "host", "h-1"
-//    );
-//
-//    final String seriesSetHash = seriesSetService.hash(metricName, tags);
-//
-//    TsdbQuery tsdbQuery = new TsdbQuery()
-//            .setSeriesSet(seriesSetHash)
-//            .setMetricName(metricName)
-//            .setTags(tags)
-//            .setGranularity(Duration.ofMinutes(2))
-//            .setAggregator(Aggregator.avg);
-//
-//    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
-//
-//    final TsdbFilter filter = new TsdbFilter()
-//            .setType(FilterType.literal_or)
-//            .setTagk("host")
-//            .setFilter("h-1");
-//
-//    final TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
-//            .setMetric(metricName)
-//            .setDownsample("2m-avg")
-//            .setFilters(List.of(filter));
-//
-//    when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
-//    when(metadataService.getTsdbQueries(
-//            List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
-//
-//    downsampleProcessor.downsampleData(
-//            Flux.just(
-//                    singleValue(now.toString(), 1.2),
-//                    singleValue(now.plusSeconds(5).toString(), 1.5),
-//                    singleValue(now.plusSeconds(10).toString(), 1.1),
-//                    singleValue(now.plusSeconds(15).toString(), 3.4),
-//                    singleValue(now.plusSeconds(200).toString(), 8.4)
-//            ), tenant, seriesSetHash,
-//            granularities.iterator()
-//    ).block();
-//
-//    final Map<String, Double> expectedDps = Map.of(
-//            epochSecondsNow.toString(), 1.8,
-//            epochSecondsNowPlus2Min.toString(), 8.4
-//    );
-//
-//    StepVerifier.create(
-//            queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
-//            .assertNext(result -> {
-//              assertThat(result).isNotEmpty();
-//              assertThat(result.get(0).getMetric()).isEqualTo(metricName);
-//              assertThat(result.get(0).getTags()).isEqualTo(tags);
-//              assertThat(result.get(0).getAggregatedTags()).isEqualTo(Collections.emptyList());
-//              assertThat(result.get(0).getDps()).isEqualTo(expectedDps);
-//            }).verifyComplete();
-//  }
+    when(metadataService.storeMetadata(any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    dataWriteService.ingest(
+        tenant,
+        new Metric()
+            .setTimestamp(Instant.now())
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).subscribe();
+
+    List.of(granularity(1, 12), granularity(2, 24)).forEach(granularity ->
+        downsampleProcessor.downsampleData(
+            Flux.just(
+                singleValue(Instant.now().toString(), 1.2),
+                singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
+                singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
+                singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
+            ),
+            new PendingDownsampleSet().setSeriesSetHash(seriesSetHash).setTenant(tenant),
+            granularity
+        ).subscribe()
+    );
+
+    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(2), tags,
+        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
+          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+        }).verifyComplete();
+  }
+
+  @Test
+  void testQueryDownsampledWithMetricGroup() {
+    final String tenant = randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
+    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
+
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup,
+        "resource", resource,
+        "monitoring_system", monitoring_system
+    );
+
+    final String seriesSetHash = seriesSetService
+        .hash(metricName, tags);
+
+    when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.storeMetadata(any(), any(), any()))
+        .thenReturn(Mono.empty());
+
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
+        .thenReturn(Flux.just(seriesSetHash));
+
+    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(metricNameAndTags));
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
+    when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
+
+    dataWriteService.ingest(
+        tenant,
+        new Metric()
+            .setTimestamp(Instant.now())
+            .setValue(Math.random())
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    List.of(granularity(1, 12), granularity(2, 24)).forEach(granularity ->
+        downsampleProcessor.downsampleData(
+                Flux.just(
+                    singleValue(Instant.now().toString(), 1.2),
+                    singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
+                    singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
+                    singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
+                ),
+            new PendingDownsampleSet().setSeriesSetHash(seriesSetHash).setTenant(tenant),
+            granularity
+        ).subscribe()
+    );
+
+    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
+        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
+          assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
+          assertThat(result.get(0).getData().getTags()).isEqualTo(tags);
+        }).verifyComplete();
+  }
+
+  @Test
+  void testTsdbQueryDownsampled() {
+    final long epochSecondsNow = 1616686440L;
+    final long epochSecondsNowPlus2Min = 1616686440 + 120;
+    final String tenant = randomAlphanumeric(10);
+    final Instant now = Instant.ofEpochSecond(epochSecondsNow);
+    final Instant start = now.minusSeconds(5 * 60);
+    final Instant end = now.plusSeconds(24 * 60 * 60);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+
+    final Map<String, String> tags = Map.of(
+            "host", "h-1"
+    );
+
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    TsdbQuery tsdbQuery = new TsdbQuery()
+            .setSeriesSet(seriesSetHash)
+            .setMetricName(metricName)
+            .setTags(tags)
+            .setGranularity(Duration.ofMinutes(2))
+            .setAggregator(Aggregator.avg);
+
+    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
+
+    final TsdbFilter filter = new TsdbFilter()
+            .setType(FilterType.literal_or)
+            .setTagk("host")
+            .setFilter("h-1");
+
+    final TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
+            .setMetric(metricName)
+            .setDownsample("2m-avg")
+            .setFilters(List.of(filter));
+
+    when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
+    when(metadataService.getTsdbQueries(
+            List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
+
+    granularities.forEach(granularity ->
+      downsampleProcessor.downsampleData(
+          Flux.just(
+              singleValue(now.toString(), 1.2),
+              singleValue(now.plusSeconds(5).toString(), 1.5),
+              singleValue(now.plusSeconds(10).toString(), 1.1),
+              singleValue(now.plusSeconds(15).toString(), 3.4),
+              singleValue(now.plusSeconds(200).toString(), 8.4)
+          ),
+          new PendingDownsampleSet().setSeriesSetHash(seriesSetHash).setTenant(tenant),
+          granularity
+      ).subscribe()
+    );
+
+    final Map<String, Double> expectedDps = Map.of(
+        Long.toString(epochSecondsNow), 1.8,
+        Long.toString(epochSecondsNowPlus2Min), 8.4
+    );
+
+    StepVerifier.create(
+            queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
+            .assertNext(result -> {
+              assertThat(result).isNotEmpty();
+              assertThat(result.get(0).getMetric()).isEqualTo(metricName);
+              assertThat(result.get(0).getTags()).isEqualTo(tags);
+              assertThat(result.get(0).getAggregatedTags()).isEqualTo(Collections.emptyList());
+              assertThat(result.get(0).getDps()).isEqualTo(expectedDps);
+            }).verifyComplete();
+  }
 
   private ValueSet singleValue(String timestamp, double value) {
     return new SingleValueSet()
