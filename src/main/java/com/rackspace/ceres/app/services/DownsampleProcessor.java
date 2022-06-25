@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
@@ -57,32 +58,39 @@ public class DownsampleProcessor {
     this.meterTimer = meterRegistry.timer("downsampling.delay");
   }
 
+  @PostConstruct
+  public void checkGranularities() {
+    if (properties.getGranularities() == null || properties.getGranularities().isEmpty()) {
+      throw new IllegalStateException("Granularities are not configured!");
+    }
+  }
+
   public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
     log.trace("processDownsampleSet {} {} {}", pendingSet, partition, group);
     Duration downsamplingDelay = Duration.between(pendingSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    final Flux<ValueSet> data = queryService.queryRawWithSeriesSet(
-        pendingSet.getTenant(),
-        pendingSet.getSeriesSetHash(),
-        pendingSet.getTimeSlot(),
-        pendingSet.getTimeSlot().plus(Duration.parse(group))
-    );
+    final Flux<ValueSet> data =
+        queryService.queryRawWithSeriesSet(
+            pendingSet.getTenant(),
+            pendingSet.getSeriesSetHash(),
+            pendingSet.getTimeSlot(),
+            pendingSet.getTimeSlot().plus(Duration.parse(group)));
 
     return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
         .flatMap(granularity ->
-            downsampleData(data, pendingSet, granularity)
-            .name("downsample.set")
-            .tag("partition", String.valueOf(partition))
-                .tag("group", group)
-                .metrics()
-                .doOnSuccess(o ->
-                    log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
-                        pendingSet.getSeriesSetHash(),
-                        pendingSet.getTimeSlot().getEpochSecond(),
-                        epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
-                        partition, group)
-                ),
+                downsampleData(data, pendingSet, granularity)
+                    .name("downsample.set")
+                    .tag("partition", String.valueOf(partition))
+                    .tag("group", group)
+                    .metrics()
+                    .doOnSuccess(o ->
+                        log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                            pendingSet.getSeriesSetHash(),
+                            pendingSet.getTimeSlot().getEpochSecond(),
+                            epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
+                            partition, group)
+                    ),
             properties.getMaxConcurrentDownsampleHashes()
         );
   }
@@ -110,10 +118,10 @@ public class DownsampleProcessor {
 
   public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant, String seriesSet) {
     return aggs.flatMap(agg -> Flux.just(
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage())
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()).setCount(agg.getCount()),
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()).setCount(agg.getCount()),
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax()).setCount(agg.getCount()),
+        data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage()).setCount(agg.getCount())
     ));
   }
 

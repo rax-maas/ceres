@@ -16,28 +16,15 @@
 
 package com.rackspace.ceres.app.services;
 
-import static java.util.Objects.requireNonNull;
-
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
-import com.rackspace.ceres.app.model.Metadata;
-import com.rackspace.ceres.app.model.QueryData;
-import com.rackspace.ceres.app.model.QueryResult;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbQueryResult;
+import com.rackspace.ceres.app.model.*;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +32,16 @@ import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import static java.util.Objects.requireNonNull;
 
 @Service
 @Slf4j
@@ -128,25 +125,48 @@ public class QueryService {
                 .checkpoint();
     }
 
-    public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
-                                              Aggregator aggregator, Duration granularity,
-                                              Map<String, String> queryTags, Instant start,
-                                              Instant end) {
-        if (!StringUtils.isBlank(metricName)) {
-          log.trace(
-              "Query for downsampled data called with tenant {} , metricName {} and granularity {} ",
-              tenant, metricName, granularity);
-          return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
-        } else {
-          log.trace(
-              "Query for downsampled data called with tenant {} , metricGroup {} and granularity {} ",
-              tenant, metricGroup, granularity);
-          return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
-                    .flatMap(metric ->
-                            getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end))
-                    .checkpoint();
-        }
+  public Flux<ValueSet> queryDownsampled(String tenant, String seriesSet, Instant start, Instant end,
+                                         Aggregator aggregator, Duration granularity) {
+    return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
+        .concatMap(timeSlot ->
+            cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
+                    tenant,
+                    timeSlot,
+                    seriesSet,
+                    aggregator.name(),
+                    start,
+                    end)
+                .name("queryDownsampledWithSeriesSet")
+                .metrics()
+                .retryWhen(appProperties.getRetryQueryForDownsample().build())
+                .map(row ->
+                    new SingleValueSet()
+                        .setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
+                )
+                .doOnError(e -> dbOperationErrorsCounter.increment())
+        )
+        .checkpoint();
+  }
+
+  public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
+                                            Aggregator aggregator, Duration granularity,
+                                            Map<String, String> queryTags, Instant start,
+                                            Instant end) {
+    if (!StringUtils.isBlank(metricName)) {
+      log.trace(
+          "Query for downsampled data called with tenant {} , metricName {} and granularity {} ",
+          tenant, metricName, granularity);
+      return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
+    } else {
+      log.trace(
+          "Query for downsampled data called with tenant {} , metricGroup {} and granularity {} ",
+          tenant, metricGroup, granularity);
+      return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
+          .flatMap(metric ->
+              getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end))
+          .checkpoint();
     }
+  }
 
     private Flux<QueryResult> getQueryDownsampled(String tenant, String metricName,
                                                   Aggregator aggregator, Duration granularity,

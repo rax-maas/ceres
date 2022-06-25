@@ -27,7 +27,7 @@ public class AggregatedValueSet extends ValueSet {
   double min = Double.MAX_VALUE;
   double max = -Double.MAX_VALUE;
   double sum;
-  double count;
+  int count;
   double average = Double.NaN;
   Duration granularity;
 }

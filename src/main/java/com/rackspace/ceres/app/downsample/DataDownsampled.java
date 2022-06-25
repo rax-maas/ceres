@@ -33,4 +33,6 @@ public class DataDownsampled {
   Instant ts;
 
   double value;
+
+  int count;
 }

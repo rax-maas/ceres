@@ -39,6 +39,7 @@ public class DataTablesStatements {
   public static final String AGGREGATOR = "aggregator";
   public static final String TIMESTAMP = "ts";
   public static final String VALUE = "value";
+  public static final String COUNT = "count";
 
   private static final String TABLE_PREFIX = "data";
   private static final String RAW = "raw";
@@ -64,7 +65,7 @@ public class DataTablesStatements {
   private String RAW_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM %s WHERE " + TENANT + " = ?"
       + "  AND " + TIME_PARTITION_SLOT + " = ? AND series_set_hash = ?";
 
-  private String DOWNSAMPLE_INSERT = "INSERT INTO %s ( %s ) VALUES (?, ?, ?, ?, ?, ?)";
+  private String DOWNSAMPLE_INSERT = "INSERT INTO %s ( %s ) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
   private String DOWNSAMPLE_QUERY = "SELECT %s FROM %s WHERE " + TENANT + " = ?"
       + "  AND " + TIME_PARTITION_SLOT + " = ? AND " + SERIES_SET_HASH + " = ?"
@@ -126,7 +127,7 @@ public class DataTablesStatements {
           downsampleInserts.put(granularity.getWidth(),
               String.format(DOWNSAMPLE_INSERT, tableNameDownsampled(granularity.getWidth(),
                   granularity.getPartitionWidth()), String.join(",",
-                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE)));
+                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, COUNT, VALUE)));
 
           downsampleQueries.put(granularity.getWidth(),
               String.format(DOWNSAMPLE_QUERY, String.join(",", TIMESTAMP, VALUE),

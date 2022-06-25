@@ -157,8 +157,11 @@ public class DataWriteService {
                 .addPositionalValues(
                     entry.getTenant(),
                     timeSlotPartitioner.downsampledTimeSlot(entry.getTs(), entry.getGranularity()),
-                    entry.getSeriesSetHash(), entry.getAggregator().name(),
-                    entry.getTs(), entry.getValue()
+                    entry.getSeriesSetHash(),
+                    entry.getAggregator().name(),
+                    entry.getTs(),
+                    entry.getCount(),
+                    entry.getValue()
                 )
                 .build()
         )

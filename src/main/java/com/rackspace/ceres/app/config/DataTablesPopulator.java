@@ -111,6 +111,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .clusteredKeyColumn(DataTablesStatements.AGGREGATOR, DataTypes.TEXT)
         .clusteredKeyColumn(DataTablesStatements.TIMESTAMP, DataTypes.TIMESTAMP)
         .column(DataTablesStatements.VALUE, DataTypes.DOUBLE)
+        .column(DataTablesStatements.COUNT, DataTypes.INT)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
         .with(TableOption.COMPACTION, compactionOptions(ttl))
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
