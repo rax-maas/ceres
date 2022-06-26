@@ -68,26 +68,19 @@ public class ValueSetCollectors {
           ValueSetCollectors::combineGauges,
           agg -> {
             agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            agg.setGranularity(windowSize);
-            return agg;
-          }
-      );
-      case avg -> Collector.of(
-          AggregatedValueSet::new,
-          (agg, in) -> {
-            DownsampledValueSet set = (DownsampledValueSet) in;
-            agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
-            agg.setSum(agg.getSum() + set.getValue());
-            agg.setCount(agg.getCount() + set.getCount());
-          },
-          ValueSetCollectors::combineGauges,
-          agg -> {
-            agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
             agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
             agg.setGranularity(windowSize);
             return agg;
           }
       );
+      case avg ->
+          // Not used
+          Collector.of(
+              AggregatedValueSet::new,
+              (agg, in) -> agg.setCount(0),
+              ValueSetCollectors::combineGauges,
+              agg -> agg
+          );
       case raw -> Collector.of(
           AggregatedValueSet::new,
           (agg, in) -> {

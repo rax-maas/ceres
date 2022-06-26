@@ -102,15 +102,15 @@ public class DownsampleProcessor {
       return processAndStore(data, pendingSet, granularity, Aggregator.raw);
     } else {
       Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity.getWidth());
-      return Flux.fromIterable(List.of(Aggregator.min, Aggregator.max, Aggregator.sum, Aggregator.avg))
+      return Flux.fromIterable(List.of(Aggregator.min, Aggregator.max, Aggregator.sum))
           .flatMap(aggregator -> {
                 final Flux<ValueSet> data =
                     queryService.queryDownsampled(
                         pendingSet.getTenant(),
                         pendingSet.getSeriesSetHash(),
-                        pendingSet.getTimeSlot(),
+                        pendingSet.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot for race conditions
                         pendingSet.getTimeSlot().plus(Duration.parse(group)),
-                        getQueryAggregator(aggregator), lowerWidth);
+                        aggregator, lowerWidth);
                 return processAndStore(data, pendingSet, granularity, aggregator);
               },
               properties.getMaxConcurrentDownsampleHashes()
@@ -146,11 +146,11 @@ public class DownsampleProcessor {
           data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax())
       ));
       case sum -> aggs.flatMap(agg -> Flux.just(
-          data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum())
-      ));
-      case avg -> aggs.flatMap(agg -> Flux.just(
+          data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
           data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage())
       ));
+      case avg -> // Not used
+          aggs.flatMap(agg -> Flux.empty());
       case raw -> aggs.flatMap(agg -> Flux.just(
           data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
           data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),
@@ -171,13 +171,5 @@ public class DownsampleProcessor {
 
   private boolean isLowerGranularityRaw(Granularity granularity) {
     return getLowerGranularity(properties.getGranularities(), granularity.getWidth()).toString().equals("PT0S");
-  }
-
-  private Aggregator getQueryAggregator(Aggregator aggregator) {
-    if (aggregator == Aggregator.avg) {
-      return Aggregator.sum;
-    } else {
-      return aggregator;
-    }
   }
 }
