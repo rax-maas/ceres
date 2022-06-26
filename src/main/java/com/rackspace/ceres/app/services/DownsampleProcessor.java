@@ -91,7 +91,7 @@ public class DownsampleProcessor {
   }
 
   public Mono<?> downsampleData(PendingDownsampleSet pendingSet, Granularity granularity, String group, boolean isRaw) {
-    log.trace("downsampleRawData {} {} {} {}", pendingSet, granularity, group, isRaw);
+    log.trace("downsampleData {} {} {} {}", pendingSet, granularity, group, isRaw);
     if (isRaw) {
       final Flux<ValueSet> data =
           queryService.queryRawWithSeriesSet(

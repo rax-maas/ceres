@@ -24,7 +24,8 @@ import java.util.stream.Collector;
 
 @Slf4j
 public class ValueSetCollectors {
-  public static Collector<ValueSet, AggregatedValueSet, AggregatedValueSet> collector(Aggregator aggregator, Duration windowSize) {
+  public static Collector<ValueSet, AggregatedValueSet, AggregatedValueSet> collector(
+      Aggregator aggregator, Duration windowSize) {
     return switch (aggregator) {
       case min -> Collector.of(
           AggregatedValueSet::new,
@@ -72,14 +73,9 @@ public class ValueSetCollectors {
             return agg;
           }
       );
-      case avg ->
+      case avg -> Collector.of(
           // Not used
-          Collector.of(
-              AggregatedValueSet::new,
-              (agg, in) -> agg.setCount(0),
-              ValueSetCollectors::combineGauges,
-              agg -> agg
-          );
+          AggregatedValueSet::new, (agg, in) -> agg.setCount(0), ValueSetCollectors::combineGauges, agg -> agg);
       case raw -> Collector.of(
           AggregatedValueSet::new,
           (agg, in) -> {
