@@ -80,7 +80,7 @@ public class DownsampleProcessor {
                     .tag("group", group)
                     .metrics()
                     .doOnSuccess(o ->
-                        log.info("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
+                        log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                             pendingSet.getSeriesSetHash(),
                             pendingSet.getTimeSlot().getEpochSecond(),
                             epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
@@ -91,7 +91,7 @@ public class DownsampleProcessor {
   }
 
   public Mono<?> downsampleData(PendingDownsampleSet pendingSet, Granularity granularity, String group, boolean isRaw) {
-    log.info("downsampleRawData {} {} {} {}", pendingSet, granularity, group, isRaw);
+    log.trace("downsampleRawData {} {} {} {}", pendingSet, granularity, group, isRaw);
     if (isRaw) {
       final Flux<ValueSet> data =
           queryService.queryRawWithSeriesSet(

@@ -51,7 +51,6 @@ public class ValueSetCollectors {
           },
           ValueSetCollectors::combineGauges,
           agg -> {
-            log.info("timestamp 2 new: {}", agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
             agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
             agg.setGranularity(windowSize);
             return agg;
