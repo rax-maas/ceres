@@ -19,9 +19,7 @@ package com.rackspace.ceres.app.services;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.downsample.SingleValueSet;
-import com.rackspace.ceres.app.downsample.ValueSet;
+import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.*;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -140,8 +138,10 @@ public class QueryService {
                 .metrics()
                 .retryWhen(appProperties.getRetryQueryForDownsample().build())
                 .map(row ->
-                    new SingleValueSet()
-                        .setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
+                    new DownsampledValueSet()
+                        .setValue(row.getDouble(1))
+                        .setCount(row.getInt(2))
+                        .setTimestamp(row.getInstant(0))
                 )
                 .doOnError(e -> dbOperationErrorsCounter.increment())
         )

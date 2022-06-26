@@ -172,6 +172,37 @@ public class DateTimeUtilsTest {
     assertThat(widths.equals(List.of("PT5M", "PT2H", "PT3H"))).isEqualTo(Boolean.TRUE);
   }
 
+  @Test
+  public void getDurationLowerThan() {
+    Granularity granularity1 = new Granularity();
+    granularity1.setWidth(Duration.ofMinutes(5));
+    granularity1.setPartitionWidth(Duration.ofMinutes(5));
+    granularity1.setTtl(Duration.ofDays(14));
+
+    Granularity granularity2 = new Granularity();
+    granularity2.setWidth(Duration.ofHours(1));
+    granularity2.setPartitionWidth(Duration.ofHours(2));
+    granularity2.setTtl(Duration.ofDays(365));
+
+    Granularity granularity3 = new Granularity();
+    granularity3.setWidth(Duration.ofHours(2));
+    granularity3.setPartitionWidth(Duration.ofHours(2));
+    granularity3.setTtl(Duration.ofDays(500));
+
+    Granularity granularity4 = new Granularity();
+    granularity4.setWidth(Duration.ofHours(3));
+    granularity4.setPartitionWidth(Duration.ofHours(3));
+    granularity4.setTtl(Duration.ofDays(500));
+
+    List<Granularity> granularityList = List.of(granularity4, granularity1, granularity3, granularity2);
+    assertThat(DateTimeUtils.getLowerGranularity(granularityList, Duration.parse("PT4H")).toString().equals("PT3H")).isEqualTo(Boolean.TRUE);
+    assertThat(DateTimeUtils.getLowerGranularity(granularityList, Duration.parse("PT3H")).toString().equals("PT2H")).isEqualTo(Boolean.TRUE);
+    assertThat(DateTimeUtils.getLowerGranularity(granularityList, Duration.parse("PT2H")).toString().equals("PT1H")).isEqualTo(Boolean.TRUE);
+    assertThat(DateTimeUtils.getLowerGranularity(granularityList, Duration.parse("PT1H")).toString().equals("PT5M")).isEqualTo(Boolean.TRUE);
+    assertThat(DateTimeUtils.getLowerGranularity(granularityList, Duration.parse("PT5M")).toString().equals("PT0S")).isEqualTo(Boolean.TRUE);
+    assertThat(DateTimeUtils.getLowerGranularity(granularityList, Duration.parse("PT0S")).toString().equals("PT0S")).isEqualTo(Boolean.TRUE);
+  }
+
   private boolean hasNoMatch(final List<Granularity> granularities, final String width){
     return granularities.stream().anyMatch(o -> o.getPartitionWidth().compareTo(Duration.parse(width)) != 0);
   }

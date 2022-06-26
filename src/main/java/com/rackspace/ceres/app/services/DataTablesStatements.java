@@ -130,7 +130,7 @@ public class DataTablesStatements {
                   TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, COUNT, VALUE)));
 
           downsampleQueries.put(granularity.getWidth(),
-              String.format(DOWNSAMPLE_QUERY, String.join(",", TIMESTAMP, VALUE),
+              String.format(DOWNSAMPLE_QUERY, String.join(",", TIMESTAMP, VALUE, COUNT),
                   tableNameDownsampled(granularity.getWidth(), granularity.getPartitionWidth())));
 
           downsampleDeletes.put(granularity.getWidth(),
