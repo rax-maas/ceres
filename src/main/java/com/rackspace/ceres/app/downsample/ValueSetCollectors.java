@@ -30,16 +30,12 @@ public class ValueSetCollectors {
           AggregatedValueSet::new,
           (agg, in) -> {
             DownsampledValueSet set = (DownsampledValueSet) in;
-            log.info("timestamp agg: {} in: {} new: {}", agg.getTimestamp(), set.getTimestamp(), minTimestamp(agg.getTimestamp(), set.getTimestamp()));
-            log.info("min agg: {} in: {} new: {}", agg.getMin(), set.getValue(), Double.min(agg.getMin(), set.getValue()));
-            log.info("count agg: {} in: {} new: {}", agg.getCount(), 1, agg.getCount() + set.getCount());
             agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
             agg.setMin(Double.min(agg.getMin(), set.getValue()));
             agg.setCount(agg.getCount() + set.getCount());
           },
           ValueSetCollectors::combineGauges,
           agg -> {
-            log.info("timestamp 2 new: {}", agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
             agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
             agg.setGranularity(windowSize);
             return agg;
@@ -49,9 +45,6 @@ public class ValueSetCollectors {
           AggregatedValueSet::new,
           (agg, in) -> {
             DownsampledValueSet set = (DownsampledValueSet) in;
-            log.info("timestamp agg: {} in: {} new: {}", agg.getTimestamp(), set.getTimestamp(), minTimestamp(agg.getTimestamp(), set.getTimestamp()));
-            log.info("max agg: {} in: {} new: {}", agg.getMax(), set.getValue(), Double.max(agg.getMax(), set.getValue()));
-            log.info("count agg: {} in: {} new: {}", agg.getCount(), set.getCount(), agg.getCount() + set.getCount());
             agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
             agg.setMax(Double.max(agg.getMax(), set.getValue()));
             agg.setCount(agg.getCount() + set.getCount());
@@ -68,9 +61,6 @@ public class ValueSetCollectors {
           AggregatedValueSet::new,
           (agg, in) -> {
             DownsampledValueSet set = (DownsampledValueSet) in;
-            log.info("timestamp agg: {} in: {} new: {}", agg.getTimestamp(), set.getTimestamp(), minTimestamp(agg.getTimestamp(), set.getTimestamp()));
-            log.info("sum agg: {} in: {} new: {}", agg.getSum(), set.getValue(), agg.getSum() + set.getValue());
-            log.info("count agg: {} in: {} new: {}", agg.getCount(), set.getCount(), agg.getCount() + set.getCount());
             agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
             agg.setSum(agg.getSum() + set.getValue());
             agg.setCount(agg.getCount() + set.getCount());
@@ -86,9 +76,6 @@ public class ValueSetCollectors {
           AggregatedValueSet::new,
           (agg, in) -> {
             DownsampledValueSet set = (DownsampledValueSet) in;
-            log.info("timestamp agg: {} in: {} new: {}", agg.getTimestamp(), set.getTimestamp(), minTimestamp(agg.getTimestamp(), set.getTimestamp()));
-            log.info("avg sum agg: {} in: {} new: {}", agg.getSum(), set.getValue(), agg.getSum() + set.getValue());
-            log.info("count agg: {} in: {} new: {}", agg.getCount(), set.getCount(), agg.getCount() + set.getCount());
             agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
             agg.setSum(agg.getSum() + set.getValue());
             agg.setCount(agg.getCount() + set.getCount());
@@ -96,7 +83,6 @@ public class ValueSetCollectors {
           ValueSetCollectors::combineGauges,
           agg -> {
             agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            log.info("sum avg: {} {} {}", agg.getSum(), agg.getCount(), agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
             agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
             agg.setGranularity(windowSize);
             return agg;
@@ -106,11 +92,6 @@ public class ValueSetCollectors {
           AggregatedValueSet::new,
           (agg, in) -> {
             final SingleValueSet set = (SingleValueSet) in;
-            log.info("timestamp agg: {} in: {} new: {}", agg.getTimestamp(), set.getTimestamp(), minTimestamp(agg.getTimestamp(), set.getTimestamp()));
-            log.info("min agg: {} in: {} new: {}", agg.getMin(), set.getValue(), Double.min(agg.getMin(), set.getValue()));
-            log.info("max agg: {} in: {} new: {}", agg.getMax(), set.getValue(), Double.max(agg.getMax(), set.getValue()));
-            log.info("sum agg: {} in: {} new: {}", agg.getSum(), set.getValue(), agg.getSum() + set.getValue());
-            log.info("count agg: {} in: {} new: {}", agg.getCount(), 1, agg.getCount() + 1);
             agg.setTimestamp(minTimestamp(agg.getTimestamp(), set.getTimestamp()));
             agg.setMin(Double.min(agg.getMin(), set.getValue()));
             agg.setMax(Double.max(agg.getMax(), set.getValue()));
@@ -119,8 +100,6 @@ public class ValueSetCollectors {
           },
           ValueSetCollectors::combineGauges,
           agg -> {
-            log.info("timestamp 2 new: {}", agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            log.info("sum avg: {}", agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
             agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
             agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
             agg.setGranularity(windowSize);
