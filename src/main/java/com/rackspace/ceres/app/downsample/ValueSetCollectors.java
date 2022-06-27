@@ -24,77 +24,31 @@ import java.util.stream.Collector;
 
 @Slf4j
 public class ValueSetCollectors {
-  public static Collector<ValueSet, AggregatedValueSet, AggregatedValueSet> collector(
-      Aggregator aggregator, Duration windowSize) {
-    return switch (aggregator) {
-      case min -> Collector.of(
-          AggregatedValueSet::new,
-          (agg, in) -> {
-            DownsampledValueSet set = (DownsampledValueSet) in;
-            agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
-            agg.setMin(Double.min(agg.getMin(), set.getValue()));
-            agg.setCount(agg.getCount() + set.getCount());
-          },
-          ValueSetCollectors::combineGauges,
-          agg -> {
-            agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            agg.setGranularity(windowSize);
-            return agg;
-          }
-      );
-      case max -> Collector.of(
-          AggregatedValueSet::new,
-          (agg, in) -> {
-            DownsampledValueSet set = (DownsampledValueSet) in;
-            agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
-            agg.setMax(Double.max(agg.getMax(), set.getValue()));
-            agg.setCount(agg.getCount() + set.getCount());
-          },
-          ValueSetCollectors::combineGauges,
-          agg -> {
-            agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            agg.setGranularity(windowSize);
-            return agg;
-          }
-      );
-      case sum -> Collector.of(
-          AggregatedValueSet::new,
-          (agg, in) -> {
-            DownsampledValueSet set = (DownsampledValueSet) in;
-            agg.setTimestamp(minTimestamp(agg.getTimestamp(), in.getTimestamp()));
-            agg.setSum(agg.getSum() + set.getValue());
-            agg.setCount(agg.getCount() + set.getCount());
-          },
-          ValueSetCollectors::combineGauges,
-          agg -> {
-            agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
-            agg.setGranularity(windowSize);
-            return agg;
-          }
-      );
-      case avg -> Collector.of(
-          // Not used
-          AggregatedValueSet::new, (agg, in) -> agg.setCount(0), ValueSetCollectors::combineGauges, agg -> agg);
-      case raw -> Collector.of(
-          AggregatedValueSet::new,
-          (agg, in) -> {
-            final SingleValueSet set = (SingleValueSet) in;
-            agg.setTimestamp(minTimestamp(agg.getTimestamp(), set.getTimestamp()));
-            agg.setMin(Double.min(agg.getMin(), set.getValue()));
-            agg.setMax(Double.max(agg.getMax(), set.getValue()));
-            agg.setSum(agg.getSum() + set.getValue());
+
+  public static Collector<ValueSet, AggregatedValueSet, AggregatedValueSet> gaugeCollector(Duration windowSize) {
+    return Collector.of(
+        AggregatedValueSet::new,
+        (agg, in) -> {
+          if (in instanceof SingleValueSet) {
+            final SingleValueSet singleValueSet = (SingleValueSet) in;
+            agg.setTimestamp(minTimestamp(agg.getTimestamp(), singleValueSet.getTimestamp()));
+            final double value = singleValueSet.getValue();
+            agg.setMin(Double.min(agg.getMin(), value));
+            agg.setMax(Double.max(agg.getMax(), value));
+            agg.setSum(agg.getSum() + value);
             agg.setCount(agg.getCount() + 1);
-          },
-          ValueSetCollectors::combineGauges,
-          agg -> {
-            agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
-            agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
-            agg.setGranularity(windowSize);
-            return agg;
+          } else {
+            combineGauges(agg, ((AggregatedValueSet) in));
           }
-      );
-    };
+        },
+        ValueSetCollectors::combineGauges,
+        agg -> {
+          agg.setTimestamp(agg.getTimestamp().with(new TemporalNormalizer(windowSize)));
+          agg.setAverage(agg.getCount() > 0 ? agg.getSum() / agg.getCount() : Double.NaN);
+          agg.setGranularity(windowSize);
+          return agg;
+        }
+    );
   }
 
   private static AggregatedValueSet combineGauges(AggregatedValueSet agg, AggregatedValueSet in) {
@@ -115,4 +69,5 @@ public class ValueSetCollectors {
       return lhs.compareTo(rhs) < 0 ? lhs : rhs;
     }
   }
+
 }
