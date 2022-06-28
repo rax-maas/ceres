@@ -24,7 +24,10 @@ jobs:
     - name: 'Set up Cloud SDK'
       uses: 'google-github-actions/setup-gcloud@v0'
 
-    - name: 'Use gcloud CLI'
+    - name: K8s login
+      run: gcloud container clusters get-credentials primary-cluster --zone us-east1-b --project ${{ secrets.GCP_DEV_ACC }}
+
+    - name: 'Get settings from GS bucket'
       run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
     - name: .m2 forder [*** fix it please ***]
@@ -40,10 +43,14 @@ jobs:
       run: mvn -B verify -s .mvn/settings.xml
 
     - name: Image build
-      run: docker build -t gcr.io/ceres-dev-222017/testdevops:latest .
+      run: docker build -t gcr.io/${{ secrets.GCP_DEV_ACC }}/testdevops:latest .
 
     - name: Docker login
       run: gcloud auth configure-docker gcr.io -q
 
     - name: Image push
-      run: docker push gcr.io/ceres-dev-222017/testdevops:latest
+      run: docker push gcr.io/${{ secrets.GCP_DEV_ACC }}/testdevops:latest
+
+    - name: test
+      run: kubectl get pods
+
