@@ -128,6 +128,7 @@ public class DownsampleProcessor {
       );
     } else {
       log.trace("Fetching downsampled data as base {} {} {}", set, group, lowerWidth);
+      // TODO: Check to see if we can change the data model to get this data in a single query
       final Flux<ValueSet> min = fetchValueSet(set, group, lowerWidth, Aggregator.min);
       final Flux<ValueSet> max = fetchValueSet(set, group, lowerWidth, Aggregator.max);
       final Flux<ValueSet> sum = fetchValueSet(set, group, lowerWidth, Aggregator.sum);
