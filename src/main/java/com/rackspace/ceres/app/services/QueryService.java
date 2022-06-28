@@ -124,23 +124,27 @@ public class QueryService {
     }
 
   public Flux<ValueSet> queryDownsampled(String tenant, String seriesSet, Instant start, Instant end,
-                                         Aggregator aggregator, Duration granularity) {
+                                         Duration granularity) {
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
         .concatMap(timeSlot ->
             cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
                     tenant,
                     timeSlot,
                     seriesSet,
-                    aggregator.name(),
                     start,
                     end)
                 .name("queryDownsampledWithSeriesSet")
                 .metrics()
                 .retryWhen(appProperties.getRetryQueryForDownsample().build())
                 .map(row ->
-                    new DownsampledValueSet()
-                        .setValue(row.getDouble(1))
-                        .setCount(row.getInt(2))
+                    //TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
+                    new AggregatedValueSet()
+                        .setMin(row.getDouble(1))
+                        .setMax(row.getDouble(2))
+                        .setSum(row.getDouble(3))
+                        .setAverage(row.getDouble(4))
+                        .setCount(row.getInt(5))
+                        .setGranularity(granularity)
                         .setTimestamp(row.getInstant(0))
                 )
                 .doOnError(e -> dbOperationErrorsCounter.increment())

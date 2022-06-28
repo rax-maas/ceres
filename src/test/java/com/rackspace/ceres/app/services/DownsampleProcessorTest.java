@@ -100,8 +100,8 @@ class DownsampleProcessorTest {
   @Autowired
   DownsampleProperties downsampleProperties;
 
-  @Captor
-  ArgumentCaptor<Flux<DataDownsampled>> dataDownsampledCaptor;
+//  @Captor
+//  ArgumentCaptor<Flux<DataDownsampled>> dataDownsampledCaptor;
 
 //  @Test
 //  void aggregateSomeRawData() {
@@ -279,16 +279,16 @@ class DownsampleProcessorTest {
         .setTtl(Duration.ofHours(ttlHours));
   }
 
-  private DataDownsampled dataDownsampled(String timestamp, String tenant, String seriesSet,
-                                          int granularityMinutes, Aggregator aggregator,
-                                          double value) {
-    return new DataDownsampled()
-        .setTs(Instant.parse(timestamp))
-        .setTenant(tenant)
-        .setSeriesSetHash(seriesSet)
-        .setGranularity(Duration.ofMinutes(granularityMinutes));
-    // TODO set all the values
-  }
+//  private DataDownsampled dataDownsampled(String timestamp, String tenant, String seriesSet,
+//                                          int granularityMinutes, Aggregator aggregator,
+//                                          double value) {
+//    return new DataDownsampled()
+//        .setTs(Instant.parse(timestamp))
+//        .setTenant(tenant)
+//        .setSeriesSetHash(seriesSet)
+//        .setGranularity(Duration.ofMinutes(granularityMinutes));
+//    // TODO set all the values
+//  }
 
   private AggregatedValueSet aggregatedValueSet(String timestamp, long granularityMinutes,
                                                 double sum, double min, double max,

@@ -20,7 +20,7 @@ import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import com.rackspace.ceres.app.config.AppProperties;
-import com.rackspace.ceres.app.downsample.DataDownsampled;
+import com.rackspace.ceres.app.downsample.AggregatedValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -147,7 +147,7 @@ public class DataWriteService {
    * @param data flux of data to be stored in a downsampled data table
    * @return a mono that completes when the batch is stored
    */
-  public Mono<?> storeDownsampledData(Flux<DataDownsampled> data) {
+  public Mono<?> storeDownsampledData(Flux<AggregatedValueSet> data, String tenant, String seriesSet) {
     return data
         // convert each data point to an insert-statement
         .map(entry ->
@@ -156,14 +156,14 @@ public class DataWriteService {
             )
                 .addPositionalValues(
                     // TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
-                    entry.getTenant(),
-                    timeSlotPartitioner.downsampledTimeSlot(entry.getTs(), entry.getGranularity()),
-                    entry.getSeriesSetHash(),
-                    entry.getTs(),
+                    tenant,
+                    timeSlotPartitioner.downsampledTimeSlot(entry.getTimestamp(), entry.getGranularity()),
+                    seriesSet,
+                    entry.getTimestamp(),
                     entry.getMin(),
                     entry.getMax(),
                     entry.getSum(),
-                    entry.getAvg(),
+                    entry.getAverage(),
                     entry.getCount()
                 )
                 .build()

@@ -10,7 +10,7 @@ ceres:
       - width: 5m
         ttl: 6h
         partitionWidth: 5m
-      - width: 10m
+      - width: 15m
         ttl: 6h
         partitionWidth: 15m
     partitions: 4

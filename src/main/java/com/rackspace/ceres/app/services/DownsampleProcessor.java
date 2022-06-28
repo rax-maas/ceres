@@ -109,10 +109,7 @@ public class DownsampleProcessor {
         .concatMap(valueSetFlux ->
             valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
 
-    // expand the aggregated volume-sets into individual data points to be stored
-    final Flux<DataDownsampled> expanded = expandAggregatedData(aggregated, tenant, seriesSet);
-
-    return dataWriteService.storeDownsampledData(expanded)
+    return dataWriteService.storeDownsampledData(aggregated, tenant, seriesSet)
         .then(downsampleData(aggregated, tenant, seriesSet, granularities))
         .checkpoint();
   }
@@ -128,52 +125,13 @@ public class DownsampleProcessor {
       );
     } else {
       log.trace("Fetching downsampled data as base {} {} {}", set, group, lowerWidth);
-      // TODO: Check to see if we can change the data model to get this data in a single query
-      final Flux<ValueSet> min = fetchValueSet(set, group, lowerWidth, Aggregator.min);
-      final Flux<ValueSet> max = fetchValueSet(set, group, lowerWidth, Aggregator.max);
-      final Flux<ValueSet> sum = fetchValueSet(set, group, lowerWidth, Aggregator.sum);
-      return Flux.zip(min, max, sum).flatMap(tuple -> {
-        DownsampledValueSet minSet = (DownsampledValueSet) tuple.getT1();
-        DownsampledValueSet maxSet = (DownsampledValueSet) tuple.getT2();
-        DownsampledValueSet sumSet = (DownsampledValueSet) tuple.getT3();
-        return Mono.just(getAggregatedSet(minSet, maxSet, sumSet, lowerWidth));
-      });
+      return queryService.queryDownsampled(
+          set.getTenant(),
+          set.getSeriesSetHash(),
+          set.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot for race conditions
+          set.getTimeSlot().plus(Duration.parse(group)),
+          lowerWidth);
     }
-  }
-
-  private Flux<ValueSet> fetchValueSet(PendingDownsampleSet set, String group, Duration width, Aggregator aggregator) {
-    return queryService.queryDownsampled(
-        set.getTenant(),
-        set.getSeriesSetHash(),
-        set.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot for race conditions
-        set.getTimeSlot().plus(Duration.parse(group)),
-        aggregator, width);
-  }
-
-  public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant, String seriesSet) {
-    return aggs.flatMap(agg -> Flux.just(new DataDownsampled()
-        .setTs(agg.getTimestamp())
-        .setGranularity(agg.getGranularity())
-        .setTenant(tenant)
-        .setSeriesSetHash(seriesSet)
-        .setMin(agg.getMin())
-        .setMax(agg.getMax())
-        .setSum(agg.getSum())
-        .setAvg(agg.getAverage())
-        .setCount(agg.getCount())));
-  }
-
-  private AggregatedValueSet getAggregatedSet(
-      DownsampledValueSet min, DownsampledValueSet max, DownsampledValueSet sum, Duration width) {
-    AggregatedValueSet set = new AggregatedValueSet();
-    set.setTimestamp(min.getTimestamp());
-    return set
-        .setMin(min.getValue())
-        .setMax(max.getValue())
-        .setSum(sum.getValue())
-        .setCount(sum.getCount())
-        .setAverage(sum.getCount() > 0 ? sum.getValue() / sum.getCount() : Double.NaN)
-        .setGranularity(width);
   }
 
   private boolean isLowerGranularityRaw(Duration lowerWidth) {
