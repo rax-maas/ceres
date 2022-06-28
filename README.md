@@ -1,4 +1,4 @@
-A simple multi-dimensional, time-series ingest and query service backed by Cassandra. Redis is also used for tracking of downsample operations. 11
+A simple multi-dimensional, time-series ingest and query service backed by Cassandra. Redis is also used for tracking of downsample operations. 1111
 
 ## Quickstart
 
