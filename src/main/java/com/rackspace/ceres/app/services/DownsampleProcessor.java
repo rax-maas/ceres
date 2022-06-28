@@ -107,7 +107,6 @@ public class DownsampleProcessor {
                                 String seriesSet,
                                 Iterator<Granularity> granularities) {
     if (!granularities.hasNext()) {
-      // end of the recursion so pop back out
       return Mono.empty();
     }
 
@@ -128,27 +127,20 @@ public class DownsampleProcessor {
     final Flux<DataDownsampled> expanded = expandAggregatedData(aggregated, tenant, seriesSet);
 
     return dataWriteService.storeDownsampledData(expanded)
-        .then(
-            // ...and recurse into remaining granularities
-            downsampleData(aggregated, tenant, seriesSet, granularities)
-        )
+        .then(downsampleData(aggregated, tenant, seriesSet, granularities))
         .checkpoint();
   }
 
   public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant, String seriesSet) {
-    return aggs.flatMap(agg -> Flux.just(
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage())
-    ));
-  }
-
-  private static DataDownsampled data(String tenant, String seriesSet, AggregatedValueSet agg) {
-    return new DataDownsampled()
+    return aggs.flatMap(agg -> Flux.just(new DataDownsampled()
         .setTs(agg.getTimestamp())
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
-        .setSeriesSetHash(seriesSet);
+        .setSeriesSetHash(seriesSet)
+        .setMin(agg.getMin())
+        .setMax(agg.getMax())
+        .setSum(agg.getSum())
+        .setAvg(agg.getAverage())
+        .setCount(agg.getCount())));
   }
 }

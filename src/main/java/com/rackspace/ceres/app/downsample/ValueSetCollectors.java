@@ -53,7 +53,7 @@ public class ValueSetCollectors {
     agg.setMin(Double.min(agg.getMin(), in.getMin()));
     agg.setMax(Double.max(agg.getMax(), in.getMax()));
     agg.setSum(Double.sum(agg.getSum(), in.getSum()));
-    agg.setCount(Double.sum(agg.getCount(), in.getCount()));
+    agg.setCount(Integer.sum(agg.getCount(), in.getCount()));
     return agg;
   }
 
