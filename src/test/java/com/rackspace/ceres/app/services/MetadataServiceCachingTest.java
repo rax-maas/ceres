@@ -24,6 +24,7 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
+import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.SuggestType;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -39,6 +40,7 @@ import org.springframework.data.cassandra.core.query.Query;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,7 +51,7 @@ import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtil
 
 /**
  * This unit test mocks out all datastore interactions to verify the different levels of caching
- * behavior with {@link MetadataService#storeMetadata(String, String, String, Map)}.
+ * behavior with {@link MetadataService#storeMetadata(String, String, Metric)}.
  */
 @SpringBootTest(classes = {
     CacheConfig.class,
@@ -83,6 +85,8 @@ public class MetadataServiceCachingTest {
   void writeThruToCassandraAtFirst() {
     when(cassandraTemplate.insert(any(Object.class)))
         .thenReturn(Mono.just(new Object()));
+    when(cqlTemplate.execute(any(String.class)))
+            .thenReturn(Mono.just(Boolean.TRUE));
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(false));
     final String tenant = randomAlphanumeric(10);
@@ -91,9 +95,13 @@ public class MetadataServiceCachingTest {
     final String tagK = randomAlphanumeric(5);
     final String tagV = randomAlphanumeric(5);
     final Map<String, String> tags = Map.of(tagK, tagV);
+    Metric metric = new Metric()
+            .setMetric(metricName)
+            .setTags(tags)
+                    .setTimestamp(Instant.now());
 
     Mono.from(
-        metadataService.storeMetadata(tenant, seriesSetHash, metricName, tags)
+        metadataService.storeMetadata(tenant, seriesSetHash, metric)
     ).block();
 
     verify(cassandraTemplate).insert(
@@ -128,6 +136,8 @@ public class MetadataServiceCachingTest {
             .setType(SuggestType.TAGV)
             .setData(tagV)
     );
+    verify(cqlTemplate).execute(matches("UPDATE metric_groups SET metric_names"));
+    verify(cqlTemplate).execute(matches("UPDATE devices SET metric_names = metric_names"));
     verify(cassandraTemplate).exists(any(Query.class), any(Class.class));
     verifyNoMoreInteractions(cqlTemplate, cassandraTemplate);
   }
@@ -144,7 +154,7 @@ public class MetadataServiceCachingTest {
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(true));
     Mono.from(
-        metadataService.storeMetadata(tenant, seriesSetHash, metricName, tags)
+        metadataService.storeMetadata(tenant, seriesSetHash, new Metric().setMetric(metricName).setTags(tags))
     ).block();
 
     verify(cassandraTemplate).exists(any(Query.class), any(Class.class));
@@ -171,7 +181,7 @@ public class MetadataServiceCachingTest {
 
     // When
     Mono.from(
-        metadataService.storeMetadata(tenant, seriesSetHash1, metricName, tags)
+        metadataService.storeMetadata(tenant, seriesSetHash1, new Metric().setMetric(metricName).setTags(tags))
     ).block();
 
     // Then
@@ -182,7 +192,7 @@ public class MetadataServiceCachingTest {
     // store the same again, but it should hit cache and not cassandra
     // When
     Mono.from(
-        metadataService.storeMetadata(tenant, seriesSetHash1, metricName, tags)
+        metadataService.storeMetadata(tenant, seriesSetHash1, new Metric().setMetric(metricName).setTags(tags))
     ).block();
 
     // Then
@@ -193,7 +203,7 @@ public class MetadataServiceCachingTest {
     // When
     // store a different one to displace the one cache entry
     Mono.from(
-        metadataService.storeMetadata(tenant, seriesSetHash2, metricName, tags)
+        metadataService.storeMetadata(tenant, seriesSetHash2, new Metric().setMetric(metricName).setTags(tags))
     ).block();
 
     // Then
@@ -203,7 +213,7 @@ public class MetadataServiceCachingTest {
 
     // and back to the first to confirm another cache miss
     Mono.from(
-        metadataService.storeMetadata(tenant, seriesSetHash1, metricName, tags)
+        metadataService.storeMetadata(tenant, seriesSetHash1, new Metric().setMetric(metricName).setTags(tags))
     ).block();
 
     verify(cassandraTemplate, times(3))

@@ -17,6 +17,8 @@ ceres:
         partitionWidth: 4h
   tag-filter: exclude
   tag-value-limit: 10
+  ingest-start-time: 7d
+  ingest-end-time: 1d
 management:
   server:
     port: 8082

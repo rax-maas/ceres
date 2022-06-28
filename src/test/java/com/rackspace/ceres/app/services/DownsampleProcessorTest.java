@@ -73,6 +73,9 @@ class DownsampleProcessorTest {
   DownsampleTrackingService downsampleTrackingService;
 
   @MockBean
+  DelayedTrackingService delayedTrackingService;
+
+  @MockBean
   SeriesSetService seriesSetService;
 
   @MockBean

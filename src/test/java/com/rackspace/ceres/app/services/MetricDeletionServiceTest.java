@@ -78,7 +78,7 @@ public class MetricDeletionServiceTest {
   @Autowired
   DataTablesStatements dataTablesStatements;
   @MockBean
-  DownsampleTrackingService downsampleTrackingService;
+  IngestTrackingService ingestTrackingService;
 
   private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
       + " AND time_slot = ?";
@@ -111,7 +111,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -162,7 +162,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -211,7 +211,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -254,7 +254,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -304,7 +304,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -352,7 +352,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -400,7 +400,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -449,7 +449,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -505,7 +505,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -566,7 +566,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -649,7 +649,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTimeMinus5Hours = Instant.now().minus(5, ChronoUnit.HOURS);
@@ -767,7 +767,7 @@ public class MetricDeletionServiceTest {
     );
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTimeMinus5Hours = Instant.now().minus(5, ChronoUnit.HOURS);
@@ -888,7 +888,7 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
     final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -957,7 +957,7 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
     final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -1022,7 +1022,7 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash1 = seriesSetService.hash(metricName1, tags1);
     final String seriesSetHash2 = seriesSetService.hash(metricName2, tags1);
 
-    when(downsampleTrackingService.track(any(), anyString(), any()))
+    when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
