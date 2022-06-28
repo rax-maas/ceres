@@ -286,9 +286,8 @@ class DownsampleProcessorTest {
         .setTs(Instant.parse(timestamp))
         .setTenant(tenant)
         .setSeriesSetHash(seriesSet)
-        .setGranularity(Duration.ofMinutes(granularityMinutes))
-        .setAggregator(aggregator)
-        .setValue(value);
+        .setGranularity(Duration.ofMinutes(granularityMinutes));
+    // TODO set all the values
   }
 
   private AggregatedValueSet aggregatedValueSet(String timestamp, long granularityMinutes,

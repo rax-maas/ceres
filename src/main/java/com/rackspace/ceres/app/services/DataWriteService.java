@@ -155,13 +155,16 @@ public class DataWriteService {
                 dataTablesStatements.downsampleInsert(entry.getGranularity())
             )
                 .addPositionalValues(
+                    // TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
                     entry.getTenant(),
                     timeSlotPartitioner.downsampledTimeSlot(entry.getTs(), entry.getGranularity()),
                     entry.getSeriesSetHash(),
-                    entry.getAggregator().name(),
                     entry.getTs(),
-                    entry.getCount(),
-                    entry.getValue()
+                    entry.getMin(),
+                    entry.getMax(),
+                    entry.getSum(),
+                    entry.getAvg(),
+                    entry.getCount()
                 )
                 .build()
         )

@@ -85,8 +85,8 @@ public class QueryService {
                                                  Instant start, Instant end, String metricName) {
         return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
                 // then perform a retrieval for each series-set
-                .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
-                        // over each time slot partition of the [start,end) range
+                .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, Aggregator.raw,
+                        // over each time slot partition of the [start,end] range
                         Flux.fromIterable(timeSlotPartitioner
                                 .partitionsOverRange(start, end, null)
                         )
@@ -175,7 +175,7 @@ public class QueryService {
         // given the queryTags filter, locate the series-set that apply
         return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
                 // then perform a retrieval for each series-set
-                .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet,
+                .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
                         // over each time slot partition of the [start,end) range
                         Flux.fromIterable(timeSlotPartitioner
                                 .partitionsOverRange(start, end, granularity)
@@ -183,7 +183,7 @@ public class QueryService {
                                 .concatMap(timeSlot ->
                                         cqlTemplate.queryForRows(
                                                 dataTablesStatements.downsampleQuery(granularity),
-                                                tenant, timeSlot, seriesSet, aggregator.name(), start, end
+                                                tenant, timeSlot, seriesSet, start, end
                                         )
                                                 .doOnError(e ->
                                                     dbOperationErrorsCounter.increment())
@@ -259,18 +259,28 @@ public class QueryService {
                 .setDps(values));
     }
 
-    private Mono<QueryResult> mapSeriesSetResult(String tenant, String seriesSet, Flux<Row> rows, Metadata metadata) {
-        return rows
-                .map(row -> Map.entry(
-                        requireNonNull(row.getInstant(0)),
-                        row.getDouble(1)
-                        )
-                )
-                // collect the ts->value entries into an ordered, LinkedHashMap
-                .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new)
-                .filter(values -> !values.isEmpty())
-                .flatMap(values -> buildQueryResult(tenant, seriesSet, values, metadata));
-    }
+  private int getRowPosition(Aggregator aggregator) {
+    return switch (aggregator) {
+      case min, raw -> 1;
+      case max -> 2;
+      case sum -> 3;
+      case avg -> 4;
+    };
+  }
+
+  private Mono<QueryResult> mapSeriesSetResult(
+      String tenant, String seriesSet, Aggregator aggregator, Flux<Row> rows, Metadata metadata) {
+    return rows
+        .map(row -> Map.entry(
+                requireNonNull(row.getInstant(0)),
+                row.getDouble(getRowPosition(aggregator))
+            )
+        )
+        // collect the ts->value entries into an ordered, LinkedHashMap
+        .collectMap(Entry::getKey, Entry::getValue, LinkedHashMap::new)
+        .filter(values -> !values.isEmpty())
+        .flatMap(values -> buildQueryResult(tenant, seriesSet, values, metadata));
+  }
 
     private Mono<QueryResult> buildQueryResult(String tenant, String seriesSet,
                                                Map<Instant, Double> values, Metadata metadata) {

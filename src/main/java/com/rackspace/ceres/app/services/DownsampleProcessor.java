@@ -151,21 +151,16 @@ public class DownsampleProcessor {
   }
 
   public Flux<DataDownsampled> expandAggregatedData(Flux<AggregatedValueSet> aggs, String tenant, String seriesSet) {
-    return aggs.flatMap(agg -> Flux.just(
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.sum).setValue(agg.getSum()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.min).setValue(agg.getMin()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.max).setValue(agg.getMax()),
-        data(tenant, seriesSet, agg).setAggregator(Aggregator.avg).setValue(agg.getAverage())
-    ));
-  }
-
-  private static DataDownsampled data(String tenant, String seriesSet, AggregatedValueSet agg) {
-    return new DataDownsampled()
+    return aggs.flatMap(agg -> Flux.just(new DataDownsampled()
         .setTs(agg.getTimestamp())
         .setGranularity(agg.getGranularity())
         .setTenant(tenant)
         .setSeriesSetHash(seriesSet)
-        .setCount(agg.getCount());
+        .setMin(agg.getMin())
+        .setMax(agg.getMax())
+        .setSum(agg.getSum())
+        .setAvg(agg.getAverage())
+        .setCount(agg.getCount())));
   }
 
   private AggregatedValueSet getAggregatedSet(
