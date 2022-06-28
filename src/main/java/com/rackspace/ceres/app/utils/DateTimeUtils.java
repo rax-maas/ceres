@@ -1,10 +1,9 @@
 package com.rackspace.ceres.app.utils;
 
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
+import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.model.RelativeTime;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -12,9 +11,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
-import java.util.TimeZone;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -27,9 +25,6 @@ public class DateTimeUtils {
 
   /**
    * Gets the absolute Instant instance for relativeTime.
-   *
-   * @param relativeTime
-   * @return
    */
   public static Instant getAbsoluteTimeFromRelativeTime(String relativeTime) {
     Matcher match = Pattern.compile(RELATIVE_TIME_PATTERN).matcher(relativeTime);
@@ -43,9 +38,6 @@ public class DateTimeUtils {
 
   /**
    * Checks if the string time is valid Instant in UTC.
-   *
-   * @param time
-   * @return
    */
   public static boolean isValidInstantInstance(String time) {
     try {
@@ -57,10 +49,7 @@ public class DateTimeUtils {
   }
 
   /**
-   * Checks if the  time is valid epoch milli seconds.
-   *
-   * @param time
-   * @return
+   * Checks if the  time is valid epoch milliseconds.
    */
   public static boolean isValidEpochMillis(String time) {
     Matcher match = Pattern.compile(DateTimeUtils.EPOCH_MILLIS_PATTERN).matcher(time);
@@ -69,9 +58,6 @@ public class DateTimeUtils {
 
   /**
    * Checks if the  time is valid epoch seconds.
-   *
-   * @param time
-   * @return
    */
   public static boolean isValidEpochSeconds(String time) {
     Matcher match = Pattern.compile(DateTimeUtils.EPOCH_SECONDS_PATTERN).matcher(time);
@@ -80,9 +66,6 @@ public class DateTimeUtils {
 
   /**
    * Gets the instance of Instant based on the format of argument.
-   *
-   * @param instant
-   * @return
    */
   public static Instant parseInstant(String instant) {
     if (instant == null) {
@@ -150,5 +133,14 @@ public class DateTimeUtils {
 
   public static LocalDateTime epochToLocalDateTime(long epochSeconds) {
     return Instant.ofEpochSecond(epochSeconds).atZone(ZoneId.systemDefault()).toLocalDateTime();
+  }
+
+  public static Long normalizedTimeslot(Instant timestamp, String group) {
+    return timestamp.with(new TemporalNormalizer(Duration.parse(group))).getEpochSecond();
+  }
+
+  public static int randomDelay(Long maxInterval) {
+      int minSchedulingInterval = 1;
+      return Math.min(new Random().nextInt(maxInterval.intValue()) + minSchedulingInterval, maxInterval.intValue());
   }
 }

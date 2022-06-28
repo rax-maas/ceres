@@ -1,10 +1,9 @@
 local partition = ARGV[1]
-local group = ARGV[2]
-local pod_name = ARGV[3]
-local now = ARGV[4]
-local max_duration = ARGV[5]
+local pod_name = ARGV[2]
+local now = ARGV[3]
+local max_duration = ARGV[4]
 
-local job_key = 'job|'.. partition .. '|' .. group
+local job_key = 'job|'.. partition
 
 local function split(s, delimiter)
     local result = {};

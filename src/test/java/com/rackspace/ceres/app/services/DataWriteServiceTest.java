@@ -94,7 +94,7 @@ class DataWriteServiceTest {
   MetadataService metadataService;
 
   @MockBean
-  DownsampleTrackingService downsampleTrackingService;
+  IngestTrackingService ingestTrackingService;
 
   @Autowired
   SeriesSetService seriesSetService;
@@ -134,13 +134,9 @@ class DataWriteServiceTest {
       );
       final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
-      when(metadataService.updateMetricGroupAddMetricName(any(), any(), any(), any()))
-          .thenReturn(Mono.empty());
-      when(metadataService.updateDeviceAddMetricName(any(), any(), any(), any()))
-          .thenReturn(Mono.empty());
-      when(metadataService.storeMetadata(any(), any(), any(), any())).thenReturn(Mono.empty());
+      when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
 
-      when(downsampleTrackingService.track(any(), anyString(), any()))
+      when(ingestTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
       Instant metricTime = validMetricTime();
@@ -158,14 +154,9 @@ class DataWriteServiceTest {
       Instant metricQueryTime = metricTime.with(new TemporalNormalizer(Duration.ofHours(1)));
       assertViaQuery(tenantId, metricQueryTime, seriesSetHash, metric);
 
-      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric.getMetric(), metric.getTags());
-      verify(downsampleTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
-      verify(metadataService).updateMetricGroupAddMetricName(
-          tenantId, metricGroup, metric.getMetric(), metric.getTimestamp().toString());
-      verify(metadataService).updateDeviceAddMetricName(
-          tenantId, resource, metric.getMetric(), metric.getTimestamp().toString());
-
-      verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+      verify(metadataService).storeMetadata(tenantId, seriesSetHash, metric);
+      verify(ingestTrackingService).track(tenantId, seriesSetHash, metric.getTimestamp());
+      verifyNoMoreInteractions(metadataService, ingestTrackingService);
     }
 
     @Test
@@ -189,14 +180,10 @@ class DataWriteServiceTest {
       final String seriesSetHash1 = seriesSetService.hash(metricName1, tags);
       final String seriesSetHash2 = seriesSetService.hash(metricName2, tags);
 
-      when(metadataService.updateMetricGroupAddMetricName(any(), any(), any(), any()))
-          .thenReturn(Mono.empty());
-      when(metadataService.updateDeviceAddMetricName(any(), any(), any(), any()))
-          .thenReturn(Mono.empty());
-      when(metadataService.storeMetadata(any(), any(), any(), any()))
+      when(metadataService.storeMetadata(any(), any(), any()))
           .thenReturn(Mono.empty());
 
-      when(downsampleTrackingService.track(any(), anyString(), any()))
+      when(ingestTrackingService.track(any(), anyString(), any()))
           .thenReturn(Mono.empty());
 
       Instant metricTime = validMetricTime();
@@ -220,23 +207,13 @@ class DataWriteServiceTest {
       assertViaQuery(tenant1, metricQueryTime, seriesSetHash1, metric1);
       assertViaQuery(tenant2, metricQueryTime, seriesSetHash2, metric2);
 
-      verify(metadataService).storeMetadata(tenant1, seriesSetHash1, metric1.getMetric(),
-          metric1.getTags());
-      verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2.getMetric(),
-          metric2.getTags());
+      verify(metadataService).storeMetadata(tenant1, seriesSetHash1, metric1);
+      verify(metadataService).storeMetadata(tenant2, seriesSetHash2, metric2);
 
-      verify(metadataService).updateMetricGroupAddMetricName(
-          tenant1, metricGroup, metric1.getMetric(), metric1.getTimestamp().toString());
-      verify(metadataService).updateMetricGroupAddMetricName(
-          tenant2, metricGroup, metric2.getMetric(), metric2.getTimestamp().toString());
-      verify(metadataService).updateDeviceAddMetricName(
-          tenant1, resource, metric1.getMetric(), metric1.getTimestamp().toString());
-      verify(metadataService).updateDeviceAddMetricName(
-          tenant2, resource, metric2.getMetric(), metric2.getTimestamp().toString());
-      verify(downsampleTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
-      verify(downsampleTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
+      verify(ingestTrackingService).track(tenant1, seriesSetHash1, metric1.getTimestamp());
+      verify(ingestTrackingService).track(tenant2, seriesSetHash2, metric2.getTimestamp());
 
-      verifyNoMoreInteractions(metadataService, downsampleTrackingService);
+      verifyNoMoreInteractions(metadataService, ingestTrackingService);
     }
 
     @Test
