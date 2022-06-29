@@ -103,11 +103,9 @@ public class DownsampleProcessor {
     final Flux<AggregatedValueSet> aggregated = data
         .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
         // group the incoming data by granularity-time-window
-        .windowUntilChanged(
-            valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
+        .windowUntilChanged(valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
         // ...and then do the aggregation math on those
-        .concatMap(valueSetFlux ->
-            valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
+        .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
 
     return dataWriteService.storeDownsampledData(aggregated, tenant, seriesSet)
         .then(downsampleData(aggregated, tenant, seriesSet, granularities))

@@ -123,8 +123,8 @@ public class QueryService {
                 .checkpoint();
     }
 
-  public Flux<ValueSet> queryDownsampled(String tenant, String seriesSet, Instant start, Instant end,
-                                         Duration granularity) {
+  public Flux<ValueSet> queryDownsampled(
+      String tenant, String seriesSet, Instant start, Instant end, Duration granularity) {
     return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
         .concatMap(timeSlot ->
             cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
@@ -136,8 +136,7 @@ public class QueryService {
                 .name("queryDownsampledWithSeriesSet")
                 .metrics()
                 .retryWhen(appProperties.getRetryQueryForDownsample().build())
-                .map(row ->
-                    //TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
+                .map(row -> // TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
                     new AggregatedValueSet()
                         .setMin(row.getDouble(1))
                         .setMax(row.getDouble(2))
