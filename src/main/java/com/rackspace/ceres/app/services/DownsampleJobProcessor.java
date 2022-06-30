@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
+import static com.rackspace.ceres.app.services.DelayedTrackingService.*;
 
 @Service
 @Slf4j
@@ -141,7 +142,7 @@ public class DownsampleJobProcessor {
   private Flux<?> processDelayedTimeSlot(int partition) {
     return Flux.fromIterable(getPartitionWidths(properties.getGranularities()))
         .flatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
-                .map(tsString -> DelayedTrackingService.buildDownsampleSet(partition, group, tsString))
+                .map(tsString -> buildDownsampleSet(partition, group, tsString))
                 .name("processDelayedTimeSlot")
                 .tag("partition", String.valueOf(partition))
                 .tag("group", group)
@@ -149,7 +150,7 @@ public class DownsampleJobProcessor {
                 .flatMap(downsampleSet ->
                     Mono.from(this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group))
                     .then(delayedTrackingService.deleteDelayedTimeslot(
-                        partition, group, DelayedTrackingService.encodeDelayedTimeslot(downsampleSet))))
+                        partition, group, encodeDelayedTimeslot(downsampleSet))))
                 .doOnError(Throwable::printStackTrace),
             properties.getMaxConcurrentDownsampleHashes()
         );

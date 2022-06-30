@@ -131,6 +131,10 @@ public class DateTimeUtils {
     }
   }
 
+  public static boolean isLowestGroup(List<Granularity> granularities, String group) {
+    return getPartitionWidths(granularities).get(0).equals(group);
+  }
+
   public static List<String> getPartitionWidths(List<Granularity> granularities) {
     return granularities.stream()
             .map(Granularity::getPartitionWidth).sorted()

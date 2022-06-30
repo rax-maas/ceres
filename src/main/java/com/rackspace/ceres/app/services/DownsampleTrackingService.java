@@ -79,16 +79,19 @@ public class DownsampleTrackingService {
   }
 
   public Mono<String> getTimeSlot(Integer partition, String group) {
-    long partitionWidth = Duration.parse(group).getSeconds();
-    String key = encodeTimeslotKey(partition, group);
-    return this.redisTemplate.opsForSet().scan(key)
+    return this.redisTemplate.opsForSet().scan(encodeTimeslotKey(partition, group))
         .sort() // Make sure oldest timeslot is first
-        .filter(t -> isTimeslotDue(t, partitionWidth))
+        .filter(t -> isTimeslotDue(t, group))
         .next();
   }
 
-  public boolean isTimeslotDue(String timeslot, long partitionWidth) {
-    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth * 1.1;
+  public boolean isTimeslotDue(String timeslot, String group) {
+    long partitionWidth = Duration.parse(group).getSeconds();
+    if (isLowestGroup(properties.getGranularities(), group)) {
+      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
+    } else {
+      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth * 1.2;
+    }
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
