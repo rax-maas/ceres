@@ -410,10 +410,10 @@ class QueryServiceTest {
 
   @Test
   void testTsdbQueryDownsampled() {
-    final Long epochSecondsNow = Long.valueOf(1616686440);
-    final Long epochSecondsNowPlus2Min = Long.valueOf(1616686440 + 120);
+    final long epochSecondsNow = 1616686440L;
+    final long epochSecondsNowPlus2Min = 1616686440 + 120;
     final String tenant = randomAlphanumeric(10);
-    final Instant now = Instant.ofEpochSecond(epochSecondsNow.longValue());
+    final Instant now = Instant.ofEpochSecond(epochSecondsNow);
     final Instant start = now.minusSeconds(5 * 60);
     final Instant end = now.plusSeconds(24 * 60 * 60);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
@@ -456,16 +456,17 @@ class QueryServiceTest {
                     singleValue(now.plusSeconds(200).toString(), 8.4)
             ), tenant, seriesSetHash,
             granularities.iterator()
-    ).block();
+    ).subscribe();
 
     final Map<String, Double> expectedDps = Map.of(
-            epochSecondsNow.toString(), 1.8,
-            epochSecondsNowPlus2Min.toString(), 8.4
+        Long.toString(epochSecondsNow), 1.8,
+        Long.toString(epochSecondsNowPlus2Min), 8.4
     );
 
     StepVerifier.create(
             queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
             .assertNext(result -> {
+              log.info("result: {}", result);
               assertThat(result).isNotEmpty();
               assertThat(result.get(0).getMetric()).isEqualTo(metricName);
               assertThat(result.get(0).getTags()).isEqualTo(tags);
