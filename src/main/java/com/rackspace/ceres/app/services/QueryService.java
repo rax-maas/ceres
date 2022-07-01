@@ -76,15 +76,11 @@ public class QueryService {
   public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
                                     Map<String, String> queryTags,
                                     Instant start, Instant end) {
-    if (!StringUtils.isBlank(metricName)) {
-      log.trace("Query for raw data called with tenant {} and metricName {} ", tenant, metricName);
-      return getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint();
-    } else {
-      log.trace("Query for raw data called with tenant {} and metricGroup {} ", tenant, metricGroup);
-      return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
-          .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
-          .checkpoint();
-    }
+    return !StringUtils.isBlank(metricName) ?
+        getQueryResultFlux(tenant, queryTags, start, end, metricName).checkpoint() :
+        metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
+            .flatMap(metric -> getQueryResultFlux(tenant, queryTags, start, end, metric))
+            .checkpoint();
   }
 
   private Flux<QueryResult> getQueryResultFlux(String tenant, Map<String, String> queryTags,
@@ -93,11 +89,8 @@ public class QueryService {
         // then perform a retrieval for each series-set
         .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, Aggregator.raw,
             // over each time slot partition of the [start,end] range
-            Flux.fromIterable(timeSlotPartitioner
-                    .partitionsOverRange(start, end, null)
-                )
-                .concatMap(timeSlot ->
-                    cqlTemplate.queryForRows(
+            Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
+                .concatMap(timeSlot -> cqlTemplate.queryForRows(
                             dataTablesStatements.rawQuery(),
                             tenant, timeSlot, seriesSet, start, end
                         )
@@ -109,21 +102,13 @@ public class QueryService {
 
   public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
                                               Instant start, Instant end) {
-    return Flux.fromIterable(timeSlotPartitioner
-            .partitionsOverRange(start, end, null)
-        )
+    return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
         .concatMap(timeSlot ->
-            cqlTemplate.queryForRows(
-                    dataTablesStatements.rawQuery(),
-                    tenant, timeSlot, seriesSet, start, end
-                )
+            cqlTemplate.queryForRows(dataTablesStatements.rawQuery(), tenant, timeSlot, seriesSet, start, end)
                 .name("queryRawWithSeriesSet")
                 .metrics()
                 .retryWhen(appProperties.getRetryQueryForDownsample().build())
-                .map(row ->
-                    new SingleValueSet()
-                        .setValue(row.getDouble(1)).setTimestamp(row.getInstant(0))
-                )
+                .map(row -> new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0)))
                 .doOnError(e -> dbOperationErrorsCounter.increment())
         )
         .checkpoint();
@@ -133,20 +118,12 @@ public class QueryService {
                                             Aggregator aggregator, Duration granularity,
                                             Map<String, String> queryTags, Instant start,
                                             Instant end) {
-    if (!StringUtils.isBlank(metricName)) {
-      log.trace(
-          "Query for downsampled data called with tenant {} , metricName {} and granularity {} ",
-          tenant, metricName, granularity);
-      return getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint();
-    } else {
-      log.trace(
-          "Query for downsampled data called with tenant {} , metricGroup {} and granularity {} ",
-          tenant, metricGroup, granularity);
-      return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
-          .flatMap(metric ->
-              getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end))
-          .checkpoint();
-    }
+    return !StringUtils.isBlank(metricName) ?
+        getQueryDownsampled(tenant, metricName, aggregator, granularity, queryTags, start, end).checkpoint() :
+        metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup).flatMap(metric ->
+                getQueryDownsampled(tenant, metric, aggregator, granularity, queryTags, start, end)
+            )
+            .checkpoint();
   }
 
   private Flux<QueryResult> getQueryDownsampled(String tenant, String metricName,
@@ -158,9 +135,7 @@ public class QueryService {
         // then perform a retrieval for each series-set
         .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
             // over each time slot partition of the [start,end) range
-            Flux.fromIterable(timeSlotPartitioner
-                    .partitionsOverRange(start, end, granularity)
-                )
+            Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
                 .concatMap(timeSlot ->
                     cqlTemplate.queryForRows(
                             dataTablesStatements.downsampleQuery(granularity),
