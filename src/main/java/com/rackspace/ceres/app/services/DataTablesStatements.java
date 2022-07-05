@@ -38,6 +38,11 @@ public class DataTablesStatements {
   public static final String SERIES_SET_HASH = "series_set_hash";
   public static final String AGGREGATOR = "aggregator";
   public static final String TIMESTAMP = "ts";
+  public static final String MIN = "min";
+  public static final String MAX = "max";
+  public static final String SUM = "sum";
+  public static final String AVG = "avg";
+  public static final String COUNT = "count";
   public static final String VALUE = "value";
 
   private static final String TABLE_PREFIX = "data";
@@ -64,11 +69,11 @@ public class DataTablesStatements {
   private String RAW_DELETE_WITH_SERIES_SET_HASH = "DELETE FROM %s WHERE " + TENANT + " = ?"
       + "  AND " + TIME_PARTITION_SLOT + " = ? AND series_set_hash = ?";
 
-  private String DOWNSAMPLE_INSERT = "INSERT INTO %s ( %s ) VALUES (?, ?, ?, ?, ?, ?)";
+  private String DOWNSAMPLE_INSERT = "INSERT INTO %s ( %s ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
   private String DOWNSAMPLE_QUERY = "SELECT %s FROM %s WHERE " + TENANT + " = ?"
       + "  AND " + TIME_PARTITION_SLOT + " = ? AND " + SERIES_SET_HASH + " = ?"
-      + "  AND " + AGGREGATOR + " = ? AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
+      + "  AND " + TIMESTAMP + " >= ? AND " + TIMESTAMP + " < ?";
 
   private String DOWNSAMPLE_DELETE = "DELETE FROM %s WHERE " + TENANT + " = ?"
       + " AND " + TIME_PARTITION_SLOT + " = ?";
@@ -126,10 +131,10 @@ public class DataTablesStatements {
           downsampleInserts.put(granularity.getWidth(),
               String.format(DOWNSAMPLE_INSERT, tableNameDownsampled(granularity.getWidth(),
                   granularity.getPartitionWidth()), String.join(",",
-                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, AGGREGATOR, TIMESTAMP, VALUE)));
+                  TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, MIN, MAX, SUM, AVG, COUNT)));
 
           downsampleQueries.put(granularity.getWidth(),
-              String.format(DOWNSAMPLE_QUERY, String.join(",", TIMESTAMP, VALUE),
+              String.format(DOWNSAMPLE_QUERY, String.join(",", TIMESTAMP, MIN, MAX, SUM, AVG, COUNT),
                   tableNameDownsampled(granularity.getWidth(), granularity.getPartitionWidth())));
 
           downsampleDeletes.put(granularity.getWidth(),
@@ -142,7 +147,7 @@ public class DataTablesStatements {
         });
 
     Granularity granularity = downsampleProperties.getGranularities()
-        .stream().max(Comparator.comparing(e -> e.getTtl())).get();
+        .stream().max(Comparator.comparing(Granularity::getTtl)).get();
 
     DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY = String.format(DOWNSAMPLED_GET_SERIES_SET_HASH_QUERY,
         tableNameDownsampled(granularity.getWidth(),

@@ -23,14 +23,12 @@ import lombok.Data;
 @Data
 public class DataDownsampled {
   String tenant;
-
   String seriesSetHash;
-
-  Aggregator aggregator;
-
   Duration granularity;
-
   Instant ts;
-
-  double value;
+  double min;
+  double max;
+  double sum;
+  double avg;
+  int count;
 }

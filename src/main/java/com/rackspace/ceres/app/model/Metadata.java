@@ -26,7 +26,6 @@ import lombok.Data;
 @Data
 @JsonInclude(Include.NON_NULL)
 public class Metadata {
-
   Aggregator aggregator;
   Instant startTime;
   Instant endTime;

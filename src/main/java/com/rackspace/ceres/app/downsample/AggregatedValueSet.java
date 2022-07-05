@@ -26,8 +26,8 @@ import java.time.Duration;
 public class AggregatedValueSet extends ValueSet {
   double min = Double.MAX_VALUE;
   double max = -Double.MAX_VALUE;
-  double sum;
-  double count;
+  double sum = 0;
+  int count = 0;
   double average = Double.NaN;
   Duration granularity;
 }
