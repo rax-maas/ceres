@@ -65,13 +65,11 @@ public class RestWebExceptionHandler extends
   private Mono<ServerResponse> renderErrorResponse(ServerRequest serverRequest) {
     Map<String, Object> body = getErrorAttributes(serverRequest, ErrorAttributeOptions.of(
         Include.EXCEPTION, Include.MESSAGE, Include.STACK_TRACE));
-    final Throwable error = getError(serverRequest);
-
     String exceptionClass = (String) body.get("exception");
     logErrorMessage(serverRequest, (String) body.get("trace"), exceptionClass);
     body.remove("trace");
 
-    return respondWith(body, exceptionClass, error);
+    return respondWith(body, exceptionClass);
   }
 
   /**
@@ -81,14 +79,15 @@ public class RestWebExceptionHandler extends
    * @param exceptionClass
    * @return
    */
-  private Mono<ServerResponse> respondWith(Map<String, Object> body, String exceptionClass, Throwable error) {
+  private Mono<ServerResponse> respondWith(Map<String, Object> body, String exceptionClass) {
     if (exceptionClass.equals(IllegalArgumentException.class.getName()) || exceptionClass
         .equals(ServerWebInputException.class.getName()) || exceptionClass.equals(
         TypeMismatchException.class.getName())) {
       return respondWithBadRequest(body);
     }
 
-    body.put("message", error.getCause().getMessage());
+    body.put("message", "Service encountered an unexpected \n"
+        + " condition which prevented it from fulfilling the request. ");
     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(BodyInserters.fromValue(
         body));
   }
