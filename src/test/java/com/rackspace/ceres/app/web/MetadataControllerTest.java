@@ -8,10 +8,9 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
-
+import io.lettuce.core.RedisBusyException;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.commons.lang3.RandomStringUtils;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -198,6 +197,22 @@ public class MetadataControllerTest {
         .isEqualTo(List.of("metric-1", "metric-2"));
 
     verify(metadataService).getMetricNamesFromDevice("t-1", "device-1");
+    verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testGetTenantsForEServerError() {
+    when(metadataService.getTenants()).thenReturn(Mono.error(new RedisBusyException(
+        "Service encountered an unexpected condition which prevented it from fulfilling the request.")));
+
+    webTestClient.get().uri("/api/metadata/tenants").exchange().expectStatus().is5xxServerError()
+        .expectBody()
+        .jsonPath("$.message").isEqualTo(
+            "Service encountered an unexpected condition which prevented it from fulfilling the request.")
+        .jsonPath("$.path").isEqualTo("/api/metadata/tenants")
+        .jsonPath("$.error").isEqualTo("Internal Server Error");
+
+    verify(metadataService).getTenants();
     verifyNoMoreInteractions(metadataService);
   }
 }

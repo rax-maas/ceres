@@ -86,7 +86,7 @@ public class RestWebExceptionHandler extends
     }
 
     body.put("message", "Service encountered an unexpected "
-        + "condition which prevented it from fulfilling the request. ");
+        + "condition which prevented it from fulfilling the request.");
     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(BodyInserters.fromValue(
         body));
   }
