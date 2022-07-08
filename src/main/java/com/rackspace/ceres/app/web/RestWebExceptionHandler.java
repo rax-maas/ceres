@@ -68,7 +68,6 @@ public class RestWebExceptionHandler extends
     String exceptionClass = (String) body.get("exception");
     logErrorMessage(serverRequest, (String) body.get("trace"), exceptionClass);
     body.remove("trace");
-
     return respondWith(body, exceptionClass);
   }
 
@@ -86,8 +85,8 @@ public class RestWebExceptionHandler extends
       return respondWithBadRequest(body);
     }
 
-    body.put("message", "Service encountered an unexpected \n"
-        + " condition which prevented it from fulfilling the request. ");
+    body.put("message", "Service encountered an unexpected "
+        + "condition which prevented it from fulfilling the request. ");
     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).body(BodyInserters.fromValue(
         body));
   }
