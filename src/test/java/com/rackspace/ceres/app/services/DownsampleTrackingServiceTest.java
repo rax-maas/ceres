@@ -52,12 +52,12 @@ class DownsampleTrackingServiceTest {
 
   @Test
   public void isTimeslotDue() {
-    Long t1 = DateTimeUtils.normalizedTimeslot(Instant.now(), "PT15M");
+    Long t1 = DateTimeUtils.normalizedTimeslot(Instant.now(), "PT5M");
     DownsampleTrackingService downsampleTrackingService =
         new DownsampleTrackingService(redisTemplate, redisGetJob, properties, cqlTemplate);
-    Assertions.assertFalse(downsampleTrackingService.isTimeslotDue(t1.toString(), "PT15M"));
-    Long t2 = DateTimeUtils.normalizedTimeslot(Instant.now().minus(15, ChronoUnit.MINUTES), "PT15M");
-    Assertions.assertTrue(downsampleTrackingService.isTimeslotDue(t2.toString(), "PT15M"));
+    Assertions.assertFalse(downsampleTrackingService.isTimeslotDue(t1.toString(), "PT5M"));
+    Long t2 = DateTimeUtils.normalizedTimeslot(Instant.now().minus(10, ChronoUnit.MINUTES), "PT5M");
+    Assertions.assertTrue(downsampleTrackingService.isTimeslotDue(t2.toString(), "PT5M"));
   }
 
   @Test
