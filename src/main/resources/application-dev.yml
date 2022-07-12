@@ -13,6 +13,7 @@ ceres:
     partitions: 4
     initial-processing-delay: 5s
     max-downsample-job-duration: 5m
+    max-downsample-delayed-job-duration: 5m
     max-concurrent-downsample-hashes: 1
     processing-threads: 5
     downsample-spread-period: 2s

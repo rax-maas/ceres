@@ -87,6 +87,7 @@ public class DownsampleJobProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
+    log.info("max-downsample-delayed-job-duration: {}", properties.getMaxDownsampleDelayedJobDuration().getSeconds());
     log.info("downsample-delayed-spread-period: {}", properties.getDownsampleDelayedSpreadPeriod().getSeconds());
     log.info("=====================================");
 
