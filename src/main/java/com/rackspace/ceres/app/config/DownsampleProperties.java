@@ -76,7 +76,7 @@ public class DownsampleProperties {
    * Specifies how often delayed timeslots will be processed
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  Duration downsampleDelayedTimeslotPeriod = Duration.ofMinutes(1);
+  Duration downsampleDelayedSpreadPeriod = Duration.ofMinutes(1);
 
   /**
    * Target granularities to downsample from raw data.
