@@ -83,7 +83,8 @@ public class DownsampleJobProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
-    log.info("downsample-delayed-timeslot-period: {}", properties.getDownsampleDelayedTimeslotPeriod().getSeconds());
+    log.info("max-downsample-delayed-job-duration: {}", properties.getMaxDownsampleDelayedJobDuration().getSeconds());
+    log.info("downsample-delayed-spread-period: {}", properties.getDownsampleDelayedSpreadPeriod().getSeconds());
     log.info("=====================================");
 
     getPartitionWidths(properties.getGranularities())
@@ -97,7 +98,7 @@ public class DownsampleJobProcessor {
     IntStream.rangeClosed(0, properties.getPartitions() - 1)
         .forEach((partition) -> executor.schedule(
             () -> processDelayedTimeslotJob(partition),
-            properties.getDownsampleDelayedTimeslotPeriod().getSeconds(), TimeUnit.SECONDS));
+            randomDelay(properties.getDownsampleDelayedSpreadPeriod().getSeconds()), TimeUnit.SECONDS));
   }
 
   private void processJob(int partition, String group) {
@@ -118,7 +119,7 @@ public class DownsampleJobProcessor {
                 .then(delayedTrackingService.freeJob(partition)) : Flux.empty()
         ).subscribe();
     executor.schedule(() -> processDelayedTimeslotJob(partition),
-        properties.getDownsampleDelayedTimeslotPeriod().getSeconds(), TimeUnit.SECONDS);
+        randomDelay(properties.getDownsampleDelayedSpreadPeriod().getSeconds()), TimeUnit.SECONDS);
   }
 
   private Flux<?> processTimeSlot(int partition, String group) {
@@ -150,7 +151,8 @@ public class DownsampleJobProcessor {
                 .flatMap(downsampleSet ->
                     Mono.from(this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group))
                     .then(delayedTrackingService.deleteDelayedTimeslot(
-                        partition, group, encodeDelayedTimeslot(downsampleSet))))
+                        partition, group, encodeDelayedTimeslot(downsampleSet))),
+                    properties.getMaxConcurrentDownsampleHashes())
                 .doOnError(Throwable::printStackTrace),
             properties.getMaxConcurrentDownsampleHashes()
         );

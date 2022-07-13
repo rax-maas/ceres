@@ -55,7 +55,7 @@ public class DelayedTrackingService {
   public Flux<String> claimJob(Integer partition) {
     String hostName = System.getenv("HOSTNAME");
     long now = Instant.now().getEpochSecond();
-    long maxJobDuration = properties.getMaxDownsampleJobDuration().getSeconds();
+    long maxJobDuration = properties.getMaxDownsampleDelayedJobDuration().getSeconds();
     return redisTemplate.execute(
         this.redisGetDelayedJob,
         List.of(),
