@@ -91,7 +91,6 @@ public class DownsampleProcessor {
 
   public Mono<?> downsampleData(PendingDownsampleSet pendingSet, String group, Granularity granularity) {
     final Flux<AggregatedValueSet> aggregated = fetchData(pendingSet, group, granularity)
-//        .doOnNext(valueSet -> log.info("Aggregating: {} granularity: {}", valueSet, granularity.getWidth()))
         .windowUntilChanged(valueSet ->
             valueSet.getTimestamp().with(new TemporalNormalizer(granularity.getWidth())), Instant::equals)
         .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
@@ -103,23 +102,20 @@ public class DownsampleProcessor {
 
   private Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Granularity granularity) {
     Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity.getWidth());
-    if (isLowerGranularityRaw(lowerWidth)) {
-      log.trace("Raw data as base {} {} {}", set, group, lowerWidth);
-      return queryService.queryRawWithSeriesSet(
-          set.getTenant(),
-          set.getSeriesSetHash(),
-          set.getTimeSlot(),
-          set.getTimeSlot().plus(Duration.parse(group))
-      );
-    } else {
-      log.trace("Downsampled data as base {} {} {}", set, group, lowerWidth);
-      return queryService.queryDownsampled(
-          set.getTenant(),
-          set.getSeriesSetHash(),
-          set.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot in case of race conditions
-          set.getTimeSlot().plus(Duration.parse(group)),
-          lowerWidth);
-    }
+    return isLowerGranularityRaw(lowerWidth) ?
+        queryService.queryRawWithSeriesSet(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group))
+        )
+        :
+        queryService.queryDownsampled(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            set.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot in case of race conditions
+            set.getTimeSlot().plus(Duration.parse(group)),
+            lowerWidth);
   }
 
   private boolean isLowerGranularityRaw(Duration lowerWidth) {
