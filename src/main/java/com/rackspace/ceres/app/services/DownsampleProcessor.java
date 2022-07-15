@@ -18,7 +18,10 @@ package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import com.rackspace.ceres.app.downsample.*;
+import com.rackspace.ceres.app.downsample.AggregatedValueSet;
+import com.rackspace.ceres.app.downsample.TemporalNormalizer;
+import com.rackspace.ceres.app.downsample.ValueSet;
+import com.rackspace.ceres.app.downsample.ValueSetCollectors;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -34,8 +37,6 @@ import reactor.core.publisher.Mono;
 import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
@@ -73,15 +74,13 @@ public class DownsampleProcessor {
     Duration downsamplingDelay = Duration.between(pendingSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
-    List<Granularity> granularities = DateTimeUtils.filterGroupGranularities(group, properties.getGranularities());
-    final Flux<ValueSet> data = fetchData(pendingSet, group, granularities.get(0));
-
-    return downsampleData(data, pendingSet.getTenant(), pendingSet.getSeriesSetHash(), granularities.iterator())
+    return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
+        .concatMap(granularity -> downsampleData(pendingSet, group, granularity))
         .name("downsample.set")
         .tag("partition", String.valueOf(partition))
         .tag("group", group)
         .metrics()
-        .doOnSuccess(o ->
+        .doOnComplete(() ->
             log.trace("Completed downsampling of set: {} timeslot: {} time: {} partition: {} group: {}",
                 pendingSet.getSeriesSetHash(),
                 pendingSet.getTimeSlot().getEpochSecond(),
@@ -90,31 +89,22 @@ public class DownsampleProcessor {
         .checkpoint();
   }
 
-  public Mono<?> downsampleData(Flux<? extends ValueSet> data,
-                                String tenant,
-                                String seriesSet,
-                                Iterator<Granularity> granularities) {
-    if (!granularities.hasNext()) {
-      return Mono.empty();
-    }
-    final Granularity granularity = granularities.next();
-    final TemporalNormalizer normalizer = new TemporalNormalizer(granularity.getWidth());
-
-    final Flux<AggregatedValueSet> aggregated = data
-        .doOnNext(valueSet -> log.trace("Aggregating {} into granularity={}", valueSet, granularity))
-        // group the incoming data by granularity-time-window
-        .windowUntilChanged(valueSet -> valueSet.getTimestamp().with(normalizer), Instant::equals)
-        // ...and then do the aggregation math on those
+  public Mono<?> downsampleData(PendingDownsampleSet pendingSet, String group, Granularity granularity) {
+    final Flux<AggregatedValueSet> aggregated = fetchData(pendingSet, group, granularity)
+//        .doOnNext(valueSet -> log.info("Aggregating: {} granularity: {}", valueSet, granularity.getWidth()))
+        .windowUntilChanged(valueSet ->
+            valueSet.getTimestamp().with(new TemporalNormalizer(granularity.getWidth())), Instant::equals)
         .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
 
-    return dataWriteService.storeDownsampledData(aggregated, tenant, seriesSet)
-        .then(downsampleData(aggregated, tenant, seriesSet, granularities))
+    // TODO: Potential to do batch handling here, right now the batch is doing nothing at all
+    return dataWriteService.storeDownsampledData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash())
         .checkpoint();
   }
 
   private Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Granularity granularity) {
     Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity.getWidth());
     if (isLowerGranularityRaw(lowerWidth)) {
+      log.trace("Raw data as base {} {} {}", set, group, lowerWidth);
       return queryService.queryRawWithSeriesSet(
           set.getTenant(),
           set.getSeriesSetHash(),
@@ -122,11 +112,11 @@ public class DownsampleProcessor {
           set.getTimeSlot().plus(Duration.parse(group))
       );
     } else {
-      log.trace("Fetching downsampled data as base {} {} {}", set, group, lowerWidth);
+      log.trace("Downsampled data as base {} {} {}", set, group, lowerWidth);
       return queryService.queryDownsampled(
           set.getTenant(),
           set.getSeriesSetHash(),
-          set.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot for race conditions
+          set.getTimeSlot().minus(Duration.parse(group)), // Redo the old timeslot in case of race conditions
           set.getTimeSlot().plus(Duration.parse(group)),
           lowerWidth);
     }
