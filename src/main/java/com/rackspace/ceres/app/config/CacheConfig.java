@@ -51,10 +51,7 @@ public class CacheConfig {
         .maximumSize(appProperties.getSeriesSetCacheSize())
         .recordStats()
         .buildAsync();
-
-    // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "seriesSetExistence");
-
     return cache;
   }
 
@@ -65,7 +62,6 @@ public class CacheConfig {
         .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
         .recordStats()
         .buildAsync();
-    // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
     return cache;
   }

@@ -21,6 +21,7 @@ import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
@@ -40,16 +41,21 @@ public class DelayedTrackingService {
   private final AppProperties appProperties;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetDelayedJob;
+  private final ReactiveCqlTemplate cqlTemplate;
+
+  private static final String GET_DELAYED_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM delayed_hashes WHERE partition = ?";
 
   @Autowired
   public DelayedTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                 DownsampleProperties properties,
                                 AppProperties appProperties,
-                                RedisScript<String> redisGetDelayedJob) {
+                                RedisScript<String> redisGetDelayedJob,
+                                ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetDelayedJob = redisGetDelayedJob;
     this.properties = properties;
     this.appProperties = appProperties;
+    this.cqlTemplate = cqlTemplate;
   }
 
   public Flux<String> claimJob(Integer partition) {
@@ -103,16 +109,24 @@ public class DelayedTrackingService {
     return isNotInProgress;
   }
 
-  public Mono<?> deleteDelayedTimeslot(Integer partition, String group, String timeslot) {
-    String[] tsArray = timeslot.split("\\|");
-    long ts = Long.parseLong(tsArray[0]);
+  public Flux<PendingDownsampleSet> getDelayedDownsampleSets(Long timeslot, int partition) {
+    log.trace("getDelayedDownsampleSets {} {}", timeslot, partition);
+    return this.cqlTemplate.queryForFlux(GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition)
+        .map(setHash -> buildPending(timeslot, setHash));
+  }
+
+  public Mono<?> deleteDelayedTimeslot(Integer partition, String group, Long timeslot) {
     return redisTemplate.opsForSet()
         .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
-              log.trace("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(ts));
+              log.info("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
               return Mono.just(result);
             }
         );
+  }
+
+  private static String encodeTimeslotInProgress(long timeslot) {
+    return String.format("%d|in-progress", timeslot);
   }
 
   private static String encodeTimeslotInProgress(String timeslot) {
@@ -130,7 +144,7 @@ public class DelayedTrackingService {
   public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {
     String [] tsArray = timeslot.split("\\|");
     long ts = Long.parseLong(tsArray[0]);
-    log.trace("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(ts));
+    log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(ts));
     String tenant = tsArray[1];
     String setHash = tsArray[2];
     return new PendingDownsampleSet()
@@ -141,5 +155,14 @@ public class DelayedTrackingService {
 
   public static String encodeDelayedTimeslot(PendingDownsampleSet set) {
     return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
+  }
+
+  public static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
+    log.trace("Build delayed pending: {} {}", timeslot, setHash);
+    final int splitValueAt = setHash.indexOf("|");
+    return new PendingDownsampleSet()
+        .setTenant(setHash.substring(0, splitValueAt))
+        .setSeriesSetHash(setHash.substring(1 + splitValueAt))
+        .setTimeSlot(Instant.ofEpochSecond(timeslot));
   }
 }

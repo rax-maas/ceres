@@ -133,8 +133,8 @@ public class DownsampleJobProcessor {
               .tag("partition", String.valueOf(partition))
               .tag("group", group)
               .metrics()
-              .flatMap(downsampleSet -> this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group),
-                  properties.getMaxConcurrentDownsampleHashes())
+              .concatMap(downsampleSet ->
+                  this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group))
               .then(trackingService.deleteTimeslot(partition, group, timeslot))
               .doOnError(Throwable::printStackTrace);
         });
@@ -142,19 +142,20 @@ public class DownsampleJobProcessor {
 
   private Flux<?> processDelayedTimeSlot(int partition) {
     return Flux.fromIterable(getPartitionWidths(properties.getGranularities()))
-        .flatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
-                .map(tsString -> buildDownsampleSet(partition, group, tsString))
-                .name("processDelayedTimeSlot")
-                .tag("partition", String.valueOf(partition))
-                .tag("group", group)
-                .metrics()
-                .flatMap(downsampleSet ->
-                    Mono.from(this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group))
-                    .then(delayedTrackingService.deleteDelayedTimeslot(
-                        partition, group, encodeDelayedTimeslot(downsampleSet))),
-                    properties.getMaxConcurrentDownsampleHashes())
-                .doOnError(Throwable::printStackTrace),
-            properties.getMaxConcurrentDownsampleHashes()
+        .concatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
+            .concatMap(ts -> {
+              long timeslot = Long.parseLong(ts);
+              log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(timeslot));
+              return delayedTrackingService.getDelayedDownsampleSets(timeslot, partition)
+                  .name("processDelayedTimeSlot")
+                  .tag("partition", String.valueOf(partition))
+                  .tag("group", group)
+                  .metrics()
+                  .concatMap(downsampleSet ->
+                      this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group))
+                  .then(delayedTrackingService.deleteDelayedTimeslot(partition, group, timeslot))
+                  .doOnError(Throwable::printStackTrace);
+            })
         );
   }
 }

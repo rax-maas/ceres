@@ -20,8 +20,9 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.entities.DelayedDownsampling;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
-import com.rackspace.ceres.app.model.Downsampling;
+import com.rackspace.ceres.app.entities.Downsampling;
 import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -75,7 +76,27 @@ public class IngestTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
     final String setHash = encodeSetHash(tenant, seriesSetHash);
-    return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp, setHash));
+    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
+        group -> {
+          final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(timestamp, group);
+          long partitionWidth = Duration.parse(group).getSeconds();
+          if (normalizedTimeSlot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
+            // Delayed timeslot, downsampling happened in the past
+            return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslots(partition, timestamp));
+          } else {
+            // Downsampling in the future
+            return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp));
+          }
+        }
+    ).then(Mono.empty());
+  }
+
+  private Mono<?> saveDelayedDownsampling(Integer partition, String setHash) {
+    return this.cassandraTemplate.insert(new DelayedDownsampling(partition, setHash))
+        .name("saveDelayedDownsampling")
+        .metrics()
+        .retryWhen(appProperties.getRetryInsertDownsampled().build())
+        .flatMap(s -> Mono.just(true));
   }
 
   private Mono<?> saveDownsampling(Integer partition, String setHash) {
@@ -92,34 +113,31 @@ public class IngestTrackingService {
     return Mono.fromFuture(result);
   }
 
-  private Mono<?> saveTimeslots(int partition, Instant timestamp, String setHash) {
+  private Mono<?> saveTimeslots(int partition, Instant timestamp) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group -> {
-          final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(timestamp, group);
-          long partitionWidth = Duration.parse(group).getSeconds();
-          if (normalizedTimeSlot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
-            // Delayed timeslot, downsampling happened in the past
-            return redisTemplate.opsForSet().add(
-                encodeDelayedTimeslotKey(partition, group), String.format("%d|%s", normalizedTimeSlot, setHash));
-          } else {
-            // Downsampling in the future
-            return saveTimeslot(partition, group, normalizedTimeSlot);
-          }
-        }
+        group -> saveTimeslot(partition, group, DateTimeUtils.normalizedTimeslot(timestamp, group))
     ).then(Mono.empty());
   }
 
   private Mono<?> saveTimeslot(Integer partition, String group, Long timeslot) {
     final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
         new TimeslotCacheKey(partition, group, timeslot),
-        (key, executor) -> {
-          log.trace("Saving timeslot {} {} {}", partition, group, timeslot);
-          return redisTemplate.opsForSet().add(encodeTimeslotKey(partition, group), timeslot.toString())
-              .flatMap(s -> Mono.just(true))
-              .toFuture();
-        }
+        (key, executor) ->
+            redisTemplate.opsForSet().add(encodeTimeslotKey(partition, group), timeslot.toString())
+                .flatMap(s -> Mono.just(true))
+                .toFuture()
     );
     return Mono.fromFuture(result);
+  }
+
+  private Mono<?> saveDelayedTimeslots(int partition, Instant timestamp) {
+    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
+        group ->
+            redisTemplate.opsForSet()
+                .add(encodeDelayedTimeslotKey(partition, group),
+                    DateTimeUtils.normalizedTimeslot(timestamp, group).toString())
+                .flatMap(s -> Mono.just(true))
+    ).then(Mono.empty());
   }
 
   private static String encodeSetHash(String tenant, String setHash) {
