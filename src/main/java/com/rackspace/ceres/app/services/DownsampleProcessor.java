@@ -76,7 +76,7 @@ public class DownsampleProcessor {
 
   public Publisher<?> processDelayedDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
     log.trace("processDelayedDownsampleSet {} {} {}", pendingSet, partition, group);
-    return process(pendingSet, partition, group, "delayed.downsample.set");
+    return process(pendingSet, partition, group, "delayed.set");
   }
 
   private Publisher<?> process(PendingDownsampleSet pendingSet, int partition, String group, String metrics) {
