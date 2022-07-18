@@ -50,6 +50,8 @@ public class IngestTrackingService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
   private final AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache;
+  private final AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache;
+  private final AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache;
 
   @Autowired
   public IngestTrackingService(ReactiveStringRedisTemplate redisTemplate,
@@ -58,7 +60,9 @@ public class IngestTrackingService {
                                SeriesSetService hashService,
                                AppProperties appProperties,
                                AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
-                               AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache) {
+                               AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
+                               AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache,
+                               AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache) {
     this.redisTemplate = redisTemplate;
     this.properties = properties;
     this.hashService = hashService;
@@ -66,6 +70,8 @@ public class IngestTrackingService {
     this.appProperties = appProperties;
     this.downsampleHashExistenceCache = downsampleHashExistenceCache;
     this.timeslotExistenceCache = timeslotExistenceCache;
+    this.delayedDownsampleHashExistenceCache = delayedDownsampleHashExistenceCache;
+    this.delayedTimeslotExistenceCache = delayedTimeslotExistenceCache;
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
@@ -92,11 +98,17 @@ public class IngestTrackingService {
   }
 
   private Mono<?> saveDelayedDownsampling(Integer partition, String setHash) {
-    return this.cassandraTemplate.insert(new DelayedDownsampling(partition, setHash))
-        .name("saveDelayedDownsampling")
-        .metrics()
-        .retryWhen(appProperties.getRetryInsertDownsampled().build())
-        .flatMap(s -> Mono.just(true));
+    final CompletableFuture<Boolean> result = delayedDownsampleHashExistenceCache.get(
+        new DownsampleSetCacheKey(partition, setHash),
+        (key, executor) ->
+            this.cassandraTemplate.insert(new DelayedDownsampling(partition, setHash))
+                .name("saveDelayedDownsampling")
+                .metrics()
+                .retryWhen(appProperties.getRetryInsertDownsampled().build())
+                .flatMap(s -> Mono.just(true))
+                .toFuture()
+    );
+    return Mono.fromFuture(result);
   }
 
   private Mono<?> saveDownsampling(Integer partition, String setHash) {
@@ -132,12 +144,20 @@ public class IngestTrackingService {
 
   private Mono<?> saveDelayedTimeslots(int partition, Instant timestamp) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group ->
-            redisTemplate.opsForSet()
-                .add(encodeDelayedTimeslotKey(partition, group),
-                    DateTimeUtils.normalizedTimeslot(timestamp, group).toString())
-                .flatMap(s -> Mono.just(true))
+        group -> saveDelayedTimeslot(partition, group, DateTimeUtils.normalizedTimeslot(timestamp, group))
     ).then(Mono.empty());
+  }
+
+  private Mono<?> saveDelayedTimeslot(Integer partition, String group, Long timeslot) {
+    final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
+        new TimeslotCacheKey(partition, group, timeslot),
+        (key, executor) ->
+            redisTemplate.opsForSet()
+                .add(encodeDelayedTimeslotKey(partition, group), timeslot.toString())
+                .flatMap(s -> Mono.just(true))
+                .toFuture()
+    );
+    return Mono.fromFuture(result);
   }
 
   private static String encodeSetHash(String tenant, String setHash) {

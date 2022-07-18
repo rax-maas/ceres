@@ -76,4 +76,26 @@ public class CacheConfig {
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "timeslotExistenceCache");
     return cache;
   }
+
+  @Bean
+  public AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache() {
+    final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(400000)
+        .recordStats()
+        .buildAsync();
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "delayedDownsampleHashExistenceCache");
+    return cache;
+  }
+
+  @Bean
+  public AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache() {
+    final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(10000)
+        .recordStats()
+        .buildAsync();
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "delayedTimeslotExistenceCache");
+    return cache;
+  }
 }
