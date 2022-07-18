@@ -71,12 +71,22 @@ public class DownsampleProcessor {
 
   public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
     log.trace("processDownsampleSet {} {} {}", pendingSet, partition, group);
+    return process(pendingSet, partition, group, "downsample.set");
+  }
+
+  public Publisher<?> processDelayedDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
+    log.trace("processDelayedDownsampleSet {} {} {}", pendingSet, partition, group);
+    return process(pendingSet, partition, group, "delayed.downsample.set");
+  }
+
+  private Publisher<?> process(PendingDownsampleSet pendingSet, int partition, String group, String metrics) {
+    log.trace("process {} {} {}", pendingSet, partition, group);
     Duration downsamplingDelay = Duration.between(pendingSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
     return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
         .concatMap(granularity -> downsampleData(pendingSet, group, granularity))
-        .name("downsample.set")
+        .name(metrics)
         .tag("partition", String.valueOf(partition))
         .tag("group", group)
         .metrics()
