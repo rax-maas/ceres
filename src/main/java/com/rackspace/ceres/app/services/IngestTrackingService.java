@@ -149,7 +149,7 @@ public class IngestTrackingService {
   }
 
   private Mono<?> saveDelayedTimeslot(Integer partition, String group, Long timeslot) {
-    final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
+    final CompletableFuture<Boolean> result = delayedTimeslotExistenceCache.get(
         new TimeslotCacheKey(partition, group, timeslot),
         (key, executor) ->
             redisTemplate.opsForSet()
