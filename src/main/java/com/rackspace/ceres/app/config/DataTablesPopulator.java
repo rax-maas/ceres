@@ -73,7 +73,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
         .flatMap(spec -> createTable(downsamplingHashesTableSpec(appProperties.getRawTtl()), session))
-        .flatMap(spec -> createTable(delayedDownsamplingHashesTableSpec(Duration.ofMinutes(30)), session))
+        .flatMap(spec -> createTable(delayedDownsamplingHashesTableSpec(Duration.ofMinutes(5)), session))
         .subscribe();
   }
 
