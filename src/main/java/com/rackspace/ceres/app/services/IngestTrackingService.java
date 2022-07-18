@@ -88,10 +88,10 @@ public class IngestTrackingService {
           long partitionWidth = Duration.parse(group).getSeconds();
           if (timeslot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
             // Delayed timeslot, downsampling happened in the past
-            return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslots(partition, timestamp, timeslot));
+            return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslot(partition, group, timeslot));
           } else {
             // Downsampling in the future
-            return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp, timeslot));
+            return saveDownsampling(partition, setHash).then(saveTimeslot(partition, group, timeslot));
           }
         }
     ).then(Mono.empty());
@@ -125,12 +125,6 @@ public class IngestTrackingService {
     return Mono.fromFuture(result);
   }
 
-  private Mono<?> saveTimeslots(int partition, Instant timestamp, Long timeslot) {
-    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group -> saveTimeslot(partition, group, timeslot)
-    ).then(Mono.empty());
-  }
-
   private Mono<?> saveTimeslot(Integer partition, String group, Long timeslot) {
     final CompletableFuture<Boolean> result = timeslotExistenceCache.get(
         new TimeslotCacheKey(partition, group, timeslot),
@@ -140,12 +134,6 @@ public class IngestTrackingService {
                 .toFuture()
     );
     return Mono.fromFuture(result);
-  }
-
-  private Mono<?> saveDelayedTimeslots(int partition, Instant timestamp, Long timeslot) {
-    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group -> saveDelayedTimeslot(partition, group, timeslot)
-    ).then(Mono.empty());
   }
 
   private Mono<?> saveDelayedTimeslot(Integer partition, String group, Long timeslot) {
