@@ -84,14 +84,14 @@ public class IngestTrackingService {
     final String setHash = encodeSetHash(tenant, seriesSetHash);
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
         group -> {
-          final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(timestamp, group);
+          final Long timeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
           long partitionWidth = Duration.parse(group).getSeconds();
-          if (normalizedTimeSlot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
+          if (timeslot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
             // Delayed timeslot, downsampling happened in the past
-            return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslots(partition, timestamp));
+            return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslots(partition, timestamp, timeslot));
           } else {
             // Downsampling in the future
-            return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp));
+            return saveDownsampling(partition, setHash).then(saveTimeslots(partition, timestamp, timeslot));
           }
         }
     ).then(Mono.empty());
@@ -125,9 +125,9 @@ public class IngestTrackingService {
     return Mono.fromFuture(result);
   }
 
-  private Mono<?> saveTimeslots(int partition, Instant timestamp) {
+  private Mono<?> saveTimeslots(int partition, Instant timestamp, Long timeslot) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group -> saveTimeslot(partition, group, DateTimeUtils.normalizedTimeslot(timestamp, group))
+        group -> saveTimeslot(partition, group, timeslot)
     ).then(Mono.empty());
   }
 
@@ -142,9 +142,9 @@ public class IngestTrackingService {
     return Mono.fromFuture(result);
   }
 
-  private Mono<?> saveDelayedTimeslots(int partition, Instant timestamp) {
+  private Mono<?> saveDelayedTimeslots(int partition, Instant timestamp, Long timeslot) {
     return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group -> saveDelayedTimeslot(partition, group, DateTimeUtils.normalizedTimeslot(timestamp, group))
+        group -> saveDelayedTimeslot(partition, group, timeslot)
     ).then(Mono.empty());
   }
 
