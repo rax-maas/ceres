@@ -77,15 +77,15 @@ public class DelayedTrackingService {
     return redisTemplate.opsForValue().set(encodeJobKey(partition), "free");
   }
 
-  public Flux<String> getDelayedTimeSlots(Integer partition, String group) {
+  public Mono<String> getDelayedTimeSlot(Integer partition, String group) {
     String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .filter(ts -> isNotInProgress(ts, partition, group))
-        .flatMap(timeslot -> isInProgress(timeslot) ? Mono.just(timeslot) :
+        .concatMap(timeslot -> isInProgress(timeslot) ? Mono.just(timeslot) :
             this.redisTemplate.opsForSet().remove(key, timeslot)
                 .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
                 .then(Mono.just(timeslot))
-        );
+        ).next();
   }
 
 
