@@ -28,6 +28,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
+
 @Configuration
 public class CacheConfig {
 
@@ -60,6 +62,8 @@ public class CacheConfig {
     final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
+        // In case cassandra TTL kicks in, this will minimize rollup loss
+        .expireAfterWrite(Duration.ofMinutes(60))
         .recordStats()
         .buildAsync();
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
@@ -93,6 +97,8 @@ public class CacheConfig {
     final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(10000)
+        // Expiration to allow for repeated updates of the same timeslot
+        .expireAfterWrite(Duration.ofMinutes(5))
         .recordStats()
         .buildAsync();
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "delayedTimeslotExistenceCache");
