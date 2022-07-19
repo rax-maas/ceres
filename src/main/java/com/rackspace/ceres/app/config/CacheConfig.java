@@ -86,7 +86,7 @@ public class CacheConfig {
     final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(400000)
-        .expireAfterWrite(Duration.ofMinutes(60))
+        .expireAfterWrite(Duration.ofMinutes(15))
         .recordStats()
         .buildAsync();
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "delayedDownsampleHashExistenceCache");
