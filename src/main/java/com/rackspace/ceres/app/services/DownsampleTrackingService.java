@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
 public class DownsampleTrackingService {
 
   private final DownsampleProperties properties;
+  private final AppProperties appProperties;
   private final ReactiveCqlTemplate cqlTemplate;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetJob;
@@ -50,10 +52,12 @@ public class DownsampleTrackingService {
   public DownsampleTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                    RedisScript<String> redisGetJob,
                                    DownsampleProperties properties,
+                                   AppProperties appProperties,
                                    ReactiveCqlTemplate cqlTemplate) {
     this.redisTemplate = redisTemplate;
     this.redisGetJob = redisGetJob;
     this.properties = properties;
+    this.appProperties = appProperties;
     this.cqlTemplate = cqlTemplate;
   }
 
@@ -87,7 +91,7 @@ public class DownsampleTrackingService {
 
   public boolean isTimeslotDue(String timeslot, String group) {
     long partitionWidth = Duration.parse(group).getSeconds();
-    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth * properties.getDownsampleDelayFactor();
+    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth * appProperties.getDownsampleDelayFactor();
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {

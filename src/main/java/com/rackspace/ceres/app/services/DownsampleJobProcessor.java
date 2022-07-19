@@ -73,7 +73,6 @@ public class DownsampleJobProcessor {
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
-    log.info("downsample-delay-factor: {}", properties.getDownsampleDelayFactor());
 
     getPartitionWidths(properties.getGranularities())
         .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)

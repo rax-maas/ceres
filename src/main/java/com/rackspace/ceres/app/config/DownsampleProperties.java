@@ -85,11 +85,6 @@ public class DownsampleProperties {
   Duration downsampleDelayedSpreadPeriod = Duration.ofMinutes(1);
 
   /**
-   * The delay factor applied to delay regular downsampling periods to minimize delayed timeslots
-   */
-  float downsampleDelayFactor = 1.4F;
-
-  /**
    * Target granularities to downsample from raw data.
    */
   @GranularityValidator

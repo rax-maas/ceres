@@ -38,6 +38,11 @@ public class AppProperties {
   Duration rawTtl = Duration.ofHours(6);
 
   /**
+   * The delay factor applied to delay regular downsampling periods to minimize delayed timeslots
+   */
+  float downsampleDelayFactor = 1.4F;
+
+  /**
    * When initially creating the Cassandra data table schemas,
    * this value will be used for the expired data garbage collection.
    */
