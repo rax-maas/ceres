@@ -87,11 +87,7 @@ public class DownsampleTrackingService {
 
   public boolean isTimeslotDue(String timeslot, String group) {
     long partitionWidth = Duration.parse(group).getSeconds();
-    if (isLowestGroup(properties.getGranularities(), group)) {
-      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth;
-    } else {
-      return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth * 1.2;
-    }
+    return Long.parseLong(timeslot) < nowEpochSeconds() - partitionWidth * 1.2;
   }
 
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {

@@ -86,7 +86,7 @@ public class IngestTrackingService {
         group -> {
           final Long timeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
           long partitionWidth = Duration.parse(group).getSeconds();
-          if (timeslot + partitionWidth < DateTimeUtils.nowEpochSeconds()) {
+          if ((timeslot + partitionWidth * 1.2) < DateTimeUtils.nowEpochSeconds()) {
             // Delayed timeslot, downsampling happened in the past
             return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslot(partition, group, timeslot));
           } else {
