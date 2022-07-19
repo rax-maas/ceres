@@ -38,7 +38,7 @@ import java.time.temporal.ChronoUnit;
 @SpringBootTest(classes = {
     RedisAutoConfiguration.class
 })
-@EnableConfigurationProperties(DownsampleProperties.class)
+@EnableConfigurationProperties({DownsampleProperties.class, AppProperties.class})
 @ActiveProfiles(profiles = {"test"})
 class DownsampleTrackingServiceTest {
   @Autowired
