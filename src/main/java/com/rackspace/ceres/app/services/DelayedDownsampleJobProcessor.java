@@ -90,8 +90,8 @@ public class DelayedDownsampleJobProcessor {
 
   private Flux<?> processDelayedTimeSlot(int partition) {
     return Flux.fromIterable(getPartitionWidths(properties.getGranularities()))
-        .concatMap(group -> delayedTrackingService.getDelayedTimeSlot(partition, group)
-            .flatMapMany(ts -> {
+        .concatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
+            .concatMap(ts -> {
               long timeslot = Long.parseLong(ts);
               log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(timeslot));
               return delayedTrackingService.getDelayedDownsampleSets(timeslot, partition)

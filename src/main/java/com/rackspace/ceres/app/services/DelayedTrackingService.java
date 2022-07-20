@@ -77,7 +77,7 @@ public class DelayedTrackingService {
     return redisTemplate.opsForValue().set(encodeJobKey(partition), "free");
   }
 
-  public Mono<String> getDelayedTimeSlot(Integer partition, String group) {
+  public Flux<String> getDelayedTimeSlots(Integer partition, String group) {
     String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .filter(ts -> isNotInProgress(ts, partition, group))
@@ -85,7 +85,7 @@ public class DelayedTrackingService {
             this.redisTemplate.opsForSet().remove(key, timeslot)
                 .then(this.redisTemplate.opsForSet().add(key, encodeTimeslotInProgress(timeslot)))
                 .then(Mono.just(timeslot))
-        ).next();
+        );
   }
 
 
