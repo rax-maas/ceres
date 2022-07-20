@@ -67,6 +67,12 @@ public class DownsampleProperties {
   Duration maxDownsampleJobDuration = Duration.ofMinutes(1);
 
   /**
+   * Max time a downsampling delayed job can be locked
+   */
+  @DurationUnit(ChronoUnit.MINUTES)
+  Duration maxDownsampleDelayedJobDuration = Duration.ofMinutes(1);
+
+  /**
    * Specifies how wide in time the jobs will be spread out
    */
   @DurationUnit(ChronoUnit.MINUTES)
@@ -76,7 +82,7 @@ public class DownsampleProperties {
    * Specifies how often delayed timeslots will be processed
    */
   @DurationUnit(ChronoUnit.MINUTES)
-  Duration downsampleDelayedTimeslotPeriod = Duration.ofMinutes(1);
+  Duration downsampleDelayedSpreadPeriod = Duration.ofMinutes(1);
 
   /**
    * Target granularities to downsample from raw data.
