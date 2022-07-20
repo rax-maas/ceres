@@ -28,6 +28,7 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.cassandra.core.InsertOptions;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -101,7 +102,10 @@ public class IngestTrackingService {
     final CompletableFuture<Boolean> result = delayedDownsampleHashExistenceCache.get(
         new DownsampleSetCacheKey(partition, setHash),
         (key, executor) ->
-            this.cassandraTemplate.insert(new DelayedDownsampling(partition, setHash))
+            this.cassandraTemplate.insert(
+                    new DelayedDownsampling(partition, setHash),
+                    // TODO: Investigate why TTL doesn't work when setting on table level!!
+                    InsertOptions.builder().ttl((int) appProperties.getDelayedHashesTtl().getSeconds()).build())
                 .name("saveDelayedDownsampling")
                 .metrics()
                 .retryWhen(appProperties.getRetryInsertDownsampled().build())
@@ -115,7 +119,10 @@ public class IngestTrackingService {
     final CompletableFuture<Boolean> result = downsampleHashExistenceCache.get(
         new DownsampleSetCacheKey(partition, setHash),
         (key, executor) ->
-            this.cassandraTemplate.insert(new Downsampling(partition, setHash))
+            this.cassandraTemplate.insert(
+                    new Downsampling(partition, setHash),
+                    // TODO: Investigate why TTL doesn't work when setting on table level!!
+                    InsertOptions.builder().ttl((int) appProperties.getDownsamplingHashesTtl().getSeconds()).build())
                 .name("saveDownsampling")
                 .metrics()
                 .retryWhen(appProperties.getRetryInsertDownsampled().build())

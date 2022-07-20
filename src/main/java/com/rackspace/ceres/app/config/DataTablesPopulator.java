@@ -72,8 +72,10 @@ public class DataTablesPopulator implements KeyspacePopulator {
     dataDownsampledTableSpecs()
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
         .flatMap(spec -> createTable(spec, session))
-        .flatMap(spec -> createTable(downsamplingHashesTableSpec(appProperties.getRawTtl()), session))
-        .flatMap(spec -> createTable(delayedDownsamplingHashesTableSpec(Duration.ofHours(1)), session))
+        // TODO: Investigate why TTL doesn't work when setting on table level!!
+        .then(Mono.just(createTable(downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl()), session)))
+        // TODO: Investigate why TTL doesn't work when setting on table level!!
+        .and(Mono.just(createTable(delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()), session)))
         .subscribe();
   }
 
@@ -135,7 +137,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
   }
 
   private CreateTableSpecification downsamplingHashesTableSpec(Duration ttl) {
-    log.info("creating downsampling_hashes table");
+    log.info("creating downsampling_hashes table with ttl {}", ttl.getSeconds());
     return CreateTableSpecification
             .createTable("downsampling_hashes")
             .ifNotExists()
@@ -145,7 +147,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
   }
 
   private CreateTableSpecification delayedDownsamplingHashesTableSpec(Duration ttl) {
-    log.info("creating delayed_hashes table");
+    log.info("creating delayed_hashes table with ttl {}", ttl.getSeconds());
     return CreateTableSpecification
         .createTable("delayed_hashes")
         .ifNotExists()

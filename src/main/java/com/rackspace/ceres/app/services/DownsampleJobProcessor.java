@@ -71,7 +71,6 @@ public class DownsampleJobProcessor {
   private void initializeJobs() {
     log.info("Start downsampling jobs");
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
-    log.info("max-concurrent-downsample-hashes: {}", properties.getMaxConcurrentDownsampleHashes());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
 
     getPartitionWidths(properties.getGranularities())
