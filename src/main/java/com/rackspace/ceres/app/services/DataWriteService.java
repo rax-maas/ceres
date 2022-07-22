@@ -92,11 +92,11 @@ public class DataWriteService {
     final String seriesSetHash = seriesSetService.hash(metric.getMetric(), metric.getTags());
 
     return storeRawData(tenant, metric, seriesSetHash)
-            .name("ingest")
-            .metrics()
-            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric))
-            .and(ingestTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-            .then(Mono.just(metric));
+        .name("ingest")
+        .metrics()
+        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric))
+        .and(ingestTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+        .then(Mono.just(metric));
   }
 
   private void validateMetric(Metric metric) {
@@ -128,13 +128,13 @@ public class DataWriteService {
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
     return cqlTemplate.execute(
-        dataTablesStatements.rawInsert(),
-        tenant,
-        timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
-        seriesSetHash,
-        metric.getTimestamp(),
-        metric.getValue().doubleValue()
-    )
+            dataTablesStatements.rawInsert(),
+            tenant,
+            timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
+            seriesSetHash,
+            metric.getTimestamp(),
+            metric.getValue().doubleValue()
+        )
         .retryWhen(appProperties.getRetryInsertRaw().build())
         .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();

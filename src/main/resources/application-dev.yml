@@ -1,15 +1,15 @@
 ceres:
   downsample:
     granularities:
+      - width: 30s
+        ttl: 6h
+        partitionWidth: 1m
       - width: 1m
         ttl: 6h
-        partitionWidth: 5m
+        partitionWidth: 1m
       - width: 5m
         ttl: 6h
         partitionWidth: 5m
-      - width: 15m
-        ttl: 6h
-        partitionWidth: 15m
     partitions: 4
     initial-processing-delay: 5s
     max-downsample-job-duration: 5m

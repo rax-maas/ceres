@@ -32,7 +32,7 @@ public class ValueSetCollectors {
             final double value = singleValueSet.getValue();
             agg.setMin(Double.min(agg.getMin(), value));
             agg.setMax(Double.max(agg.getMax(), value));
-            agg.setSum(agg.getSum()+value);
+            agg.setSum(agg.getSum() + value);
             agg.setCount(agg.getCount() + 1);
           } else {
             combineGauges(agg, ((AggregatedValueSet) in));

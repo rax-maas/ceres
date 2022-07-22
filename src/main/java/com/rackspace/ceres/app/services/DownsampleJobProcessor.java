@@ -57,10 +57,6 @@ public class DownsampleJobProcessor {
 
   @PostConstruct
   public void setupSchedulers() {
-    if (properties.getGranularities() == null ||
-        properties.getGranularities().isEmpty()) {
-      throw new IllegalStateException("Granularities are not configured!");
-    }
     long initialDelay = properties.getInitialProcessingDelay().getSeconds();
     executor.schedule(this::initializeRedisJobs, 1, TimeUnit.SECONDS);
     executor.schedule(this::initializeJobs, initialDelay, TimeUnit.SECONDS);
