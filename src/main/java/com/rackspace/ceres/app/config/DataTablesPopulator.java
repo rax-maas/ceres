@@ -139,11 +139,12 @@ public class DataTablesPopulator implements KeyspacePopulator {
   private CreateTableSpecification downsamplingHashesTableSpec(Duration ttl) {
     log.info("creating downsampling_hashes table with ttl {}", ttl.getSeconds());
     return CreateTableSpecification
-            .createTable("downsampling_hashes")
-            .ifNotExists()
-            .partitionKeyColumn("partition", DataTypes.INT)
-            .clusteredKeyColumn("hash", DataTypes.TEXT)
-            .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false);
+        .createTable("downsampling_hashes")
+        .ifNotExists()
+        .partitionKeyColumn("partition", DataTypes.INT)
+        .clusteredKeyColumn("hash", DataTypes.TEXT)
+        .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
   private CreateTableSpecification delayedDownsamplingHashesTableSpec(Duration ttl) {
@@ -153,7 +154,8 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .ifNotExists()
         .partitionKeyColumn("partition", DataTypes.INT)
         .clusteredKeyColumn("hash", DataTypes.TEXT)
-        .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false);
+        .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
+        .with(TableOption.GC_GRACE_SECONDS, 3600 * 6);
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {
