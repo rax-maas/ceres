@@ -8,12 +8,12 @@ ceres:
   downsample:
     initialProcessingDelay: 1s
     granularities:
-      - width: 1m
-        ttl: 12h
-        partitionWidth: 5m
-      - width: 2m
+      - width: 15m
         ttl: 1d
-        partitionWidth: 10m
+        partitionWidth: 15m
+      - width: 1h
+        ttl: 1d
+        partitionWidth: 1h
   tag-filter: exclude
   tag-value-limit: 10
   ingest-start-time: 7d

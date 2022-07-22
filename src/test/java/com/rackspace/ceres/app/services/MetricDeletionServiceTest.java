@@ -7,6 +7,7 @@ import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +81,8 @@ public class MetricDeletionServiceTest {
   DataTablesStatements dataTablesStatements;
   @MockBean
   IngestTrackingService ingestTrackingService;
+  @MockBean
+  QueryService queryService;
 
   private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
       + " AND time_slot = ?";
@@ -488,69 +491,75 @@ public class MetricDeletionServiceTest {
    * has been expired, then it will its rolled up data table with
    * highest ttl
    */
-//  @Test
-//  public void testDeleteMetricsByTenantId_SeriesSetHash_From_Downsample_table() {
-//    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-//    final String metricName = RandomStringUtils.randomAlphabetic(5);
-//    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-//    final String resource = RandomStringUtils.randomAlphabetic(5);
-//    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
-//    final Number value = Math.random();
-//    final Map<String, String> tags = Map.of(
-//        "os", "linux",
-//        "host", "h-1",
-//        "deployment", "prod",
-//        "metricGroup", metricGroup,
-//        "resource", resource,
-//        "monitoring_system", monitoring_system
-//    );
-//    final String seriesSetHash = seriesSetService.hash(metricName, tags);
-//
-//    when(ingestTrackingService.track(any(), anyString(), any()))
-//        .thenReturn(Mono.empty());
-//
-//    Instant currentTime = Instant.now();
-//    //ingest data
-//    Metric metric = dataWriteService.ingest(
-//        tenantId,
-//        new Metric()
-//            .setTimestamp(currentTime)
-//            .setValue(value)
-//            .setMetric(metricName)
-//            .setTags(tags)
-//    ).block();
-//
-//    List.of(granularity(1, 12), granularity(2, 24)).forEach(granularity ->
-//        downsampleProcessor.downsampleData(
-//            Flux.just(
-//                singleValue(currentTime.toString(), value.doubleValue())
-//            ),
-//            new PendingDownsampleSet().setTenant(tenantId).setSeriesSetHash(seriesSetHash),
-//            granularity
-//        ).subscribe()
-//    );
-//
-//    //delete its entry from data raw table
-//    deleteDataFromRawTable(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime));
-//
-//    metricDeletionService
-//        .deleteMetricsByTenantId(tenantId, Instant.now().minus(5, ChronoUnit.MINUTES),
-//            Instant.now().plus(5, ChronoUnit.MINUTES))
-//        .block();
-//
-//    //validate data raw
-//    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
-//        0);
-//
-//    //validate series_set_hashes
-//    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
-//
-//    //validate series_sets
-//    assertSeriesSetViaQuery(tenantId, metricName, 6);
-//
-//    //validate metric_names
-//    assertMetricNamesViaQuery(tenantId, metricName, 1);
-//  }
+  @Test
+  public void testDeleteMetricsByTenantId_SeriesSetHash_From_Downsample_table() {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String resource = RandomStringUtils.randomAlphabetic(5);
+    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
+    final Number value = Math.random();
+    final Map<String, String> tags = Map.of(
+        "os", "linux",
+        "host", "h-1",
+        "deployment", "prod",
+        "metricGroup", metricGroup,
+        "resource", resource,
+        "monitoring_system", monitoring_system
+    );
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+
+    when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+
+    Instant currentTime = Instant.now();
+    String group = "PT15M";
+    final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(currentTime, group);
+
+    dataWriteService.ingest(
+        tenantId,
+        new Metric()
+            .setTimestamp(currentTime)
+            .setValue(value)
+            .setMetric(metricName)
+            .setTags(tags)
+    ).block();
+
+    when(queryService.queryRawWithSeriesSet(any(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(List.of(
+            singleValue(currentTime.toString(), value.doubleValue())))
+        );
+
+    List.of(granularity(1, 12), granularity(2, 24)).forEach(granularity ->
+        downsampleProcessor.downsampleData(
+            new PendingDownsampleSet()
+                .setTenant(tenantId).setSeriesSetHash(seriesSetHash).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
+            group,
+            granularity
+        ).subscribe()
+    );
+
+    //delete its entry from data raw table
+    deleteDataFromRawTable(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime));
+
+    metricDeletionService
+        .deleteMetricsByTenantId(tenantId, Instant.now().minus(5, ChronoUnit.MINUTES),
+            Instant.now().plus(5, ChronoUnit.MINUTES))
+        .block();
+
+    //validate data raw
+    assertQueryRawViaQuery(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime),
+        0);
+
+    //validate series_set_hashes
+    assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
+    //validate metric_names
+    assertMetricNamesViaQuery(tenantId, metricName, 1);
+  }
 
   @Test
   public void testDeleteMultipleMetricsByTenantIdAndWithoutStartTime() {

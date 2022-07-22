@@ -276,7 +276,7 @@ public class QueryControllerTest {
     }).verifyComplete();
 
     verify(queryService)
-        .queryDownsampled("t-1", "cpu-idle", null, Aggregator.max, Duration.ofMinutes(2), queryTags,
+        .queryDownsampled("t-1", "cpu-idle", null, Aggregator.max, Duration.ofHours(1), queryTags,
             Instant.ofEpochSecond(1605611015), Instant.ofEpochSecond(1605697439));
 
     verifyNoMoreInteractions(queryService);

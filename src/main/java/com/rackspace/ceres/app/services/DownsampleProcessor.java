@@ -105,7 +105,6 @@ public class DownsampleProcessor {
             valueSet.getTimestamp().with(new TemporalNormalizer(granularity.getWidth())), Instant::equals)
         .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity.getWidth())));
 
-    // TODO: Potential to do batch handling here, right now the batch is doing nothing at all
     return dataWriteService.storeDownsampledData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash())
         .checkpoint();
   }

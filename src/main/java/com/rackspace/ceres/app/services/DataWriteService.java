@@ -92,11 +92,11 @@ public class DataWriteService {
     final String seriesSetHash = seriesSetService.hash(metric.getMetric(), metric.getTags());
 
     return storeRawData(tenant, metric, seriesSetHash)
-            .name("ingest")
-            .metrics()
-            .and(metadataService.storeMetadata(tenant, seriesSetHash, metric))
-            .and(ingestTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
-            .then(Mono.just(metric));
+        .name("ingest")
+        .metrics()
+        .and(metadataService.storeMetadata(tenant, seriesSetHash, metric))
+        .and(ingestTrackingService.track(tenant, seriesSetHash, metric.getTimestamp()))
+        .then(Mono.just(metric));
   }
 
   private void validateMetric(Metric metric) {
@@ -105,7 +105,7 @@ public class DataWriteService {
     if (!StringUtils.hasText(metricGroupTag) || !StringUtils.hasText(resourceTag)) {
       throw new ServerWebInputException("metricGroup tag and resource tag must be present");
     }
-    if(!isValidTimestamp(metric)) {
+    if (!isValidTimestamp(metric)) {
       throw new ServerWebInputException("Metric timestamp is out of bounds");
     }
   }
@@ -128,13 +128,13 @@ public class DataWriteService {
 
   private Mono<?> storeRawData(String tenant, Metric metric, String seriesSetHash) {
     return cqlTemplate.execute(
-        dataTablesStatements.rawInsert(),
-        tenant,
-        timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
-        seriesSetHash,
-        metric.getTimestamp(),
-        metric.getValue().doubleValue()
-    )
+            dataTablesStatements.rawInsert(),
+            tenant,
+            timeSlotPartitioner.rawTimeSlot(metric.getTimestamp()),
+            seriesSetHash,
+            metric.getTimestamp(),
+            metric.getValue().doubleValue()
+        )
         .retryWhen(appProperties.getRetryInsertRaw().build())
         .doOnError(e -> dbOperationErrorsCounter.increment())
         .checkpoint();
@@ -151,9 +151,7 @@ public class DataWriteService {
     return data
         // convert each data point to an insert-statement
         .map(entry ->
-            new SimpleStatementBuilder(
-                dataTablesStatements.downsampleInsert(entry.getGranularity())
-            )
+            new SimpleStatementBuilder(dataTablesStatements.downsampleInsert(entry.getGranularity()))
                 .addPositionalValues(
                     // TENANT, TIME_PARTITION_SLOT, SERIES_SET_HASH, TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
                     tenant,
