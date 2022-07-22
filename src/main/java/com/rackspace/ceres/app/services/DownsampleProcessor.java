@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
@@ -57,6 +58,13 @@ public class DownsampleProcessor {
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
+  }
+
+  @PostConstruct
+  public void checkGranularities() {
+    if (properties.getGranularities() == null || properties.getGranularities().isEmpty()) {
+      throw new IllegalStateException("Granularities are not configured!");
+    }
   }
 
   public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
