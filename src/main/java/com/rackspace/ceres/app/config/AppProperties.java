@@ -43,7 +43,11 @@ public class AppProperties {
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)
-  Duration delayedHashesTtl = Duration.ofHours(1);
+  Duration delayedHashesTtl = Duration.ofMinutes(10);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration delayedHashesCacheTtl = Duration.ofMinutes(5);
 
   /**
    * The delay factor applied to delay regular downsampling periods to minimize delayed timeslots

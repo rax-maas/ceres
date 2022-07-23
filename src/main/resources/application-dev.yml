@@ -17,7 +17,6 @@ ceres:
     initial-processing-delay: 5s
     max-downsample-job-duration: 5m
     max-downsample-delayed-job-duration: 5m
-    max-concurrent-downsample-hashes: 1
     processing-threads: 5
     downsample-spread-period: 2s
     downsample-delayed-spread-period: 10s
@@ -30,7 +29,8 @@ ceres:
   raw-ttl: 1d
   downsampling-hashes-ttl: 10s
   delayed-hashes-ttl: 10s
-  downsample-delay-factor: 1.4
+  delayed-hashes-cache-ttl: 5s
+  downsample-delay-factor: 1.2
 spring:
   data:
     cassandra:

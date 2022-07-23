@@ -35,9 +35,11 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -73,6 +75,15 @@ public class IngestTrackingService {
     this.timeslotExistenceCache = timeslotExistenceCache;
     this.delayedDownsampleHashExistenceCache = delayedDownsampleHashExistenceCache;
     this.delayedTimeslotExistenceCache = delayedTimeslotExistenceCache;
+  }
+
+  @PostConstruct
+  public void printConfigurations() {
+    log.info("Start ingest tracking");
+    log.info("downsampling-hashes-ttl: {}", appProperties.getDownsamplingHashesTtl().getSeconds());
+    log.info("delayed-hashes-ttl: {}", appProperties.getDelayedHashesTtl().getSeconds());
+    log.info("delayed-hashes-cache-ttl: {}", appProperties.getDelayedHashesCacheTtl().getSeconds());
+    log.info("downsample-delay-factor: {}", appProperties.getDownsampleDelayFactor());
   }
 
   public Publisher<?> track(String tenant, String seriesSetHash, Instant timestamp) {
