@@ -139,6 +139,6 @@ public class DownsampleProcessor {
   }
 
   private String encodeDelayedHash(PendingDownsampleSet set) {
-    return String.format("%s|%s", set.getTenant(), set.getSeriesSetHash());
+    return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
 }

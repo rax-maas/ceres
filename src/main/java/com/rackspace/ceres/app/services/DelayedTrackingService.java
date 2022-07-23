@@ -113,7 +113,7 @@ public class DelayedTrackingService {
   public Flux<PendingDownsampleSet> getDelayedDownsampleSets(Long timeslot, int partition, String group) {
     log.trace("getDelayedDownsampleSets {} {}", timeslot, partition);
     return this.cqlTemplate.queryForFlux(GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition, group)
-        .map(setHash -> buildPending(timeslot, setHash));
+        .map(hash -> buildDelayedPending(hash));
   }
 
   public Mono<?> deleteDelayedTimeslot(Integer partition, String group, Long timeslot) {
@@ -158,12 +158,12 @@ public class DelayedTrackingService {
     return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
 
-  public static PendingDownsampleSet buildPending(Long timeslot, String setHash) {
-    log.trace("Build delayed pending: {} {}", timeslot, setHash);
-    final int splitValueAt = setHash.indexOf("|");
+  public static PendingDownsampleSet buildDelayedPending(String hash) {
+    log.trace("Build delayed pending: {}", hash);
+    String[] tokens = hash.split("\\|");
     return new PendingDownsampleSet()
-        .setTenant(setHash.substring(0, splitValueAt))
-        .setSeriesSetHash(setHash.substring(1 + splitValueAt))
-        .setTimeSlot(Instant.ofEpochSecond(timeslot));
+        .setTimeSlot(Instant.ofEpochSecond(Long.parseLong(tokens[0])))
+        .setTenant(tokens[1])
+        .setSeriesSetHash(tokens[2]);
   }
 }

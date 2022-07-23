@@ -102,7 +102,7 @@ public class IngestTrackingService {
               long partitionWidth = Duration.parse(group).getSeconds();
               if ((timeslot + partitionWidth * appProperties.getDownsampleDelayFactor()) < DateTimeUtils.nowEpochSeconds()) {
                 // Delayed timeslot, downsampling happened in the past
-                return saveDelayedDownsampling(partition, group, setHash)
+                return saveDelayedDownsampling(partition, group, encodeDelayedHash(timeslot, setHash))
                     .then(saveDelayedTimeslot(partition, group, timeslot));
               } else {
                 // Downsampling in the future
@@ -113,12 +113,12 @@ public class IngestTrackingService {
     );
   }
 
-  private Mono<?> saveDelayedDownsampling(Integer partition, String group, String setHash) {
+  private Mono<?> saveDelayedDownsampling(Integer partition, String group, String hash) {
     final CompletableFuture<Boolean> result = delayedDownsampleHashExistenceCache.get(
-        new DelayedHashCacheKey(partition, group, setHash),
+        new DelayedHashCacheKey(partition, group, hash),
         (key, executor) ->
             this.cassandraTemplate.insert(
-                    new DelayedDownsampling(partition, group, setHash),
+                    new DelayedDownsampling(partition, group, hash),
                     // TODO: Investigate why TTL doesn't work when setting on table level!!
                     InsertOptions.builder().ttl((int) appProperties.getDelayedHashesTtl().getSeconds()).build())
                 .name("saveDelayedDownsampling")
@@ -172,6 +172,10 @@ public class IngestTrackingService {
 
   private static String encodeSetHash(String tenant, String setHash) {
     return String.format("%s|%s", tenant, setHash);
+  }
+
+  private static String encodeDelayedHash(long timeslot, String setHash) {
+    return String.format("%d|%s", timeslot, setHash);
   }
 
   private static String encodeTimeslotKey(int partition, String group) {
