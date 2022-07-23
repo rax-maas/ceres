@@ -20,6 +20,7 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.config.StringToIntegerSetConverter;
 import com.rackspace.ceres.app.downsample.*;
+import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
@@ -72,6 +73,8 @@ class DownsampleProcessorTest {
       return new TaskSchedulerBuilder().build();
     }
   }
+  @MockBean
+  MetricDeletionHelper metricDeletionHelper;
 
   @MockBean
   DownsampleTrackingService downsampleTrackingService;
