@@ -43,7 +43,8 @@ public class DelayedTrackingService {
   private final RedisScript<String> redisGetDelayedJob;
   private final ReactiveCqlTemplate cqlTemplate;
 
-  private static final String GET_DELAYED_HASHES_TO_DOWNSAMPLE = "SELECT hash FROM delayed_hashes WHERE partition = ?";
+  private static final String GET_DELAYED_HASHES_TO_DOWNSAMPLE =
+      "SELECT hash FROM delayed_hashes WHERE partition = ? AND group = ?";
 
   @Autowired
   public DelayedTrackingService(ReactiveStringRedisTemplate redisTemplate,
@@ -109,9 +110,9 @@ public class DelayedTrackingService {
     return isNotInProgress;
   }
 
-  public Flux<PendingDownsampleSet> getDelayedDownsampleSets(Long timeslot, int partition) {
+  public Flux<PendingDownsampleSet> getDelayedDownsampleSets(Long timeslot, int partition, String group) {
     log.trace("getDelayedDownsampleSets {} {}", timeslot, partition);
-    return this.cqlTemplate.queryForFlux(GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition)
+    return this.cqlTemplate.queryForFlux(GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition, group)
         .map(setHash -> buildPending(timeslot, setHash));
   }
 

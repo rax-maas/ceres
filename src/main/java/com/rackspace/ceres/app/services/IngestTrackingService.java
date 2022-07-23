@@ -21,8 +21,9 @@ import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.entities.DelayedDownsampling;
-import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.entities.Downsampling;
+import com.rackspace.ceres.app.model.DelayedHashCacheKey;
+import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.TimeslotCacheKey;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,6 @@ import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
@@ -53,7 +53,7 @@ public class IngestTrackingService {
   private final ReactiveStringRedisTemplate redisTemplate;
   private final AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache;
   private final AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache;
-  private final AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache;
+  private final AsyncCache<DelayedHashCacheKey, Boolean> delayedDownsampleHashExistenceCache;
   private final AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache;
 
   @Autowired
@@ -64,7 +64,7 @@ public class IngestTrackingService {
                                AppProperties appProperties,
                                AsyncCache<DownsampleSetCacheKey, Boolean> downsampleHashExistenceCache,
                                AsyncCache<TimeslotCacheKey, Boolean> timeslotExistenceCache,
-                               AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache,
+                               AsyncCache<DelayedHashCacheKey, Boolean> delayedDownsampleHashExistenceCache,
                                AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache) {
     this.redisTemplate = redisTemplate;
     this.properties = properties;
@@ -83,6 +83,7 @@ public class IngestTrackingService {
     log.info("downsampling-hashes-ttl: {}", appProperties.getDownsamplingHashesTtl().getSeconds());
     log.info("delayed-hashes-ttl: {}", appProperties.getDelayedHashesTtl().getSeconds());
     log.info("delayed-hashes-cache-ttl: {}", appProperties.getDelayedHashesCacheTtl().getSeconds());
+    log.info("delayed-timeslot-cache-ttl: {}", appProperties.getDelayedTimeslotCacheTtl().getSeconds());
     log.info("downsample-delay-factor: {}", appProperties.getDownsampleDelayFactor());
   }
 
@@ -101,7 +102,8 @@ public class IngestTrackingService {
               long partitionWidth = Duration.parse(group).getSeconds();
               if ((timeslot + partitionWidth * appProperties.getDownsampleDelayFactor()) < DateTimeUtils.nowEpochSeconds()) {
                 // Delayed timeslot, downsampling happened in the past
-                return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslot(partition, group, timeslot));
+                return saveDelayedDownsampling(partition, group, setHash)
+                    .then(saveDelayedTimeslot(partition, group, timeslot));
               } else {
                 // Downsampling in the future
                 return saveTimeslot(partition, group, timeslot);
@@ -111,12 +113,12 @@ public class IngestTrackingService {
     );
   }
 
-  private Mono<?> saveDelayedDownsampling(Integer partition, String setHash) {
+  private Mono<?> saveDelayedDownsampling(Integer partition, String group, String setHash) {
     final CompletableFuture<Boolean> result = delayedDownsampleHashExistenceCache.get(
-        new DownsampleSetCacheKey(partition, setHash),
+        new DelayedHashCacheKey(partition, group, setHash),
         (key, executor) ->
             this.cassandraTemplate.insert(
-                    new DelayedDownsampling(partition, setHash),
+                    new DelayedDownsampling(partition, group, setHash),
                     // TODO: Investigate why TTL doesn't work when setting on table level!!
                     InsertOptions.builder().ttl((int) appProperties.getDelayedHashesTtl().getSeconds()).build())
                 .name("saveDelayedDownsampling")

@@ -22,6 +22,7 @@ import com.rackspace.ceres.app.downsample.AggregatedValueSet;
 import com.rackspace.ceres.app.downsample.TemporalNormalizer;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.downsample.ValueSetCollectors;
+import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -50,16 +51,19 @@ public class DownsampleProcessor {
   private final QueryService queryService;
   private final DataWriteService dataWriteService;
   private final Timer meterTimer;
+  private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
                              QueryService queryService,
                              DataWriteService dataWriteService,
-                             MeterRegistry meterRegistry) {
+                             MeterRegistry meterRegistry,
+                             MetricDeletionHelper metricDeletionHelper) {
     this.properties = properties;
     this.queryService = queryService;
     this.dataWriteService = dataWriteService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
+    this.metricDeletionHelper = metricDeletionHelper;
   }
 
   @PostConstruct
@@ -85,7 +89,10 @@ public class DownsampleProcessor {
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
     return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
-        .concatMap(granularity -> downsampleData(pendingSet, group, granularity))
+        .concatMap(granularity -> metrics.equals("downsample.set") ?
+            downsampleData(pendingSet, group, granularity) :
+            downsampleData(pendingSet, group, granularity)
+                .then(this.metricDeletionHelper.deleteDelayedHash(partition, group, encodeDelayedHash(pendingSet))))
         .name(metrics)
         .tag("partition", String.valueOf(partition))
         .tag("group", group)
@@ -129,5 +136,9 @@ public class DownsampleProcessor {
 
   private boolean isLowerGranularityRaw(Duration lowerWidth) {
     return lowerWidth.toString().equals("PT0S");
+  }
+
+  private String encodeDelayedHash(PendingDownsampleSet set) {
+    return String.format("%s|%s", set.getTenant(), set.getSeriesSetHash());
   }
 }

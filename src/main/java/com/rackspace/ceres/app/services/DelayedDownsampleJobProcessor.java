@@ -94,7 +94,7 @@ public class DelayedDownsampleJobProcessor {
             .concatMap(ts -> {
               long timeslot = Long.parseLong(ts);
               log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(timeslot));
-              return delayedTrackingService.getDelayedDownsampleSets(timeslot, partition)
+              return delayedTrackingService.getDelayedDownsampleSets(timeslot, partition, group)
                   .name("processDelayedTimeSlot")
                   .tag("partition", String.valueOf(partition))
                   .tag("group", group)

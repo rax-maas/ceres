@@ -25,6 +25,7 @@ import com.rackspace.ceres.app.services.DataTablesStatements;
 import com.rackspace.ceres.app.services.TimeSlotPartitioner;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -32,6 +33,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 
+@Slf4j
 @Component
 public class MetricDeletionHelper {
 
@@ -54,6 +56,7 @@ public class MetricDeletionHelper {
   private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
   private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
   private final String DELETE_ALL_TAGS_DATA_QUERY = "DELETE FROM tags_data WHERE tenant = ? AND type IN ('TAGK', 'TAGV')";
+  private final String DELAYED_HASH_DELETE = "DELETE FROM delayed_hashes WHERE partition = ? AND group = ? AND hash = ?";
 
   private final AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -156,6 +159,12 @@ public class MetricDeletionHelper {
       Instant timeSlot) {
     return cqlTemplate
         .execute(query, tenant, timeSlot)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
+        .retryWhen(appProperties.getRetryDelete().build());
+  }
+
+  public Mono<Boolean> deleteDelayedHash(int partition, String group, String hash) {
+    return cqlTemplate.execute(DELAYED_HASH_DELETE, partition, group, hash)
         .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }

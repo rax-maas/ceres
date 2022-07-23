@@ -27,9 +27,10 @@ ceres:
   ingest-start-time: 7d
   ingest-end-time: 1d
   raw-ttl: 1d
-  downsampling-hashes-ttl: 10s
-  delayed-hashes-ttl: 10s
+  downsampling-hashes-ttl: 10m
+  delayed-hashes-ttl: 10m
   delayed-hashes-cache-ttl: 5s
+  delayed-timeslot-cache-ttl: 5s
   downsample-delay-factor: 1.2
 spring:
   data:

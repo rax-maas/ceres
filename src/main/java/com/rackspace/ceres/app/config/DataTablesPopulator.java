@@ -137,7 +137,6 @@ public class DataTablesPopulator implements KeyspacePopulator {
   }
 
   private CreateTableSpecification downsamplingHashesTableSpec(Duration ttl) {
-    log.info("creating downsampling_hashes table with ttl {}", ttl.getSeconds());
     return CreateTableSpecification
         .createTable("downsampling_hashes")
         .ifNotExists()
@@ -148,11 +147,11 @@ public class DataTablesPopulator implements KeyspacePopulator {
   }
 
   private CreateTableSpecification delayedDownsamplingHashesTableSpec(Duration ttl) {
-    log.info("creating delayed_hashes table with ttl {}", ttl.getSeconds());
     return CreateTableSpecification
         .createTable("delayed_hashes")
         .ifNotExists()
         .partitionKeyColumn("partition", DataTypes.INT)
+        .partitionKeyColumn("group", DataTypes.TEXT)
         .clusteredKeyColumn("hash", DataTypes.TEXT)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
         .with(TableOption.GC_GRACE_SECONDS, 3600 * 6);
