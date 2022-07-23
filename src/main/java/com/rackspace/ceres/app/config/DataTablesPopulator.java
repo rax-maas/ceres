@@ -154,7 +154,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .partitionKeyColumn("group", DataTypes.TEXT)
         .clusteredKeyColumn("hash", DataTypes.TEXT)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
-        .with(TableOption.GC_GRACE_SECONDS, 3600 * 6);
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {

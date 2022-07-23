@@ -65,6 +65,9 @@ public class AppProperties {
   @Min(60)
   int dataTableGcGraceSeconds = 86400;
 
+  @Min(60)
+  int delayedHashesGcGraceSeconds = 60;
+
   /**
    * The approximate number of compaction windows to declare on a newly created raw data table.
    * Cassandra documentation recommends 20-30 windows:
