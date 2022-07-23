@@ -83,19 +83,21 @@ public class IngestTrackingService {
     final HashCode hashCode = hashService.getHashCode(tenant, seriesSetHash);
     final int partition = hashService.getPartition(hashCode, properties.getPartitions());
     final String setHash = encodeSetHash(tenant, seriesSetHash);
-    return Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
-        group -> {
-          final Long timeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
-          long partitionWidth = Duration.parse(group).getSeconds();
-          if ((timeslot + partitionWidth * appProperties.getDownsampleDelayFactor()) < DateTimeUtils.nowEpochSeconds()) {
-            // Delayed timeslot, downsampling happened in the past
-            return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslot(partition, group, timeslot));
-          } else {
-            // Downsampling in the future
-            return saveDownsampling(partition, setHash).then(saveTimeslot(partition, group, timeslot));
-          }
-        }
-    ).then(Mono.empty());
+    return saveDownsampling(partition, setHash).then(
+        Flux.fromIterable(DateTimeUtils.getPartitionWidths(properties.getGranularities())).flatMap(
+            group -> {
+              final Long timeslot = DateTimeUtils.normalizedTimeslot(timestamp, group);
+              long partitionWidth = Duration.parse(group).getSeconds();
+              if ((timeslot + partitionWidth * appProperties.getDownsampleDelayFactor()) < DateTimeUtils.nowEpochSeconds()) {
+                // Delayed timeslot, downsampling happened in the past
+                return saveDelayedDownsampling(partition, setHash).then(saveDelayedTimeslot(partition, group, timeslot));
+              } else {
+                // Downsampling in the future
+                return saveTimeslot(partition, group, timeslot);
+              }
+            }
+        ).then(Mono.empty())
+    );
   }
 
   private Mono<?> saveDelayedDownsampling(Integer partition, String setHash) {
