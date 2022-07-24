@@ -73,13 +73,6 @@ public class DownsampleProcessor {
     }
   }
 
-  @PostConstruct
-  public void checkGranularities() {
-    if (properties.getGranularities() == null || properties.getGranularities().isEmpty()) {
-      throw new IllegalStateException("Granularities are not configured!");
-    }
-  }
-
   public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
     log.trace("processDownsampleSet {} {} {}", pendingSet, partition, group);
     return process(pendingSet, partition, group, "downsample.set");

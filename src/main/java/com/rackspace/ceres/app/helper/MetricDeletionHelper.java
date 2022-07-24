@@ -56,7 +56,6 @@ public class MetricDeletionHelper {
   private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
   private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
   private final String DELETE_ALL_TAGS_DATA_QUERY = "DELETE FROM tags_data WHERE tenant = ? AND type IN ('TAGK', 'TAGV')";
-  private final String UPDATE_DELAYED_HASH = "UPDATE delayed_hashes SET isActive = false WHERE partition = ? AND group = ? AND hash = ?";
 
   private final AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -164,7 +163,11 @@ public class MetricDeletionHelper {
   }
 
   public Mono<Boolean> deleteDelayedHash(int partition, String group, String hash) {
-    return cqlTemplate.execute(UPDATE_DELAYED_HASH, partition, group, hash)
+    final String UPDATE_DELAYED_HASH =
+        "UPDATE delayed_hashes USING TTL %d SET isActive = false WHERE partition = %d AND group = '%s' AND hash = '%s'";
+    final String sqlStatement = String.format(
+        UPDATE_DELAYED_HASH, appProperties.getDelayedHashesTtl().getSeconds(), partition, group, hash);
+    return cqlTemplate.execute(sqlStatement)
         .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }

@@ -10,6 +10,9 @@ ceres:
       - width: 5m
         ttl: 6h
         partitionWidth: 5m
+      - width: 15m
+        ttl: 6h
+        partitionWidth: 15m
     partitions: 4
     initial-processing-delay: 5s
     max-downsample-job-duration: 5m
@@ -26,8 +29,8 @@ ceres:
   raw-ttl: 1d
   downsampling-hashes-ttl: 10m
   delayed-hashes-ttl: 10m
-  delayed-hashes-cache-ttl: 5s
-  delayed-timeslot-cache-ttl: 5s
+  delayed-hashes-cache-ttl: 1m
+  delayed-timeslot-cache-ttl: 1m
   downsample-delay-factor: 1.2
 spring:
   data:
