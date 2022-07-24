@@ -10,9 +10,6 @@ ceres:
       - width: 5m
         ttl: 6h
         partitionWidth: 5m
-      - width: 15m
-        ttl: 6h
-        partitionWidth: 15m
     partitions: 4
     initial-processing-delay: 5s
     max-downsample-job-duration: 5m
