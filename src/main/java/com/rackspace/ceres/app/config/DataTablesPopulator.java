@@ -153,6 +153,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .partitionKeyColumn("partition", DataTypes.INT)
         .partitionKeyColumn("group", DataTypes.TEXT)
         .clusteredKeyColumn("hash", DataTypes.TEXT)
+        .column("isActive", DataTypes.BOOLEAN)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }

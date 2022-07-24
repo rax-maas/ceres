@@ -28,7 +28,8 @@ public class DelayedDownsampling {
   @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1)
   private int partition;
   @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 2)
-  String group;
+  private String group;
   @PrimaryKeyColumn(type = PrimaryKeyType.CLUSTERED, ordinal = 3)
   private String hash;
+  private boolean isActive;
 }

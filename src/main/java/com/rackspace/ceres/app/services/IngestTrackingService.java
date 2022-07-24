@@ -118,7 +118,7 @@ public class IngestTrackingService {
         new DelayedHashCacheKey(partition, group, hash),
         (key, executor) ->
             this.cassandraTemplate.insert(
-                    new DelayedDownsampling(partition, group, hash),
+                    new DelayedDownsampling(partition, group, hash, true),
                     // TODO: Investigate why TTL doesn't work when setting on table level!!
                     InsertOptions.builder().ttl((int) appProperties.getDelayedHashesTtl().getSeconds()).build())
                 .name("saveDelayedDownsampling")
