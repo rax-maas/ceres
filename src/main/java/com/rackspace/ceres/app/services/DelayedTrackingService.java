@@ -113,7 +113,12 @@ public class DelayedTrackingService {
   public Flux<PendingDownsampleSet> getDelayedDownsampleSets(Long timeslot, int partition, String group) {
     log.trace("getDelayedDownsampleSets {} {}", timeslot, partition);
     return this.cqlTemplate.queryForFlux(GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition, group)
+        .filter(hash -> isTimeslot(timeslot, hash))
         .map(DelayedTrackingService::buildDelayedPending);
+  }
+
+  private boolean isTimeslot(Long timeslot, String hash) {
+    return timeslot.equals(Long.parseLong(hash.split("\\|")[0]));
   }
 
   public Mono<?> deleteDelayedTimeslot(Integer partition, String group, Long timeslot) {
