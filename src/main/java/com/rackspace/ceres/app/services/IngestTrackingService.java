@@ -117,10 +117,7 @@ public class IngestTrackingService {
     final CompletableFuture<Boolean> result = delayedDownsampleHashExistenceCache.get(
         new DelayedHashCacheKey(partition, group, hash),
         (key, executor) ->
-            this.cassandraTemplate.insert(
-                    new DelayedDownsampling(partition, group, hash, true),
-                    // TODO: Investigate why TTL doesn't work when setting on table level!!
-                    InsertOptions.builder().ttl((int) appProperties.getDelayedHashesTtl().getSeconds()).build())
+            this.cassandraTemplate.insert(new DelayedDownsampling(partition, group, hash, true))
                 .name("saveDelayedDownsampling")
                 .metrics()
                 .retryWhen(appProperties.getRetryInsertDownsampled().build())
@@ -134,10 +131,7 @@ public class IngestTrackingService {
     final CompletableFuture<Boolean> result = downsampleHashExistenceCache.get(
         new DownsampleSetCacheKey(partition, setHash),
         (key, executor) ->
-            this.cassandraTemplate.insert(
-                    new Downsampling(partition, setHash),
-                    // TODO: Investigate why TTL doesn't work when setting on table level!!
-                    InsertOptions.builder().ttl((int) appProperties.getDownsamplingHashesTtl().getSeconds()).build())
+            this.cassandraTemplate.insert(new Downsampling(partition, setHash))
                 .name("saveDownsampling")
                 .metrics()
                 .retryWhen(appProperties.getRetryInsertDownsampled().build())

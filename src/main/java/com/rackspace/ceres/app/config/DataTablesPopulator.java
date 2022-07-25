@@ -17,15 +17,19 @@
 package com.rackspace.ceres.app.config;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.cassandra.core.cql.generator.CreateTableCqlGenerator;
 import org.springframework.data.cassandra.core.cql.keyspace.CreateTableSpecification;
 import org.springframework.data.cassandra.core.cql.keyspace.DefaultOption;
@@ -71,12 +75,13 @@ public class DataTablesPopulator implements KeyspacePopulator {
   public void populate(CqlSession session) throws ScriptException {
     dataDownsampledTableSpecs()
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
-        .flatMap(spec -> createTable(spec, session))
-        // TODO: Investigate why TTL doesn't work when setting on table level!!
-        .then(Mono.just(createTable(downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl()), session)))
-        // TODO: Investigate why TTL doesn't work when setting on table level!!
-        .and(Mono.just(createTable(delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()), session)))
+        .concatMap(spec -> createTable(spec, session))
         .subscribe();
+
+    List.of(
+        delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()),
+        downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl())
+    ).forEach(spec -> createTableSynchronized(spec, session));
   }
 
   public Mono<List<String>> render() {
@@ -101,6 +106,11 @@ public class DataTablesPopulator implements KeyspacePopulator {
   private Publisher<?> createTable(CreateTableSpecification createTableSpec,
                                    CqlSession session) {
     return session.executeReactive(CreateTableCqlGenerator.toCql(createTableSpec));
+  }
+
+  private ResultSet createTableSynchronized(CreateTableSpecification createTableSpec,
+                                            CqlSession session) {
+    return session.execute(CreateTableCqlGenerator.toCql(createTableSpec));
   }
 
   private CreateTableSpecification dataDownsampledTableSpec(Duration width, Duration ttl,
@@ -143,6 +153,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .partitionKeyColumn("partition", DataTypes.INT)
         .clusteredKeyColumn("hash", DataTypes.TEXT)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
+        .with(TableOption.COMPACTION, compactionOptions(ttl))
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
@@ -155,7 +166,8 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .clusteredKeyColumn("hash", DataTypes.TEXT)
         .column("isActive", DataTypes.BOOLEAN)
         .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
-        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
+        .with(TableOption.COMPACTION, compactionOptions(ttl))
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDelayedHashesGcGraceSeconds());
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {
