@@ -16,13 +16,10 @@
 
 package com.rackspace.ceres.app.downsample;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.stream.Collector;
 
-@Slf4j
 public class ValueSetCollectors {
 
   public static Collector<ValueSet, AggregatedValueSet, AggregatedValueSet> gaugeCollector(Duration windowSize) {
