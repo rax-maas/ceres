@@ -47,11 +47,19 @@ public class AppProperties {
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)
+  Duration downsamplingHashesCacheTtl = Duration.ofHours(1);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration downsamplingTimeslotCacheTtl = Duration.ofMinutes(5);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
   Duration delayedHashesCacheTtl = Duration.ofHours(1);
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)
-  Duration delayedTimeslotCacheTtl = Duration.ofHours(1);
+  Duration delayedTimeslotCacheTtl = Duration.ofMinutes(5);
 
   /**
    * The delay factor applied to delay regular downsampling periods to minimize delayed timeslots

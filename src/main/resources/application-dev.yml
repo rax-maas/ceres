@@ -29,8 +29,8 @@ ceres:
   raw-ttl: 1d
   downsampling-hashes-ttl: 3h
   delayed-hashes-ttl: 3h
-  delayed-hashes-cache-ttl: 1h
-  delayed-timeslot-cache-ttl: 1h
+  delayed-hashes-cache-ttl: 3h
+  delayed-timeslot-cache-ttl: 30s
   downsample-delay-factor: 1.2
 spring:
   data:

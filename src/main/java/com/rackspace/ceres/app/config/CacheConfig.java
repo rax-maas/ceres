@@ -63,8 +63,7 @@ public class CacheConfig {
     final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
-        // In case cassandra TTL kicks in, this will minimize rollup loss
-        .expireAfterWrite(Duration.ofMinutes(60))
+        .expireAfterWrite(appProperties.getDownsamplingHashesCacheTtl())
         .recordStats()
         .buildAsync();
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
@@ -76,6 +75,7 @@ public class CacheConfig {
     final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(10000)
+        .expireAfterWrite(appProperties.getDownsamplingTimeslotCacheTtl())
         .recordStats()
         .buildAsync();
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "timeslotExistenceCache");
