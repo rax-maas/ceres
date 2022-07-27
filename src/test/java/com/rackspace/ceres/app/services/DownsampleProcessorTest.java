@@ -23,13 +23,10 @@ import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
-import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.task.TaskSchedulerBuilder;
@@ -50,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 

@@ -16,33 +16,16 @@
 
 package com.rackspace.ceres.app.services;
 
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.downsample.SingleValueSet;
-import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.model.*;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.javatuples.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,8 +43,20 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles(profiles = {"test", "downsample"})
@@ -159,7 +154,7 @@ class QueryServiceTest {
     when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(Instant.now())
@@ -269,7 +264,7 @@ class QueryServiceTest {
         .thenReturn(Mono.just(metricNameAndTags));
 
     Instant instant = Instant.now();
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(instant)
@@ -287,7 +282,7 @@ class QueryServiceTest {
   }
 
   @Test
-  void testQueryDownsampledWithMetricName() throws InterruptedException {
+  void testQueryDownsampledWithMetricName() {
     final String tenant = randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
@@ -341,7 +336,7 @@ class QueryServiceTest {
   }
 
   @Test
-  void testQueryDownsampledWithMetricGroup() throws InterruptedException {
+  void testQueryDownsampledWithMetricGroup() {
     final String tenant = randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
