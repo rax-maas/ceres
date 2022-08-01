@@ -66,6 +66,8 @@ public class DownsampleProperties {
   @DurationUnit(ChronoUnit.MINUTES)
   Duration maxDownsampleJobDuration = Duration.ofMinutes(1);
 
+  Duration maxDelayedInProgress = Duration.ofHours(6);
+
   /**
    * Max time a downsampling delayed job can be locked
    */

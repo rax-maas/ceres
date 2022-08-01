@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.services;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -98,7 +99,7 @@ public class DelayedTrackingService {
     boolean isNotInProgress = true;
     if (timeslot.matches(".*in-progress")) {
       long tsLongValue = Long.parseLong(timeslot.split("\\|")[0]);
-      if (tsLongValue < (nowEpochSeconds() - appProperties.getIngestStartTime().getSeconds())) {
+      if (tsLongValue < (nowEpochSeconds() - properties.getMaxDelayedInProgress().getSeconds())) {
         // This delayed timeslot is hanging in state in-progress
         log.warn("Delayed in-progress timeslot is hanging: {} {} {}",
             partition, group, epochToLocalDateTime(tsLongValue));
