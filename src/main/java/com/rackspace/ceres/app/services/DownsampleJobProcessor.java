@@ -72,6 +72,7 @@ public class DownsampleJobProcessor {
     log.info("Start downsampling jobs");
     log.info("downsample-spread-period: {}", properties.getDownsampleSpreadPeriod().getSeconds());
     log.info("max-downsample-job-duration: {}", properties.getMaxDownsampleJobDuration().getSeconds());
+    log.info("max-delayed-in-progress: {}", properties.getMaxDelayedInProgress().getSeconds());
 
     getPartitionWidths(properties.getGranularities())
         .forEach(width -> IntStream.rangeClosed(0, properties.getPartitions() - 1)
@@ -94,7 +95,7 @@ public class DownsampleJobProcessor {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
         .flatMapMany(ts -> {
-          long timeslot = Long.parseLong(ts);
+          long timeslot = Long.parseLong(ts.split("\\|")[0]);
           log.info("Got timeslot: {} {} {}", partition, group, epochToLocalDateTime(timeslot));
           return trackingService.getDownsampleSets(timeslot, partition)
               .name("processTimeSlot")
