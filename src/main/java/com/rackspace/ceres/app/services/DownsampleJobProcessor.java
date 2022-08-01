@@ -95,7 +95,7 @@ public class DownsampleJobProcessor {
     log.trace("processTimeSlot {} {}", partition, group);
     return trackingService.getTimeSlot(partition, group)
         .flatMapMany(ts -> {
-          long timeslot = Long.parseLong(ts.split("\\|")[0]);
+          long timeslot = Long.parseLong(ts);
           log.info("Got timeslot: {} {} {}", partition, group, epochToLocalDateTime(timeslot));
           return trackingService.getDownsampleSets(timeslot, partition)
               .name("processTimeSlot")
