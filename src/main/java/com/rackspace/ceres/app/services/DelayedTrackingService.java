@@ -126,7 +126,7 @@ public class DelayedTrackingService {
     return redisTemplate.opsForSet()
         .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
-              log.info("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
+              log.debug("Deleted delayed timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
               return Mono.just(result);
             }
         );
