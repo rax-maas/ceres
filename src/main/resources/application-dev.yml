@@ -10,11 +10,13 @@ ceres:
       - width: 5m
         ttl: 6h
         partitionWidth: 5m
+      - width: 15m
+        ttl: 6h
+        partitionWidth: 15m
     partitions: 4
     initial-processing-delay: 5s
     max-downsample-job-duration: 5m
     max-downsample-delayed-job-duration: 5m
-    max-concurrent-downsample-hashes: 1
     processing-threads: 5
     downsample-spread-period: 2s
     downsample-delayed-spread-period: 10s
@@ -25,6 +27,13 @@ ceres:
   ingest-start-time: 7d
   ingest-end-time: 1d
   raw-ttl: 1d
+  downsampling-hashes-ttl: 3h
+  delayed-hashes-ttl: 3h
+  downsampling-hashes-cache-ttl: 30s
+  downsampling-timeslot-cache-ttl: 30s
+  delayed-hashes-cache-ttl: 10s
+  delayed-timeslot-cache-ttl: 10s
+  downsample-delay-factor: 1.2
 spring:
   data:
     cassandra:

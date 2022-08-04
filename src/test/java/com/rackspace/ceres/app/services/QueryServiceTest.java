@@ -16,33 +16,14 @@
 
 package com.rackspace.ceres.app.services;
 
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.downsample.SingleValueSet;
-import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
-import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbFilter;
-import com.rackspace.ceres.app.model.FilterType;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +43,20 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.util.function.Tuples;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles(profiles = {"test", "downsample"})
@@ -72,6 +67,7 @@ class QueryServiceTest {
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
       CassandraContainerSetup.DOCKER_IMAGE);
+
   @TestConfiguration
   @Import(CassandraContainerSetup.class)
   public static class TestConfig {
@@ -158,7 +154,7 @@ class QueryServiceTest {
     when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
 
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(Instant.now())
@@ -168,7 +164,7 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRaw(tenantId, metricName,"", tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+            .queryRaw(tenantId, metricName, "", tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -223,7 +219,7 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRaw(tenantId, "", metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
+            .queryRaw(tenantId, "", metricGroup, tags, Instant.now().minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getMetricName()).isEqualTo(metricName);
@@ -268,7 +264,7 @@ class QueryServiceTest {
         .thenReturn(Mono.just(metricNameAndTags));
 
     Instant instant = Instant.now();
-    Metric metric = dataWriteService.ingest(
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(instant)
@@ -278,7 +274,7 @@ class QueryServiceTest {
     ).block();
 
     StepVerifier.create(queryService
-        .queryRawWithSeriesSet(tenantId, seriesSetHash, Instant.now().minusSeconds(60), Instant.now()).collectList())
+            .queryRawWithSeriesSet(tenantId, seriesSetHash, Instant.now().minusSeconds(60), Instant.now()).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getTimestamp()).isEqualTo(instant.truncatedTo(ChronoUnit.MILLIS));
@@ -294,45 +290,43 @@ class QueryServiceTest {
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
+        "resource", "cpu-12",
         "metricGroup", metricGroup
     );
 
-    final String seriesSetHash = seriesSetService
-        .hash(metricName, tags);
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+    Instant now = Instant.now();
+    String group = "PT15M";
 
-    when(metadataService.storeMetadata(any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
+        .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
+    when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
 
-    dataWriteService.ingest(
-        tenant,
-        new Metric()
-            .setTimestamp(Instant.now())
-            .setValue(Math.random())
-            .setMetric(metricName)
-            .setTags(tags)
-    ).subscribe();
+    dataWriteService.ingest(Flux.fromIterable(List.of(
+        Tuples.of(tenant, new Metric().setTimestamp(now).setValue(1.2).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(5)).setValue(1.5).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(10)).setValue(1.1).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(15)).setValue(3.4).setMetric(metricName).setTags(tags))
+    ))).subscribe();
 
-    downsampleProcessor.downsampleData(
-        Flux.just(
-            singleValue(Instant.now().toString(), 1.2),
-            singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
-            singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
-            singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
-        ), tenant, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator()
-    ).block();
+    final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(now, group);
 
-    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(2), tags,
-        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
+    DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities()).forEach(granularity ->
+        downsampleProcessor.downsampleData(
+            new PendingDownsampleSet()
+                .setSeriesSetHash(seriesSetHash).setTenant(tenant).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
+            group,
+            granularity
+        ).subscribe()
+    );
+
+    StepVerifier.create(queryService.queryDownsampled(tenant, metricName, "", Aggregator.min, Duration.ofMinutes(15), tags,
+            now.minusSeconds(60 * 60), now.plusSeconds(24 * 60 * 60)).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
@@ -346,60 +340,48 @@ class QueryServiceTest {
     final String tenant = randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
     final String metricGroup = RandomStringUtils.randomAlphabetic(5);
-    final String resource = RandomStringUtils.randomAlphabetic(5);
-    final String monitoring_system = RandomStringUtils.randomAlphanumeric(5);
-
     final Map<String, String> tags = Map.of(
         "os", "linux",
         "host", "h-1",
         "deployment", "prod",
-        "metricGroup", metricGroup,
-        "resource", resource,
-        "monitoring_system", monitoring_system
+        "resource", "cpu-12",
+        "metricGroup", metricGroup
     );
 
-    final String seriesSetHash = seriesSetService
-        .hash(metricName, tags);
+    final String seriesSetHash = seriesSetService.hash(metricName, tags);
+    Instant now = Instant.now();
+    String group = "PT15M";
 
-    when(ingestTrackingService.track(any(), anyString(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.storeMetadata(any(), any(), any()))
-        .thenReturn(Mono.empty());
-
-    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
-        .thenReturn(Flux.just(seriesSetHash));
-
-    MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
+    when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
-        .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
+        .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
+    when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
-    dataWriteService.ingest(
-        tenant,
-        new Metric()
-            .setTimestamp(Instant.now())
-            .setValue(Math.random())
-            .setMetric(metricName)
-            .setTags(tags)
-    ).block();
+    dataWriteService.ingest(Flux.fromIterable(List.of(
+        Tuples.of(tenant, new Metric().setTimestamp(now).setValue(1.2).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(5)).setValue(1.5).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(10)).setValue(1.1).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(15)).setValue(3.4).setMetric(metricName).setTags(tags))
+    ))).subscribe();
 
-    downsampleProcessor.downsampleData(
-        Flux.just(
-            singleValue(Instant.now().toString(), 1.2),
-            singleValue(Instant.now().plusSeconds(5).toString(), 1.5),
-            singleValue(Instant.now().plusSeconds(10).toString(), 1.1),
-            singleValue(Instant.now().plusSeconds(15).toString(), 3.4)
-        ), tenant, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator()
-    ).block();
+    final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(now, group);
 
-    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(2), tags,
-        Instant.now().minusSeconds(5*60), Instant.now().plusSeconds(24*60*60)).collectList())
+    DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities()).forEach(granularity ->
+        downsampleProcessor.downsampleData(
+            new PendingDownsampleSet()
+                .setSeriesSetHash(seriesSetHash).setTenant(tenant).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
+            group,
+            granularity
+        ).subscribe()
+    );
+
+    StepVerifier.create(queryService.queryDownsampled(tenant, "", metricGroup, Aggregator.min, Duration.ofMinutes(15), tags,
+            now.minusSeconds(60 * 60), now.plusSeconds(24 * 60 * 60)).collectList())
         .assertNext(result -> {
           assertThat(result).isNotEmpty();
           assertThat(result.get(0).getData().getTenant()).isEqualTo(tenant);
@@ -410,79 +392,87 @@ class QueryServiceTest {
 
   @Test
   void testTsdbQueryDownsampled() {
-    final long epochSecondsNow = 1616686440L;
-    final long epochSecondsNowPlus2Min = 1616686440 + 120;
     final String tenant = randomAlphanumeric(10);
-    final Instant now = Instant.ofEpochSecond(epochSecondsNow);
-    final Instant start = now.minusSeconds(5 * 60);
+    final Instant now = Instant.now();
+    final Instant start = now.minusSeconds(60 * 60);
     final Instant end = now.plusSeconds(24 * 60 * 60);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
 
     final Map<String, String> tags = Map.of(
-            "host", "h-1"
+        "host", "h-1",
+        "resource", "cpu-12",
+        "metricGroup", metricGroup
     );
 
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
+    String group = "PT15M";
+    List<Granularity> granularities = DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities());
+
+    when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
+    when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
+    when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
+        .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
+    when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
+
+    dataWriteService.ingest(Flux.fromIterable(List.of(
+        Tuples.of(tenant, new Metric().setTimestamp(now).setValue(1.2).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(5)).setValue(1.5).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(10)).setValue(1.1).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(15)).setValue(3.4).setMetric(metricName).setTags(tags)),
+        Tuples.of(tenant, new Metric().setTimestamp(now.plusSeconds(15 * 60)).setValue(8.4).setMetric(metricName).setTags(tags))
+    ))).subscribe();
 
     TsdbQuery tsdbQuery = new TsdbQuery()
-            .setSeriesSet(seriesSetHash)
-            .setMetricName(metricName)
-            .setTags(tags)
-            .setGranularity(Duration.ofMinutes(2))
-            .setAggregator(Aggregator.avg);
-
-    List<Granularity> granularities = List.of(granularity(1, 12), granularity(2, 24));
+        .setSeriesSet(seriesSetHash)
+        .setMetricName(metricName)
+        .setTags(tags)
+        .setGranularity(Duration.ofMinutes(15))
+        .setAggregator(Aggregator.avg);
 
     final TsdbFilter filter = new TsdbFilter()
-            .setType(FilterType.literal_or)
-            .setTagk("host")
-            .setFilter("h-1");
+        .setType(FilterType.literal_or)
+        .setTagk("host")
+        .setFilter("h-1");
 
     final TsdbQueryRequest tsdbQueryRequest = new TsdbQueryRequest()
-            .setMetric(metricName)
-            .setDownsample("2m-avg")
-            .setFilters(List.of(filter));
+        .setMetric(metricName)
+        .setDownsample("15m-avg")
+        .setFilters(List.of(filter));
 
     when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
-    when(metadataService.getTsdbQueries(
-            List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
+    when(metadataService.getTsdbQueries(List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
+    final Long normTS1 = DateTimeUtils.normalizedTimeslot(now, group);
+    final Long normTS2 = DateTimeUtils.normalizedTimeslot(now.plusSeconds(15 * 60), group);
 
-    downsampleProcessor.downsampleData(
-            Flux.just(
-                    singleValue(now.toString(), 1.2),
-                    singleValue(now.plusSeconds(5).toString(), 1.5),
-                    singleValue(now.plusSeconds(10).toString(), 1.1),
-                    singleValue(now.plusSeconds(15).toString(), 3.4),
-                    singleValue(now.plusSeconds(200).toString(), 8.4)
-            ), tenant, seriesSetHash,
-            granularities.iterator()
-    ).subscribe();
+    granularities.forEach(granularity ->
+        List.of(normTS1, normTS2).forEach(
+            normalizedTimeslot ->
+                downsampleProcessor.downsampleData(
+                    new PendingDownsampleSet()
+                        .setSeriesSetHash(seriesSetHash).setTenant(tenant).setTimeSlot(Instant.ofEpochSecond(normalizedTimeslot)),
+                    group,
+                    granularity
+                ).subscribe()
+        )
+    );
 
     final Map<String, Double> expectedDps = Map.of(
-        Long.toString(epochSecondsNow), 1.8,
-        Long.toString(epochSecondsNowPlus2Min), 8.4
+        Long.toString(normTS1), 1.8,
+        Long.toString(normTS2), 8.4
     );
 
     StepVerifier.create(
             queryService.queryTsdb(tenant, List.of(tsdbQueryRequest), start, end, granularities).collectList())
-            .assertNext(result -> {
-              log.info("result: {}", result);
-              assertThat(result).isNotEmpty();
-              assertThat(result.get(0).getMetric()).isEqualTo(metricName);
-              assertThat(result.get(0).getTags()).isEqualTo(tags);
-              assertThat(result.get(0).getAggregatedTags()).isEqualTo(Collections.emptyList());
-              assertThat(result.get(0).getDps()).isEqualTo(expectedDps);
-            }).verifyComplete();
-  }
-
-  private ValueSet singleValue(String timestamp, double value) {
-    return new SingleValueSet()
-        .setValue(value).setTimestamp(Instant.parse(timestamp));
-  }
-
-  private Granularity granularity(int minutes, int ttlHours) {
-    return new Granularity()
-        .setWidth(Duration.ofMinutes(minutes))
-        .setTtl(Duration.ofHours(ttlHours));
+        .assertNext(result -> {
+          assertThat(result).isNotEmpty();
+          assertThat(result.get(0).getMetric()).isEqualTo(metricName);
+          assertThat(result.get(0).getTags()).isEqualTo(tags);
+          assertThat(result.get(0).getAggregatedTags()).isEqualTo(Collections.emptyList());
+          assertThat(result.get(0).getDps()).isEqualTo(expectedDps);
+        }).verifyComplete();
   }
 }

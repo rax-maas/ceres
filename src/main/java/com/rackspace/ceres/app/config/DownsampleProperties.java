@@ -66,6 +66,8 @@ public class DownsampleProperties {
   @DurationUnit(ChronoUnit.MINUTES)
   Duration maxDownsampleJobDuration = Duration.ofMinutes(1);
 
+  Duration maxDelayedInProgress = Duration.ofHours(6);
+
   /**
    * Max time a downsampling delayed job can be locked
    */
@@ -95,9 +97,6 @@ public class DownsampleProperties {
    */
   @Min(0)
   long downsampleHashCacheSize = 2000000;
-
-  @Min(1)
-  int maxConcurrentDownsampleHashes = 1;
 
   @Data
   public static class Granularity {

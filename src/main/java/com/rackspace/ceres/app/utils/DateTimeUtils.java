@@ -118,6 +118,19 @@ public class DateTimeUtils {
             .collect(Collectors.toList());
   }
 
+  public static Duration getLowerGranularity(List<Granularity> granularities, Duration width) {
+    List<Duration> durationsLowerThan =
+        granularities.stream()
+            .map(Granularity::getWidth).sorted()
+            .filter(g -> g.getSeconds() < width.getSeconds())
+            .collect(Collectors.toList());
+    if (durationsLowerThan.isEmpty()) {
+      return Duration.parse("PT0S");
+    } else {
+      return durationsLowerThan.get(durationsLowerThan.size() - 1);
+    }
+  }
+
   public static List<String> getPartitionWidths(List<Granularity> granularities) {
     return granularities.stream()
             .map(Granularity::getPartitionWidth).sorted()

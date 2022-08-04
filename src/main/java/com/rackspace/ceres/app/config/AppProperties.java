@@ -37,12 +37,44 @@ public class AppProperties {
   @DurationUnit(ChronoUnit.SECONDS)
   Duration rawTtl = Duration.ofHours(6);
 
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration downsamplingHashesTtl = Duration.ofHours(12);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration delayedHashesTtl = Duration.ofHours(12);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration downsamplingHashesCacheTtl = Duration.ofHours(1);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration downsamplingTimeslotCacheTtl = Duration.ofMinutes(5);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration delayedHashesCacheTtl = Duration.ofMinutes(5);
+
+  @NotNull
+  @DurationUnit(ChronoUnit.SECONDS)
+  Duration delayedTimeslotCacheTtl = Duration.ofMinutes(5);
+
+  /**
+   * The delay factor applied to delay regular downsampling periods to minimize delayed timeslots
+   */
+  float downsampleDelayFactor = 1.4F;
+
   /**
    * When initially creating the Cassandra data table schemas,
    * this value will be used for the expired data garbage collection.
    */
   @Min(60)
   int dataTableGcGraceSeconds = 86400;
+
+  @Min(60)
+  int delayedHashesGcGraceSeconds = 60;
 
   /**
    * The approximate number of compaction windows to declare on a newly created raw data table.

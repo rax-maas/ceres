@@ -6,6 +6,8 @@ import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,6 +81,8 @@ public class MetricDeletionServiceTest {
   DataTablesStatements dataTablesStatements;
   @MockBean
   IngestTrackingService ingestTrackingService;
+  @MockBean
+  QueryService queryService;
 
   private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
       + " AND time_slot = ?";
@@ -509,8 +513,10 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
-    //ingest data
-    Metric metric = dataWriteService.ingest(
+    String group = "PT15M";
+    final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(currentTime, group);
+
+    dataWriteService.ingest(
         tenantId,
         new Metric()
             .setTimestamp(currentTime)
@@ -519,13 +525,19 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    //wait for it to be downsampled
-    downsampleProcessor.downsampleData(
-        Flux.just(
-            singleValue(currentTime.toString(), value.doubleValue())
-        ), tenantId, seriesSetHash,
-        List.of(granularity(1, 12), granularity(2, 24)).iterator()
-    ).block();
+    when(queryService.queryRawWithSeriesSet(any(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(List.of(
+            singleValue(currentTime.toString(), value.doubleValue())))
+        );
+
+    List.of(granularity(1, 12), granularity(2, 24)).forEach(granularity ->
+        downsampleProcessor.downsampleData(
+            new PendingDownsampleSet()
+                .setTenant(tenantId).setSeriesSetHash(seriesSetHash).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
+            group,
+            granularity
+        ).subscribe()
+    );
 
     //delete its entry from data raw table
     deleteDataFromRawTable(tenantId, timeSlotPartitioner.rawTimeSlot(currentTime));

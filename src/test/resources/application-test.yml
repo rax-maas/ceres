@@ -6,15 +6,14 @@ spring:
         timeout: 5s
 ceres:
   downsample:
-    downsample-process-period: 30s
     initialProcessingDelay: 1s
     granularities:
-      - width: 1m
-        ttl: 12h
-        partitionWidth: 2h
-      - width: 2m
+      - width: 15m
         ttl: 1d
-        partitionWidth: 4h
+        partitionWidth: 15m
+      - width: 1h
+        ttl: 1d
+        partitionWidth: 1h
   tag-filter: exclude
   tag-value-limit: 10
   ingest-start-time: 7d

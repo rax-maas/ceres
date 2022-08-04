@@ -17,12 +17,9 @@
 package com.rackspace.ceres.app.config;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +34,11 @@ import org.springframework.data.cassandra.core.cql.session.init.ScriptException;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Handles the configuration-driven creation of data table schemas with corresponding table
@@ -71,9 +73,13 @@ public class DataTablesPopulator implements KeyspacePopulator {
   public void populate(CqlSession session) throws ScriptException {
     dataDownsampledTableSpecs()
         .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
-        .flatMap(spec -> createTable(spec, session))
-            .flatMap( spec -> createTable(downsamplingHashesTableSpec(appProperties.getRawTtl()), session))
+        .concatMap(spec -> createTable(spec, session))
         .subscribe();
+
+    List.of(
+        delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()),
+        downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl())
+    ).forEach(spec -> createTableSynchronized(spec, session));
   }
 
   public Mono<List<String>> render() {
@@ -98,6 +104,11 @@ public class DataTablesPopulator implements KeyspacePopulator {
   private Publisher<?> createTable(CreateTableSpecification createTableSpec,
                                    CqlSession session) {
     return session.executeReactive(CreateTableCqlGenerator.toCql(createTableSpec));
+  }
+
+  private ResultSet createTableSynchronized(CreateTableSpecification createTableSpec,
+                                            CqlSession session) {
+    return session.execute(CreateTableCqlGenerator.toCql(createTableSpec));
   }
 
   private CreateTableSpecification dataDownsampledTableSpec(Duration width, Duration ttl,
@@ -134,13 +145,27 @@ public class DataTablesPopulator implements KeyspacePopulator {
   }
 
   private CreateTableSpecification downsamplingHashesTableSpec(Duration ttl) {
-    log.info("creating downsampling_hashes table");
     return CreateTableSpecification
-            .createTable("downsampling_hashes")
-            .ifNotExists()
-            .partitionKeyColumn("partition", DataTypes.INT)
-            .clusteredKeyColumn("hash", DataTypes.TEXT)
-            .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false);
+        .createTable("downsampling_hashes")
+        .ifNotExists()
+        .partitionKeyColumn("partition", DataTypes.INT)
+        .clusteredKeyColumn("hash", DataTypes.TEXT)
+        .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
+        .with(TableOption.COMPACTION, compactionOptions(ttl))
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
+  }
+
+  private CreateTableSpecification delayedDownsamplingHashesTableSpec(Duration ttl) {
+    return CreateTableSpecification
+        .createTable("delayed_hashes")
+        .ifNotExists()
+        .partitionKeyColumn("partition", DataTypes.INT)
+        .partitionKeyColumn("group", DataTypes.TEXT)
+        .clusteredKeyColumn("hash", DataTypes.TEXT)
+        .column("isActive", DataTypes.BOOLEAN)
+        .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
+        .with(TableOption.COMPACTION, compactionOptions(ttl))
+        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDelayedHashesGcGraceSeconds());
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {

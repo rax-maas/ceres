@@ -16,6 +16,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
@@ -31,18 +32,19 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 @SpringBootTest(classes = {
     RedisAutoConfiguration.class
 })
-@EnableConfigurationProperties(DownsampleProperties.class)
+@EnableConfigurationProperties({DownsampleProperties.class, AppProperties.class})
 @ActiveProfiles(profiles = {"test"})
 class DownsampleTrackingServiceTest {
   @Autowired
   DownsampleProperties properties;
+  @Autowired
+  AppProperties appProperties;
   @MockBean
   ReactiveCqlTemplate cqlTemplate;
   @MockBean
@@ -52,13 +54,12 @@ class DownsampleTrackingServiceTest {
 
   @Test
   public void isTimeslotDue() {
-    Long t1 = DateTimeUtils.normalizedTimeslot(Instant.now(), "PT15M");
-    long partitionWidth = Duration.parse("PT15M").getSeconds();
+    Long t1 = DateTimeUtils.normalizedTimeslot(Instant.now(), "PT5M");
     DownsampleTrackingService downsampleTrackingService =
-        new DownsampleTrackingService(redisTemplate, redisGetJob, properties, cqlTemplate);
-    Assertions.assertFalse(downsampleTrackingService.isTimeslotDue(t1.toString(), partitionWidth));
-    Long t2 = DateTimeUtils.normalizedTimeslot(Instant.now().minus(15, ChronoUnit.MINUTES), "PT15M");
-    Assertions.assertTrue(downsampleTrackingService.isTimeslotDue(t2.toString(), partitionWidth));
+        new DownsampleTrackingService(redisTemplate, redisGetJob, properties, appProperties, cqlTemplate);
+    Assertions.assertFalse(downsampleTrackingService.isTimeslotDue(t1.toString(), "PT5M"));
+    Long t2 = DateTimeUtils.normalizedTimeslot(Instant.now().minus(10, ChronoUnit.MINUTES), "PT5M");
+    Assertions.assertTrue(downsampleTrackingService.isTimeslotDue(t2.toString(), "PT5M"));
   }
 
   @Test

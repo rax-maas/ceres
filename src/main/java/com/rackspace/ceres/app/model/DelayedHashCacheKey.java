@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Rackspace US, Inc.
+ * Copyright 2022 Rackspace US, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,13 @@
  * limitations under the License.
  */
 
-package com.rackspace.ceres.app.downsample;
+package com.rackspace.ceres.app.model;
 
-import java.time.Duration;
-import java.time.Instant;
 import lombok.Data;
 
 @Data
-public class DataDownsampled {
-  String tenant;
-  String seriesSetHash;
-  Duration granularity;
-  Instant ts;
-  double min;
-  double max;
-  double sum;
-  double avg;
-  int count;
+public class DelayedHashCacheKey {
+  final Integer partition;
+  final String group;
+  final String hash;
 }

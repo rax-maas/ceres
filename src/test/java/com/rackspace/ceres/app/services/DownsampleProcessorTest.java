@@ -20,6 +20,8 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.config.StringToIntegerSetConverter;
 import com.rackspace.ceres.app.downsample.*;
+import com.rackspace.ceres.app.helper.MetricDeletionHelper;
+import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.services.DownsampleProcessorTest.TestConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -45,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -68,6 +69,8 @@ class DownsampleProcessorTest {
       return new TaskSchedulerBuilder().build();
     }
   }
+  @MockBean
+  MetricDeletionHelper metricDeletionHelper;
 
   @MockBean
   DownsampleTrackingService downsampleTrackingService;
@@ -100,48 +103,35 @@ class DownsampleProcessorTest {
   DownsampleProperties downsampleProperties;
 
   @Captor
-  ArgumentCaptor<Flux<DataDownsampled>> dataDownsampledCaptor;
+  ArgumentCaptor<Flux<AggregatedValueSet>> dataDownsampledCaptor;
 
   @Test
   void aggregateSomeRawData() {
-    when(dataWriteService.storeDownsampledData(any()))
-        .thenReturn(Mono.empty());
+    when(dataWriteService.storeDownsampledData(any(), any(), any())).thenReturn(Mono.empty());
+    when(queryService.queryRawWithSeriesSet(any(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(List.of(
+            singleValue("2007-12-03T10:01:23.00Z", 1.0),
+            singleValue("2007-12-03T10:04:23.00Z", 1.2),
+            singleValue("2007-12-03T10:14:23.00Z", 1.4)))
+        );
 
     final String tenant = randomAlphanumeric(10);
     final String seriesSet = randomAlphanumeric(10) + ",host=h-1";
 
-    StepVerifier.create(downsampleProcessor.downsampleData(
-                Flux.just(
-                    singleValue("2007-12-03T10:01:23.00Z", 1.2),
-                    singleValue("2007-12-03T10:16:11.00Z", 1.5),
-                    singleValue("2007-12-03T10:31:21.00Z", 1.1),
-                    singleValue("2007-12-03T10:47:01.00Z", 3.4)
-                ), tenant, seriesSet,
-                List.of(granularity(15, 12), granularity(60, 24)).iterator()
-            )
-        )
-        .verifyComplete();
+    StepVerifier.create(
+        downsampleProcessor.downsampleData(
+            new PendingDownsampleSet()
+                .setSeriesSetHash(seriesSet).setTenant(tenant).setTimeSlot(Instant.parse("2007-12-03T10:00:00.00Z")),
+            "PT15M",
+            granularity(15, 12))
+    ).verifyComplete();
 
-    verify(dataWriteService, times(2)).storeDownsampledData(dataDownsampledCaptor.capture());
+    verify(dataWriteService, times(1))
+        .storeDownsampledData(dataDownsampledCaptor.capture(), any(), any());
 
     StepVerifier.create(dataDownsampledCaptor.getAllValues().get(0))
         .expectNext(
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 15, 1.2, 1.2, 1.2, 1.2, 1)
-        )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:15:00.00Z", tenant, seriesSet, 15, 1.5, 1.5, 1.5, 1.5, 1)
-        )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:30:00.00Z", tenant, seriesSet, 15, 1.1, 1.1, 1.1, 1.1, 1)
-        )
-        .expectNext(
-            dataDownsampled("2007-12-03T10:45:00.00Z", tenant, seriesSet, 15, 3.4, 3.4, 3.4, 3.4, 1)
-        )
-        .verifyComplete();
-
-    StepVerifier.create(dataDownsampledCaptor.getAllValues().get(1))
-        .expectNext(
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 60, 1.1, 3.4, 7.2, 1.8, 4)
+            aggregatedValueSet("2007-12-03T10:00:00.00Z", 15, 3.6, 1.0, 1.4, 1.2, 3)
         )
         .verifyComplete();
 
@@ -149,31 +139,38 @@ class DownsampleProcessorTest {
   }
 
   @Test
-  void aggregateOneRawData() {
-    when(dataWriteService.storeDownsampledData(any()))
-        .thenReturn(Mono.empty());
+  void aggregateOverTwoTimeslots() {
+    when(dataWriteService.storeDownsampledData(any(), any(), any())).thenReturn(Mono.empty());
+    when(queryService.queryRawWithSeriesSet(any(), any(), any(), any()))
+        .thenReturn(Flux.fromIterable(List.of(
+            singleValue("2007-12-03T10:01:23.00Z", 1.0),
+            singleValue("2007-12-03T10:04:23.00Z", 1.2),
+            singleValue("2007-12-03T10:14:23.00Z", 1.4),
+            singleValue("2007-12-03T10:16:23.00Z", 1.6)))
+        );
 
     final String tenant = randomAlphanumeric(10);
     final String seriesSet = randomAlphanumeric(10) + ",host=h-1";
 
-    StepVerifier.create(downsampleProcessor.downsampleData(
-        Flux.just(singleValue("2007-12-03T10:01:23.00Z", 1.2)), tenant, seriesSet,
-                List.of(granularity(1, 12), granularity(2, 24)).iterator()))
+    StepVerifier.create(
+        downsampleProcessor.downsampleData(
+            new PendingDownsampleSet()
+                .setSeriesSetHash(seriesSet).setTenant(tenant).setTimeSlot(Instant.parse("2007-12-03T10:00:00.00Z")),
+            "PT30M",
+            granularity(15, 12))
+    ).verifyComplete();
+
+    verify(dataWriteService, times(1))
+        .storeDownsampledData(dataDownsampledCaptor.capture(), any(), any());
+
+    StepVerifier.create(dataDownsampledCaptor.getAllValues().get(0))
+        .expectNext(
+            aggregatedValueSet("2007-12-03T10:00:00.00Z", 15, 3.6, 1.0, 1.4, 1.2, 3)
+        )
+        .expectNext(
+            aggregatedValueSet("2007-12-03T10:15:00.00Z", 15, 1.6, 1.6, 1.6, 1.6, 1)
+        )
         .verifyComplete();
-
-    verify(dataWriteService, times(2)).storeDownsampledData(dataDownsampledCaptor.capture());
-
-    assertThat(dataDownsampledCaptor.getAllValues().get(0).toIterable())
-        .containsExactly(
-            // normalized to the 1-minute slot at 10:01
-            // all values match since aggregate of single value is the value
-            dataDownsampled("2007-12-03T10:01:00.00Z", tenant, seriesSet, 1, 1.2, 1.2, 1.2, 1.2, 1)
-        );
-    assertThat(dataDownsampledCaptor.getAllValues().get(1).toIterable())
-        .containsExactly(
-            // same values, just normalized down to the 2-minute slot at 10:00
-            dataDownsampled("2007-12-03T10:00:00.00Z", tenant, seriesSet, 2, 1.2, 1.2, 1.2, 1.2, 1)
-        );
 
     verifyNoMoreInteractions(dataWriteService);
   }
@@ -184,22 +181,23 @@ class DownsampleProcessorTest {
         .setTtl(Duration.ofHours(ttlHours));
   }
 
-  private DataDownsampled dataDownsampled(String timestamp, String tenant, String seriesSet,
-                                          int gMin, double min, double max, double sum, double avg, int count) {
-    return new DataDownsampled()
-        .setTs(Instant.parse(timestamp))
-        .setTenant(tenant)
-        .setSeriesSetHash(seriesSet)
-        .setGranularity(Duration.ofMinutes(gMin))
+  private AggregatedValueSet aggregatedValueSet(String timestamp, long granularityMinutes,
+                                                double sum, double min, double max,
+                                                double avg, int count) {
+    final AggregatedValueSet aggregatedValueSet = new AggregatedValueSet()
+        .setGranularity(Duration.ofMinutes(granularityMinutes))
         .setMin(min)
         .setMax(max)
         .setSum(sum)
-        .setAvg(avg)
+        .setAverage(avg)
         .setCount(count);
+    aggregatedValueSet
+        .setTimestamp(Instant.parse(timestamp));
+    return aggregatedValueSet;
   }
 
   private ValueSet singleValue(String timestamp, double value) {
-    return new SingleValueSet()
-        .setValue(value).setTimestamp(Instant.parse(timestamp));
+    return new SingleValueSet().setValue(value).setTimestamp(Instant.parse(timestamp));
   }
+
 }

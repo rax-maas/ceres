@@ -18,6 +18,7 @@ package com.rackspace.ceres.app.config;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.rackspace.ceres.app.model.DelayedHashCacheKey;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.TimeslotCacheKey;
@@ -27,6 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.time.Duration;
 
 @Configuration
 public class CacheConfig {
@@ -51,10 +54,7 @@ public class CacheConfig {
         .maximumSize(appProperties.getSeriesSetCacheSize())
         .recordStats()
         .buildAsync();
-
-    // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "seriesSetExistence");
-
     return cache;
   }
 
@@ -63,9 +63,9 @@ public class CacheConfig {
     final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(downsampleProperties.getDownsampleHashCacheSize())
+        .expireAfterWrite(appProperties.getDownsamplingHashesCacheTtl())
         .recordStats()
         .buildAsync();
-    // hook up to micrometer since we're not going through Spring Cache
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "downsampleHashExistenceCache");
     return cache;
   }
@@ -75,9 +75,35 @@ public class CacheConfig {
     final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(10000)
+        .expireAfterWrite(appProperties.getDownsamplingTimeslotCacheTtl())
         .recordStats()
         .buildAsync();
     CaffeineCacheMetrics.monitor(meterRegistry, cache, "timeslotExistenceCache");
+    return cache;
+  }
+
+  @Bean
+  public AsyncCache<DelayedHashCacheKey, Boolean> delayedDownsampleHashExistenceCache() {
+    final AsyncCache<DelayedHashCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(400000)
+        .expireAfterWrite(appProperties.getDelayedHashesCacheTtl())
+        .recordStats()
+        .buildAsync();
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "delayedDownsampleHashExistenceCache");
+    return cache;
+  }
+
+  @Bean
+  public AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache() {
+    final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
+        .newBuilder()
+        .maximumSize(10000)
+        // Expiration to allow for repeated updates of the same timeslot
+        .expireAfterWrite(appProperties.getDelayedTimeslotCacheTtl())
+        .recordStats()
+        .buildAsync();
+    CaffeineCacheMetrics.monitor(meterRegistry, cache, "delayedTimeslotExistenceCache");
     return cache;
   }
 }

@@ -25,6 +25,7 @@ import com.rackspace.ceres.app.services.DataTablesStatements;
 import com.rackspace.ceres.app.services.TimeSlotPartitioner;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -32,6 +33,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 
+@Slf4j
 @Component
 public class MetricDeletionHelper {
 
@@ -156,6 +158,15 @@ public class MetricDeletionHelper {
       Instant timeSlot) {
     return cqlTemplate
         .execute(query, tenant, timeSlot)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
+        .retryWhen(appProperties.getRetryDelete().build());
+  }
+
+  public Mono<Boolean> deleteDelayedHash(int partition, String group, String hash) {
+    final String UPDATE_DELAYED_HASH =
+        "UPDATE delayed_hashes SET isActive = false WHERE partition = %d AND group = '%s' AND hash = '%s'";
+    final String sqlStatement = String.format(UPDATE_DELAYED_HASH, partition, group, hash);
+    return cqlTemplate.execute(sqlStatement)
         .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());
   }

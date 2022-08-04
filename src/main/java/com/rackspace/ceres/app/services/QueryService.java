@@ -16,21 +16,20 @@
 
 package com.rackspace.ceres.app.services;
 
-import static java.util.Objects.requireNonNull;
-
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.downsample.SingleValueSet;
-import com.rackspace.ceres.app.downsample.ValueSet;
-import com.rackspace.ceres.app.model.Metadata;
-import com.rackspace.ceres.app.model.QueryData;
-import com.rackspace.ceres.app.model.QueryResult;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.model.TsdbQueryResult;
+import com.rackspace.ceres.app.downsample.*;
+import com.rackspace.ceres.app.model.*;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -40,13 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import static java.util.Objects.requireNonNull;
 
 @Service
 @Slf4j
@@ -109,6 +102,34 @@ public class QueryService {
                 .metrics()
                 .retryWhen(appProperties.getRetryQueryForDownsample().build())
                 .map(row -> new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0)))
+                .doOnError(e -> dbOperationErrorsCounter.increment())
+        )
+        .checkpoint();
+  }
+
+  public Flux<ValueSet> queryDownsampled(
+      String tenant, String seriesSet, Instant start, Instant end, Duration granularity) {
+    return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
+        .concatMap(timeSlot ->
+            cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
+                    tenant,
+                    timeSlot,
+                    seriesSet,
+                    start,
+                    end)
+                .name("queryDownsampledWithSeriesSet")
+                .metrics()
+                .retryWhen(appProperties.getRetryQueryForDownsample().build())
+                .map(row -> // TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
+                    new AggregatedValueSet()
+                        .setMin(row.getDouble(1))
+                        .setMax(row.getDouble(2))
+                        .setSum(row.getDouble(3))
+                        .setAverage(row.getDouble(4))
+                        .setCount(row.getInt(5))
+                        .setGranularity(granularity)
+                        .setTimestamp(row.getInstant(0))
+                )
                 .doOnError(e -> dbOperationErrorsCounter.increment())
         )
         .checkpoint();

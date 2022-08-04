@@ -36,7 +36,6 @@ public class DataTablesStatements {
   public static final String TENANT = "tenant";
   public static final String TIME_PARTITION_SLOT = "time_slot";
   public static final String SERIES_SET_HASH = "series_set_hash";
-  public static final String AGGREGATOR = "aggregator";
   public static final String TIMESTAMP = "ts";
   public static final String MIN = "min";
   public static final String MAX = "max";
