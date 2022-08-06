@@ -18,9 +18,11 @@ package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
 
 @Service
 @Slf4j
@@ -49,6 +52,8 @@ public class QueryService {
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
+  private final DownsampleProperties properties;
+  private final DataWriteService dataWriteService;
   private final Counter dbOperationErrorsCounter;
 
   @Autowired
@@ -56,12 +61,17 @@ public class QueryService {
                       MetadataService metadataService,
                       DataTablesStatements dataTablesStatements,
                       TimeSlotPartitioner timeSlotPartitioner,
-                      AppProperties appProperties, MeterRegistry meterRegistry) {
+                      AppProperties appProperties,
+                      DownsampleProperties properties,
+                      DataWriteService dataWriteService,
+                      MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.appProperties = appProperties;
+    this.properties = properties;
+    this.dataWriteService = dataWriteService;
     dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "read");
   }
@@ -151,23 +161,34 @@ public class QueryService {
                                                 Aggregator aggregator, Duration granularity,
                                                 Map<String, String> queryTags, Instant start,
                                                 Instant end) {
-    // given the queryTags filter, locate the series-set that apply
+    Duration group = DateTimeUtils.getPartitionWidth(this.properties.getGranularities(), granularity);
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-        // then perform a retrieval for each series-set
-        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
-            // over each time slot partition of the [start,end) range
-            Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
-                .concatMap(timeSlot ->
-                    cqlTemplate.queryForRows(
-                            dataTablesStatements.downsampleQuery(granularity),
-                            tenant, timeSlot, seriesSet, start, end
-                        )
-                        .doOnError(e ->
-                            dbOperationErrorsCounter.increment())
-                        .name("queryDownsampled")
-                        .metrics()
-                ), buildMetaData(aggregator, start, end, granularity)
-        ));
+        // Downsample until the end to ensure all possible data points
+        .flatMap(hash -> Flux.fromIterable(getTimeslots(end, group))
+            .flatMap(timeslot -> downsampleData(
+                new PendingDownsampleSet()
+                    .setTimeSlot(timeslot)
+                    .setTenant(tenant)
+                    .setSeriesSetHash(hash), group.toString(), granularity))
+        ).thenMany(
+            // given the queryTags filter, locate the series-set that apply
+            metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
+                // then perform a retrieval for each series-set
+                .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
+                    // over each time slot partition of the [start,end) range
+                    Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
+                        .concatMap(timeSlot ->
+                            cqlTemplate.queryForRows(
+                                    dataTablesStatements.downsampleQuery(granularity),
+                                    tenant, timeSlot, seriesSet, start, end
+                                )
+                                .doOnError(e ->
+                                    dbOperationErrorsCounter.increment())
+                                .name("queryDownsampled")
+                                .metrics()
+                        ), buildMetaData(aggregator, start, end, granularity)
+                ))
+        );
   }
 
   public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
@@ -270,5 +291,44 @@ public class QueryService {
         .setStartTime(startTime)
         .setEndTime(endTime)
         .setGranularity(granularity);
+  }
+
+  private List<Instant> getTimeslots(Instant end, Duration group) {
+    Instant timeslot = DateTimeUtils.normalize(Instant.now(), group.toString());
+    if (end.isAfter(timeslot.minusSeconds(2 * group.getSeconds()))) {
+      return List.of(
+          timeslot.minusSeconds(2 * group.getSeconds()),
+          timeslot.minusSeconds(group.getSeconds())
+      );
+    }
+    return List.of();
+  }
+
+  public Mono<?> downsampleData(PendingDownsampleSet pendingSet, String group, Duration width) {
+    final Flux<AggregatedValueSet> aggregated = fetchData(pendingSet, group, width)
+        .windowUntilChanged(valueSet ->
+            valueSet.getTimestamp().with(new TemporalNormalizer(width)), Instant::equals)
+        .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(width)));
+
+    return dataWriteService.storeDownsampledData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash())
+        .checkpoint();
+  }
+
+  private Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Duration granularity) {
+    Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity);
+    return isLowerGranularityRaw(lowerWidth) ?
+        queryRawWithSeriesSet(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group))
+        )
+        :
+        queryDownsampled(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group)),
+            lowerWidth);
   }
 }

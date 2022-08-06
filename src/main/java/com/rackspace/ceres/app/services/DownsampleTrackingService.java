@@ -97,7 +97,7 @@ public class DownsampleTrackingService {
   public Mono<?> deleteTimeslot(Integer partition, String group, Long timeslot) {
     return redisTemplate.opsForSet().remove(encodeTimeslotKey(partition, group), timeslot.toString())
         .flatMap(result -> {
-              log.debug("Deleted timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
+              log.trace("Deleted timeslot result: {}, {} {} {}", result, partition, group, epochToLocalDateTime(timeslot));
               return Mono.just(result);
             }
         );
