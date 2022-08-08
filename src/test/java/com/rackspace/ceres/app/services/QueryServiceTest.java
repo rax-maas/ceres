@@ -106,7 +106,8 @@ class QueryServiceTest {
 
   @Autowired
   DownsampleProcessor downsampleProcessor;
-
+  @Autowired
+  DownsamplingService downsamplingService;
   @Autowired
   DownsampleProperties downsampleProperties;
 
@@ -315,13 +316,16 @@ class QueryServiceTest {
     ))).subscribe();
 
     final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(now, group);
+    final PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+        .setSeriesSetHash(seriesSetHash)
+        .setTenant(tenant)
+        .setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot));
 
     DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities()).forEach(granularity ->
-        downsampleProcessor.downsampleData(
-            new PendingDownsampleSet()
-                .setSeriesSetHash(seriesSetHash).setTenant(tenant).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
-            group,
-            granularity
+        this.downsamplingService.downsampleData(
+            pendingSet,
+            granularity.getWidth(),
+            queryService.fetchData(pendingSet, group, granularity.getWidth(), false)
         ).subscribe()
     );
 
@@ -370,13 +374,15 @@ class QueryServiceTest {
     ))).subscribe();
 
     final Long normalizedTimeSlot = DateTimeUtils.normalizedTimeslot(now, group);
-
+    final PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+        .setSeriesSetHash(seriesSetHash)
+        .setTenant(tenant)
+        .setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot));
     DateTimeUtils.filterGroupGranularities(group, downsampleProperties.getGranularities()).forEach(granularity ->
-        downsampleProcessor.downsampleData(
-            new PendingDownsampleSet()
-                .setSeriesSetHash(seriesSetHash).setTenant(tenant).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
-            group,
-            granularity
+        this.downsamplingService.downsampleData(
+            pendingSet,
+            granularity.getWidth(),
+            queryService.fetchData(pendingSet, group, granularity.getWidth(), false)
         ).subscribe()
     );
 
@@ -445,24 +451,30 @@ class QueryServiceTest {
 
     when(metadataService.locateSeriesSetHashesFromQuery(any(), any())).thenReturn(Flux.just(tsdbQuery));
     when(metadataService.getTsdbQueries(List.of(tsdbQueryRequest), granularities)).thenReturn(Flux.just(tsdbQuery));
-    final Long normTS1 = DateTimeUtils.normalizedTimeslot(now, group);
-    final Long normTS2 = DateTimeUtils.normalizedTimeslot(now.plusSeconds(15 * 60), group);
+
+    final Instant normTS1 = Instant.ofEpochSecond(DateTimeUtils.normalizedTimeslot(now, group));
+    final Instant normTS2 = Instant.ofEpochSecond(DateTimeUtils.normalizedTimeslot(now.plusSeconds(15 * 60), group));
+
+    PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+        .setSeriesSetHash(seriesSetHash)
+        .setTenant(tenant)
+        .setTimeSlot(Instant.now());
 
     granularities.forEach(granularity ->
-        List.of(normTS1, normTS2).forEach(
-            normalizedTimeslot ->
-                downsampleProcessor.downsampleData(
-                    new PendingDownsampleSet()
-                        .setSeriesSetHash(seriesSetHash).setTenant(tenant).setTimeSlot(Instant.ofEpochSecond(normalizedTimeslot)),
-                    group,
-                    granularity
-                ).subscribe()
+        List.of(normTS1, normTS2).forEach(timeslot ->
+            this.downsamplingService.downsampleData(
+                pendingSet.setTimeSlot(timeslot),
+                granularity.getWidth(),
+                queryService.fetchData(
+                    pendingSet.setTimeSlot(timeslot),
+                    group, granularity.getWidth(), false)
+            ).subscribe()
         )
     );
 
     final Map<String, Double> expectedDps = Map.of(
-        Long.toString(normTS1), 1.8,
-        Long.toString(normTS2), 8.4
+        String.valueOf(normTS1.getEpochSecond()), 1.8,
+        String.valueOf(normTS2.getEpochSecond()), 8.4
     );
 
     StepVerifier.create(

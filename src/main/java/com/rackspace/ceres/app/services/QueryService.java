@@ -53,7 +53,7 @@ public class QueryService {
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
   private final DownsampleProperties properties;
-  private final DataWriteService dataWriteService;
+  private final DownsamplingService downsamplingService;
   private final Counter dbOperationErrorsCounter;
 
   @Autowired
@@ -63,7 +63,7 @@ public class QueryService {
                       TimeSlotPartitioner timeSlotPartitioner,
                       AppProperties appProperties,
                       DownsampleProperties properties,
-                      DataWriteService dataWriteService,
+                      DownsamplingService downsamplingService,
                       MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
@@ -71,9 +71,8 @@ public class QueryService {
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.appProperties = appProperties;
     this.properties = properties;
-    this.dataWriteService = dataWriteService;
-    dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
-        "type", "read");
+    this.downsamplingService = downsamplingService;
+    this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors", "type", "read");
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
@@ -165,11 +164,14 @@ public class QueryService {
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // Downsample until the end to ensure all possible data points
         .flatMap(hash -> Flux.fromIterable(getTimeslots(end, group))
-            .flatMap(timeslot -> downsampleData(
-                new PendingDownsampleSet()
-                    .setTimeSlot(timeslot)
-                    .setTenant(tenant)
-                    .setSeriesSetHash(hash), group.toString(), granularity))
+            .flatMap(timeslot -> {
+              PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+                  .setTimeSlot(timeslot)
+                  .setTenant(tenant)
+                  .setSeriesSetHash(hash);
+              Flux<ValueSet> data = fetchData(pendingSet, group.toString(), granularity, false);
+              return this.downsamplingService.downsampleData(pendingSet, granularity, data);
+            })
         ).thenMany(
             // given the queryTags filter, locate the series-set that apply
             metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
@@ -204,6 +206,24 @@ public class QueryService {
                         query.getSeriesSet(), timeSlot))
         ))
         .checkpoint();
+  }
+
+  public Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Duration granularity, boolean redoOld) {
+    Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity);
+    return isLowerGranularityRaw(lowerWidth) ?
+        queryRawWithSeriesSet(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group))
+        )
+        :
+        queryDownsampled(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            redoOld ? set.getTimeSlot().minus(Duration.parse(group)) : set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group)),
+            lowerWidth);
   }
 
   private Flux<Row> queryForRows(
@@ -302,33 +322,5 @@ public class QueryService {
       );
     }
     return List.of();
-  }
-
-  public Mono<?> downsampleData(PendingDownsampleSet pendingSet, String group, Duration width) {
-    final Flux<AggregatedValueSet> aggregated = fetchData(pendingSet, group, width)
-        .windowUntilChanged(valueSet ->
-            valueSet.getTimestamp().with(new TemporalNormalizer(width)), Instant::equals)
-        .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(width)));
-
-    return dataWriteService.storeDownsampledData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash())
-        .checkpoint();
-  }
-
-  private Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Duration granularity) {
-    Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity);
-    return isLowerGranularityRaw(lowerWidth) ?
-        queryRawWithSeriesSet(
-            set.getTenant(),
-            set.getSeriesSetHash(),
-            set.getTimeSlot(),
-            set.getTimeSlot().plus(Duration.parse(group))
-        )
-        :
-        queryDownsampled(
-            set.getTenant(),
-            set.getSeriesSetHash(),
-            set.getTimeSlot(),
-            set.getTimeSlot().plus(Duration.parse(group)),
-            lowerWidth);
   }
 }
