@@ -160,7 +160,7 @@ public class QueryService {
                                                 Aggregator aggregator, Duration granularity,
                                                 Map<String, String> queryTags, Instant start,
                                                 Instant end) {
-    Duration group = DateTimeUtils.getPartitionWidth(this.properties.getGranularities(), granularity);
+    Duration group = getPartitionWidth(this.properties.getGranularities(), granularity);
     return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
         // Downsample until the end to ensure all possible data points
         .flatMap(hash -> Flux.fromIterable(getTimeslots(end, group))
