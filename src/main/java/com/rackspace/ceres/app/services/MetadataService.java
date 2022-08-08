@@ -146,6 +146,9 @@ public class MetadataService {
 
   public Mono<?> updateMetricGroupAddMetricName(
       String tenant, String metricGroup, String metricName, String updatedAt) {
+    if(metricGroup == null || metricGroup.isEmpty()) {
+      return Mono.empty();
+    }
     return cqlTemplate.execute(String.format(
         UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, updatedAt, tenant, metricGroup))
         .doOnError(e -> writeDbOperationErrorsCounter.increment());
@@ -445,6 +448,9 @@ public class MetadataService {
 
   public Mono<Boolean> updateDeviceAddMetricName(
       String tenant, String device, String metricName, String updatedAt) {
+    if(device == null || device.isEmpty()) {
+      return Mono.just(false);
+    }
     return cqlTemplate.execute(String.format(
         UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device))
         .doOnError(e -> writeDbOperationErrorsCounter.increment());

@@ -100,11 +100,6 @@ public class DataWriteService {
   }
 
   private void validateMetric(Metric metric) {
-    String metricGroupTag = metric.getTags().get(LABEL_METRIC_GROUP);
-    String resourceTag = metric.getTags().get(LABEL_RESOURCE);
-    if (!StringUtils.hasText(metricGroupTag) || !StringUtils.hasText(resourceTag)) {
-      throw new ServerWebInputException("metricGroup tag and resource tag must be present");
-    }
     if (!isValidTimestamp(metric)) {
       throw new ServerWebInputException("Metric timestamp is out of bounds");
     }
