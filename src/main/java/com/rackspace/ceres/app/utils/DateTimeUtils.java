@@ -131,12 +131,12 @@ public class DateTimeUtils {
     }
   }
 
-  public static Duration getPartitionWidth(List<Granularity> granularities, Duration granularity) {
-    List<Duration> groups = granularities.stream()
-        .filter(g -> g.getWidth().equals(granularity))
-        .map(Granularity::getPartitionWidth)
-        .collect(Collectors.toList());
-    return groups.get(0);
+  public static Duration getPartitionWidth(List<Granularity> granularities, Duration width) {
+    return granularities.stream()
+        .filter(granularity -> granularity.getWidth().equals(width))
+        .findFirst()
+        .orElseThrow()
+        .getPartitionWidth();
   }
 
   public static List<String> getPartitionWidths(List<Granularity> granularities) {
