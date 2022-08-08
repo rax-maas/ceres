@@ -136,8 +136,6 @@ public class MetadataServiceCachingTest {
             .setType(SuggestType.TAGV)
             .setData(tagV)
     );
-    verify(cqlTemplate).execute(matches("UPDATE metric_groups SET metric_names"));
-    verify(cqlTemplate).execute(matches("UPDATE devices SET metric_names = metric_names"));
     verify(cassandraTemplate).exists(any(Query.class), any(Class.class));
     verifyNoMoreInteractions(cqlTemplate, cassandraTemplate);
   }
