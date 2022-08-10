@@ -21,6 +21,5 @@ import lombok.Data;
 @Data
 public class DelayedHashCacheKey {
   final Integer partition;
-  final String group;
   final String hash;
 }

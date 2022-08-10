@@ -55,7 +55,7 @@ public class AppProperties {
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)
-  Duration delayedHashesCacheTtl = Duration.ofMinutes(5);
+  Duration delayedHashesCacheTtl = Duration.ofHours(1);
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)

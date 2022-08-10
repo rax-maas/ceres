@@ -162,10 +162,10 @@ public class MetricDeletionHelper {
         .retryWhen(appProperties.getRetryDelete().build());
   }
 
-  public Mono<Boolean> deleteDelayedHash(int partition, String group, String hash) {
-    final String UPDATE_DELAYED_HASH =
-        "UPDATE delayed_hashes SET isActive = false WHERE partition = %d AND group = '%s' AND hash = '%s'";
-    final String sqlStatement = String.format(UPDATE_DELAYED_HASH, partition, group, hash);
+  public Mono<Boolean> deleteDelayedHashes(int partition) {
+    log.trace("Deleting delayed hashes for partition {}", partition);
+    final String UPDATE_DELAYED_HASH = "UPDATE delayed_hashes SET isActive = false WHERE partition = %d IF EXISTS";
+    final String sqlStatement = String.format(UPDATE_DELAYED_HASH, partition);
     return cqlTemplate.execute(sqlStatement)
         .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete().build());

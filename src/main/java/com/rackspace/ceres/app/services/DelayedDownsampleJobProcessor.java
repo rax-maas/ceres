@@ -16,19 +16,24 @@
 package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
+import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
-import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.getPartitionWidths;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.randomDelay;
+import static com.rackspace.ceres.app.services.DelayedTrackingService.buildDelayedPending;
 
 @Service
 @Slf4j
@@ -38,16 +43,19 @@ public class DelayedDownsampleJobProcessor {
   private final DelayedTrackingService delayedTrackingService;
   private final ScheduledExecutorService executor;
   private final DownsampleProcessor downsampleProcessor;
+  private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public DelayedDownsampleJobProcessor(DownsampleProperties properties,
                                        DelayedTrackingService delayedTrackingService,
                                        ScheduledExecutorService executor,
-                                       DownsampleProcessor downsampleProcessor) {
+                                       DownsampleProcessor downsampleProcessor,
+                                       MetricDeletionHelper metricDeletionHelper) {
     this.properties = properties;
     this.delayedTrackingService = delayedTrackingService;
     this.downsampleProcessor = downsampleProcessor;
     this.executor = executor;
+    this.metricDeletionHelper = metricDeletionHelper;
   }
 
   @PostConstruct
@@ -88,22 +96,27 @@ public class DelayedDownsampleJobProcessor {
         randomDelay(properties.getDownsampleDelayedSpreadPeriod().getSeconds()), TimeUnit.SECONDS);
   }
 
-  private Flux<?> processDelayedTimeSlot(int partition) {
-    return Flux.fromIterable(getPartitionWidths(properties.getGranularities()))
-        .concatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
-            .concatMap(ts -> {
-              long timeslot = Long.parseLong(ts.split("\\|")[0]);
-              log.trace("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(timeslot));
-              return delayedTrackingService.getDelayedDownsampleSets(timeslot, partition, group)
+  private Mono<?> processDelayedTimeSlot(int partition) {
+    List<String> groups = getPartitionWidths(properties.getGranularities());
+    Flux<String> partitionHashes = delayedTrackingService.getDelayedHashes(partition);
+    return delayedTrackingService.getDelayedTimeSlots(partition)
+        .concatMap(ts -> {
+          long timeslot = Long.parseLong(ts.split("\\|")[0]);
+          log.info("Got delayed timeslot: {} {}", partition, timeslot);
+          return Flux.fromIterable(groups)
+              .concatMap(group -> partitionHashes
                   .name("processDelayedTimeSlot")
                   .tag("partition", String.valueOf(partition))
                   .tag("group", group)
                   .metrics()
-                  .concatMap(downsampleSet ->
-                      this.downsampleProcessor.processDelayedDownsampleSet(downsampleSet, partition, group))
-                  .then(delayedTrackingService.deleteDelayedTimeslot(partition, group, timeslot))
-                  .doOnError(Throwable::printStackTrace);
-            })
-        );
+                  .concatMap(hash ->
+                      this.downsampleProcessor.processDelayedDownsampleSet(
+                          buildDelayedPending(hash, timeslot), partition, group)
+                  )
+                  .doOnError(Throwable::printStackTrace)
+              )
+              .then(this.delayedTrackingService.deleteDelayedTimeslot(partition, timeslot));
+        })
+        .then(this.metricDeletionHelper.deleteDelayedHashes(partition));
   }
 }

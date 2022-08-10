@@ -13,20 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.rackspace.ceres.app.entities;
+package com.rackspace.ceres.app.model;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
-import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
-import org.springframework.data.cassandra.core.mapping.Table;
 
 @Data
-@AllArgsConstructor
-@Table("delayed_hashes")
-public class DelayedDownsampling {
-  @PrimaryKeyColumn(type = PrimaryKeyType.PARTITIONED, ordinal = 1)
-  private int partition;
-  private String hash;
-  private boolean isActive;
+public class DelayedTimeslotCacheKey {
+  final Integer partition;
+  final Long timeslot;
 }

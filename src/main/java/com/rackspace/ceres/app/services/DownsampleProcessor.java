@@ -81,13 +81,10 @@ public class DownsampleProcessor {
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
     return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
-        .concatMap(granularity -> metrics.equals("downsample.set") ?
+        .concatMap(granularity ->
             this.downsamplingService.downsampleData(pendingSet, granularity.getWidth(),
                 this.queryService.fetchData(pendingSet, group, granularity.getWidth(), true))
-            :
-            this.downsamplingService.downsampleData(pendingSet, granularity.getWidth(),
-                    this.queryService.fetchData(pendingSet, group, granularity.getWidth(), true))
-                .then(this.metricDeletionHelper.deleteDelayedHash(partition, group, encodeDelayedHash(pendingSet))))
+        )
         .name(metrics)
         .tag("partition", String.valueOf(partition))
         .tag("group", group)
@@ -99,9 +96,5 @@ public class DownsampleProcessor {
                 epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
                 partition, group))
         .checkpoint();
-  }
-
-  private String encodeDelayedHash(PendingDownsampleSet set) {
-    return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
 }
