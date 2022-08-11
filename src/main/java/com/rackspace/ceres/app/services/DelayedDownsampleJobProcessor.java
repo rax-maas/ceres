@@ -99,12 +99,12 @@ public class DelayedDownsampleJobProcessor {
   private Mono<?> processDelayedTimeSlot(int partition) {
     List<String> groups = getPartitionWidths(properties.getGranularities());
     Flux<String> partitionHashes = delayedTrackingService.getDelayedHashes(partition);
-    return delayedTrackingService.getDelayedTimeSlots(partition)
-        .concatMap(ts -> {
-          long timeslot = Long.parseLong(ts.split("\\|")[0]);
-          log.trace("Got delayed timeslot: {} {}", partition, timeslot);
-          return Flux.fromIterable(groups)
-              .concatMap(group -> partitionHashes
+    return Flux.fromIterable(groups)
+        .concatMap(group -> delayedTrackingService.getDelayedTimeSlots(partition, group)
+            .concatMap(ts -> {
+              long timeslot = Long.parseLong(ts.split("\\|")[0]);
+              log.trace("Got delayed timeslot: {} {}", partition, timeslot);
+              return partitionHashes
                   .name("processDelayedTimeSlot")
                   .tag("partition", String.valueOf(partition))
                   .tag("group", group)
@@ -114,9 +114,9 @@ public class DelayedDownsampleJobProcessor {
                           buildDelayedPending(hash, timeslot), partition, group)
                   )
                   .doOnError(Throwable::printStackTrace)
-              )
-              .then(this.delayedTrackingService.deleteDelayedTimeslot(partition, timeslot));
-        })
+                  .then(this.delayedTrackingService.deleteDelayedTimeslot(partition, group, timeslot));
+            })
+        )
         .then(this.metricDeletionHelper.deleteDelayedHashes(partition));
   }
 }

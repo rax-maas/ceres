@@ -80,8 +80,8 @@ public class CacheConfig {
   }
 
   @Bean
-  public AsyncCache<DelayedHashCacheKey, Boolean> delayedDownsampleHashExistenceCache() {
-    final AsyncCache<DelayedHashCacheKey, Boolean> cache = Caffeine
+  public AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache() {
+    final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(400000)
         .expireAfterWrite(appProperties.getDelayedHashesCacheTtl())

@@ -75,8 +75,8 @@ public class DelayedTrackingService {
     return redisTemplate.opsForValue().set(encodeJobKey(partition), "free");
   }
 
-  public Flux<String> getDelayedTimeSlots(Integer partition) {
-    String key = encodeDelayedTimeslotKey(partition);
+  public Flux<String> getDelayedTimeSlots(Integer partition, String group) {
+    String key = encodeDelayedTimeslotKey(partition, group);
     return this.redisTemplate.opsForSet().scan(key)
         .filter(ts -> isNotInProgress(ts, partition))
         .concatMap(timeslot -> isInProgress(timeslot) ? Mono.just(timeslot) :
@@ -118,9 +118,9 @@ public class DelayedTrackingService {
         .map(hash -> DelayedTrackingService.buildDelayedPending(hash, timeslot));
   }
 
-  public Mono<?> deleteDelayedTimeslot(Integer partition, Long timeslot) {
+  public Mono<?> deleteDelayedTimeslot(Integer partition, String group, Long timeslot) {
     return redisTemplate.opsForSet()
-        .remove(encodeDelayedTimeslotKey(partition), encodeTimeslotInProgress(timeslot))
+        .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
               log.trace("Deleted delayed timeslot result: {}, {} {}", result, partition, epochToLocalDateTime(timeslot));
               return Mono.just(result);
@@ -140,8 +140,8 @@ public class DelayedTrackingService {
     return String.format("job|%d", partition);
   }
 
-  private static String encodeDelayedTimeslotKey(int partition) {
-    return String.format("delayed|%d", partition);
+  private static String encodeDelayedTimeslotKey(int partition, String group) {
+    return String.format("delayed|%d|%s", partition, group);
   }
 
   public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {

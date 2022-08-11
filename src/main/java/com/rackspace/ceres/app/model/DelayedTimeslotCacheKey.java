@@ -20,5 +20,6 @@ import lombok.Data;
 @Data
 public class DelayedTimeslotCacheKey {
   final Integer partition;
+  final String group;
   final Long timeslot;
 }
