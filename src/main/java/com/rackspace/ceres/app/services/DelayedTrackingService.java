@@ -20,7 +20,6 @@ import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
-import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
@@ -40,20 +39,14 @@ public class DelayedTrackingService {
   private final DownsampleProperties properties;
   private final ReactiveStringRedisTemplate redisTemplate;
   private final RedisScript<String> redisGetDelayedJob;
-  private final ReactiveCqlTemplate cqlTemplate;
-
-  private static final String GET_DELAYED_HASHES_TO_DOWNSAMPLE =
-      "SELECT hash FROM delayed_hashes WHERE partition = ? AND isActive = true ALLOW FILTERING;";
 
   @Autowired
   public DelayedTrackingService(ReactiveStringRedisTemplate redisTemplate,
                                 DownsampleProperties properties,
-                                RedisScript<String> redisGetDelayedJob,
-                                ReactiveCqlTemplate cqlTemplate) {
+                                RedisScript<String> redisGetDelayedJob) {
     this.redisTemplate = redisTemplate;
     this.redisGetDelayedJob = redisGetDelayedJob;
     this.properties = properties;
-    this.cqlTemplate = cqlTemplate;
   }
 
   public Flux<String> claimJob(Integer partition) {
@@ -107,15 +100,8 @@ public class DelayedTrackingService {
   }
 
   public Flux<String> getDelayedHashes(int partition) {
-    log.trace("getDelayedDownsampleSets {}", partition);
-    return this.cqlTemplate.queryForFlux(GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition);
-  }
-
-  public Flux<PendingDownsampleSet> getDelayedDownsampleSets(int partition, long timeslot) {
-    log.trace("getDelayedDownsampleSets {}", partition);
-    return this.cqlTemplate.queryForFlux(
-        GET_DELAYED_HASHES_TO_DOWNSAMPLE, String.class, partition)
-        .map(hash -> DelayedTrackingService.buildDelayedPending(hash, timeslot));
+    String key = encodeDelayedHashesKey(partition);
+    return this.redisTemplate.opsForSet().scan(key);
   }
 
   public Mono<?> deleteDelayedTimeslot(Integer partition, String group, Long timeslot) {
@@ -123,6 +109,16 @@ public class DelayedTrackingService {
         .remove(encodeDelayedTimeslotKey(partition, group), encodeTimeslotInProgress(timeslot))
         .flatMap(result -> {
               log.trace("Deleted delayed timeslot result: {}, {} {}", result, partition, epochToLocalDateTime(timeslot));
+              return Mono.just(result);
+            }
+        );
+  }
+
+  public Mono<?> deleteDelayedHashes(Integer partition) {
+    return redisTemplate.opsForSet()
+        .delete(encodeDelayedHashesKey(partition))
+        .flatMap(result -> {
+              log.trace("Deleted delayed hashes result: {}, {}", result, partition);
               return Mono.just(result);
             }
         );
@@ -142,6 +138,10 @@ public class DelayedTrackingService {
 
   private static String encodeDelayedTimeslotKey(int partition, String group) {
     return String.format("delayed|%d|%s", partition, group);
+  }
+
+  private static String encodeDelayedHashesKey(int partition) {
+    return String.format("delayed-hashes|%d", partition);
   }
 
   public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {

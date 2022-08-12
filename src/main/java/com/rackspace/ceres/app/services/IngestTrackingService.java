@@ -20,7 +20,6 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.google.common.hash.HashCode;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.entities.DelayedDownsampling;
 import com.rackspace.ceres.app.entities.Downsampling;
 import com.rackspace.ceres.app.model.DelayedTimeslotCacheKey;
 import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
@@ -115,10 +114,7 @@ public class IngestTrackingService {
     final CompletableFuture<Boolean> result = delayedDownsampleHashExistenceCache.get(
         new DownsampleSetCacheKey(partition, setHash),
         (key, executor) ->
-            this.cassandraTemplate.insert(new DelayedDownsampling(partition, setHash, true))
-                .name("saveDelayedDownsampling")
-                .metrics()
-                .retryWhen(appProperties.getRetryInsertDownsampled().build())
+            redisTemplate.opsForSet().add(encodeDelayedHashesKey(partition), setHash)
                 .flatMap(s -> Mono.just(true))
                 .toFuture()
     );
@@ -172,5 +168,9 @@ public class IngestTrackingService {
 
   private static String encodeDelayedTimeslotKey(int partition, String group) {
     return String.format("delayed|%d|%s", partition, group);
+  }
+
+  private static String encodeDelayedHashesKey(int partition) {
+    return String.format("delayed-hashes|%d", partition);
   }
 }

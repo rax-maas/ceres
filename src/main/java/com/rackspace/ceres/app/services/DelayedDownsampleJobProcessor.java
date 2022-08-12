@@ -16,7 +16,6 @@
 package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -31,9 +30,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import static com.rackspace.ceres.app.services.DelayedTrackingService.buildDelayedPending;
 import static com.rackspace.ceres.app.utils.DateTimeUtils.getPartitionWidths;
 import static com.rackspace.ceres.app.utils.DateTimeUtils.randomDelay;
-import static com.rackspace.ceres.app.services.DelayedTrackingService.buildDelayedPending;
 
 @Service
 @Slf4j
@@ -43,19 +42,16 @@ public class DelayedDownsampleJobProcessor {
   private final DelayedTrackingService delayedTrackingService;
   private final ScheduledExecutorService executor;
   private final DownsampleProcessor downsampleProcessor;
-  private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public DelayedDownsampleJobProcessor(DownsampleProperties properties,
                                        DelayedTrackingService delayedTrackingService,
                                        ScheduledExecutorService executor,
-                                       DownsampleProcessor downsampleProcessor,
-                                       MetricDeletionHelper metricDeletionHelper) {
+                                       DownsampleProcessor downsampleProcessor) {
     this.properties = properties;
     this.delayedTrackingService = delayedTrackingService;
     this.downsampleProcessor = downsampleProcessor;
     this.executor = executor;
-    this.metricDeletionHelper = metricDeletionHelper;
   }
 
   @PostConstruct
@@ -117,6 +113,6 @@ public class DelayedDownsampleJobProcessor {
                   .then(this.delayedTrackingService.deleteDelayedTimeslot(partition, group, timeslot));
             })
         )
-        .then(this.metricDeletionHelper.deleteDelayedHashes(partition));
+        .then(this.delayedTrackingService.deleteDelayedHashes(partition));
   }
 }
