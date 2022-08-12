@@ -115,6 +115,8 @@ public class IngestTrackingService {
         new DownsampleSetCacheKey(partition, setHash),
         (key, executor) ->
             redisTemplate.opsForSet().add(encodeDelayedHashesKey(partition), setHash)
+                .name("saveDelayedDownsampling")
+                .metrics()
                 .flatMap(s -> Mono.just(true))
                 .toFuture()
     );
