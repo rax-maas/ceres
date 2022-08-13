@@ -17,7 +17,6 @@
 package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -44,19 +43,16 @@ public class DownsampleProcessor {
   private final DownsamplingService downsamplingService;
   private final QueryService queryService;
   private final Timer meterTimer;
-  private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
                              DownsamplingService downsamplingService,
                              QueryService queryService,
-                             MeterRegistry meterRegistry,
-                             MetricDeletionHelper metricDeletionHelper) {
+                             MeterRegistry meterRegistry) {
     this.properties = properties;
     this.downsamplingService = downsamplingService;
     this.queryService = queryService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
-    this.metricDeletionHelper = metricDeletionHelper;
   }
 
   @PostConstruct
