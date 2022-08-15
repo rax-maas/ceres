@@ -39,6 +39,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Handles the configuration-driven creation of data table schemas with corresponding table
@@ -71,44 +72,41 @@ public class DataTablesPopulator implements KeyspacePopulator {
 
   @Override
   public void populate(CqlSession session) throws ScriptException {
-    dataDownsampledTableSpecs()
-        .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
-        .concatMap(spec -> createTable(spec, session))
-        .subscribe();
-
-    List.of(
-        delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()),
-        downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl())
-    ).forEach(spec -> createTableSynchronized(spec, session));
+    tableSpecifications().forEach(spec -> createTable(spec, session));
   }
 
   public Mono<List<String>> render() {
-    return dataDownsampledTableSpecs()
-        .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
+    return Mono.just(
+        tableSpecifications()
+        .stream()
         .map(CreateTableCqlGenerator::toCql)
-        .collectList();
+        .collect(Collectors.toList())
+    );
   }
 
-  private Flux<CreateTableSpecification> dataDownsampledTableSpecs() {
-    return downsampleProperties.getGranularities() == null ? Flux.empty() :
-        Flux.fromStream(
-            downsampleProperties.getGranularities().stream()
-                .map(granularity -> dataDownsampledTableSpec(
-                    granularity.getWidth(),
-                    granularity.getTtl(),
-                    granularity.getPartitionWidth()
-                ))
-        );
+  private List<CreateTableSpecification> tableSpecifications() {
+    List<CreateTableSpecification> tableSpecifications = dataDownsampledTableSpecs();
+    tableSpecifications.add(dataRawTableSpec(appProperties.getRawTtl()));
+    tableSpecifications.add(downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl()));
+    return tableSpecifications;
   }
 
-  private Publisher<?> createTable(CreateTableSpecification createTableSpec,
-                                   CqlSession session) {
-    return session.executeReactive(CreateTableCqlGenerator.toCql(createTableSpec));
+  private List<CreateTableSpecification> dataDownsampledTableSpecs() {
+    return (downsampleProperties.getGranularities().isEmpty() || downsampleProperties.getGranularities() == null) ?
+        List.of()
+        :
+        downsampleProperties.getGranularities().stream()
+            .map(granularity -> dataDownsampledTableSpec(
+                granularity.getWidth(),
+                granularity.getTtl(),
+                granularity.getPartitionWidth())
+            ).collect(Collectors.toList());
   }
 
-  private ResultSet createTableSynchronized(CreateTableSpecification createTableSpec,
-                                            CqlSession session) {
-    return session.execute(CreateTableCqlGenerator.toCql(createTableSpec));
+  private void createTable(CreateTableSpecification createTableSpec,
+                                CqlSession session) {
+    // Cassandra doesn't like reactive version of create table
+    session.execute(CreateTableCqlGenerator.toCql(createTableSpec));
   }
 
   private CreateTableSpecification dataDownsampledTableSpec(Duration width, Duration ttl,
@@ -155,20 +153,7 @@ public class DataTablesPopulator implements KeyspacePopulator {
         .with(TableOption.GC_GRACE_SECONDS, appProperties.getDataTableGcGraceSeconds());
   }
 
-  private CreateTableSpecification delayedDownsamplingHashesTableSpec(Duration ttl) {
-    return CreateTableSpecification
-        .createTable("delayed_hashes")
-        .ifNotExists()
-        .partitionKeyColumn("partition", DataTypes.INT)
-        .column("hash", DataTypes.TEXT)
-        .column("isActive", DataTypes.BOOLEAN)
-        .with(DEFAULT_TIME_TO_LIVE, ttl.getSeconds(), false, false)
-        .with(TableOption.COMPACTION, compactionOptions(ttl))
-        .with(TableOption.GC_GRACE_SECONDS, appProperties.getDelayedHashesGcGraceSeconds());
-  }
-
   private Map<Option,Object> compactionOptions(Duration ttl) {
-
     // Docs recommend 20 - 30 windows
     final Duration calculatedWindowSize = ttl.dividedBy(30);
 
