@@ -62,17 +62,7 @@ public class DownsampleProcessor {
     }
   }
 
-  public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
-    log.trace("processDownsampleSet {} {} {}", pendingSet, partition, group);
-    return processSet(pendingSet, partition, group, "downsample.set");
-  }
-
-  public Publisher<?> processDelayedDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
-    log.trace("processDelayedDownsampleSet {} {} {}", pendingSet, partition, group);
-    return processSet(pendingSet, partition, group, "delayed.set");
-  }
-
-  private Publisher<?> processSet(PendingDownsampleSet pendingSet, int partition, String group, String metrics) {
+  public Publisher<?> processSet(PendingDownsampleSet pendingSet, int partition, String group, String metrics) {
     Duration downsamplingDelay = Duration.between(pendingSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 

@@ -106,8 +106,8 @@ public class DelayedDownsampleJobProcessor {
                   .tag("group", group)
                   .metrics()
                   .concatMap(hash ->
-                      this.downsampleProcessor.processDelayedDownsampleSet(
-                          buildDelayedPending(hash, timeslot), partition, group)
+                      this.downsampleProcessor.processSet(
+                          buildDelayedPending(hash, timeslot), partition, group, "delayed.set")
                   )
                   .doOnError(Throwable::printStackTrace)
                   .then(this.delayedTrackingService.deleteDelayedTimeslot(partition, group, timeslot));

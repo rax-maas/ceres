@@ -144,18 +144,6 @@ public class DelayedTrackingService {
     return String.format("delayed-hashes|%d", partition);
   }
 
-  public static PendingDownsampleSet buildDownsampleSet(int partition, String group, String timeslot) {
-    String [] tsArray = timeslot.split("\\|");
-    long ts = Long.parseLong(tsArray[0]);
-    log.info("Got delayed timeslot: {} {} {}", partition, group, epochToLocalDateTime(ts));
-    String tenant = tsArray[1];
-    String setHash = tsArray[2];
-    return new PendingDownsampleSet()
-        .setTenant(tenant)
-        .setSeriesSetHash(setHash)
-        .setTimeSlot(Instant.ofEpochSecond(ts));
-  }
-
   public static String encodeDelayedTimeslot(PendingDownsampleSet set) {
     return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
