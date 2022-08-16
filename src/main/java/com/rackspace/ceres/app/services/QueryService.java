@@ -156,41 +156,33 @@ public class QueryService {
             .checkpoint();
   }
 
+  /**
+   * Tries to 'downsample-on-the-fly' i.e. if there are missing downsampled data before the end boundary we try to
+   * downsample that first before returning the result.
+   */
   private Flux<QueryResult> getQueryDownsampled(String tenant, String metricName,
                                                 Aggregator aggregator, Duration granularity,
                                                 Map<String, String> queryTags, Instant start,
                                                 Instant end) {
     Duration group = getPartitionWidth(this.properties.getGranularities(), granularity);
-    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-        // Downsample until the end to ensure all possible data points
-        .flatMap(hash -> Flux.fromIterable(getTimeslots(end, group))
-            .flatMap(timeslot -> {
-              PendingDownsampleSet pendingSet = new PendingDownsampleSet()
-                  .setTimeSlot(timeslot)
-                  .setTenant(tenant)
-                  .setSeriesSetHash(hash);
-              Flux<ValueSet> data = fetchData(pendingSet, group.toString(), granularity, false);
-              return this.downsamplingService.downsampleData(pendingSet, granularity, data);
-            })
-        ).thenMany(
-            // given the queryTags filter, locate the series-set that apply
-            metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
-                // then perform a retrieval for each series-set
-                .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
-                    // over each time slot partition of the [start,end) range
-                    Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
-                        .concatMap(timeSlot ->
-                            cqlTemplate.queryForRows(
-                                    dataTablesStatements.downsampleQuery(granularity),
-                                    tenant, timeSlot, seriesSet, start, end
-                                )
-                                .doOnError(e ->
-                                    dbOperationErrorsCounter.increment())
-                                .name("queryDownsampled")
-                                .metrics()
-                        ), buildMetaData(aggregator, start, end, granularity)
-                ))
-        );
+    // given the queryTags filter, locate the series-set that apply
+    Flux<String> hashesFlux = metadataService.locateSeriesSetHashes(tenant, metricName, queryTags);
+    return downsampleLatest(hashesFlux, end, granularity, group, tenant).thenMany(
+        // then perform a retrieval for each series-set
+        hashesFlux.flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
+            // over each time slot partition of the [start,end] range
+            Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
+                .concatMap(timeSlot ->
+                    cqlTemplate.queryForRows(
+                            dataTablesStatements.downsampleQuery(granularity),
+                            tenant, timeSlot, seriesSet, start, end
+                        )
+                        .doOnError(e -> dbOperationErrorsCounter.increment())
+                        .name("queryDownsampled")
+                        .metrics()
+                ), buildMetaData(aggregator, start, end, granularity)
+        ))
+    );
   }
 
   public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
@@ -208,6 +200,11 @@ public class QueryService {
         .checkpoint();
   }
 
+  /**
+   * Fetches data points to be downsampled. The data points are based on the next lower granularity downsampled data
+   * and if there is no lower downsampled data it fetches the raw data points. This is to avoid always fetching
+   * raw which might be a performance and memory problem if we are downsampling very large granularities like e.g. 24h.
+   */
   public Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Duration granularity, boolean redoOld) {
     Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity);
     return isLowerGranularityRaw(lowerWidth) ?
@@ -313,6 +310,27 @@ public class QueryService {
         .setGranularity(granularity);
   }
 
+  /**
+   * Downsample until the end to ensure all possible data points
+   */
+  private Flux<?> downsampleLatest(
+      Flux<String> hashesFlux, Instant end, Duration granularity, Duration group, String tenant) {
+    return hashesFlux
+        .flatMap(hash -> Flux.fromIterable(getTimeslots(end, group))
+            .flatMap(timeslot -> {
+              PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+                  .setTimeSlot(timeslot)
+                  .setTenant(tenant)
+                  .setSeriesSetHash(hash);
+              Flux<ValueSet> data = fetchData(pendingSet, group.toString(), granularity, false);
+              return this.downsamplingService.downsampleData(pendingSet, granularity, data);
+            })
+        );
+  }
+
+  /**
+   * Fetch the latest possible timeslots for downsampling
+   */
   private List<Instant> getTimeslots(Instant end, Duration group) {
     Instant timeslot = DateTimeUtils.normalize(Instant.now(), group.toString());
     if (end.isAfter(timeslot.minusSeconds(2 * group.getSeconds()))) {
