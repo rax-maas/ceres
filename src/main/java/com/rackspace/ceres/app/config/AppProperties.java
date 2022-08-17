@@ -149,4 +149,7 @@ public class AppProperties {
 
   @NotNull
   String elasticSearchIndexName;
+  public String getIndexName() {
+    return elasticSearchIndexName;
+  }
 }

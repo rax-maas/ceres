@@ -558,7 +558,7 @@ public class MetadataService {
             : Arrays.stream(criteria.getExcludeFields().toArray()).toArray(String[]::new));
 
     SearchRequest searchRequest = new SearchRequest();
-    searchRequest.indices(appProperties.getElasticSearchIndexName());
+    searchRequest.indices(appProperties.getIndexName());
     searchRequest.source(searchSourceBuilder);
 
     SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
