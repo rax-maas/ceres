@@ -17,11 +17,9 @@
 package com.rackspace.ceres.app.config;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.rackspace.ceres.app.services.DataTablesStatements;
 import lombok.extern.slf4j.Slf4j;
-import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.generator.CreateTableCqlGenerator;
 import org.springframework.data.cassandra.core.cql.keyspace.CreateTableSpecification;
@@ -32,13 +30,13 @@ import org.springframework.data.cassandra.core.cql.keyspace.TableOption.Compacti
 import org.springframework.data.cassandra.core.cql.session.init.KeyspacePopulator;
 import org.springframework.data.cassandra.core.cql.session.init.ScriptException;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Handles the configuration-driven creation of data table schemas with corresponding table
@@ -71,44 +69,42 @@ public class DataTablesPopulator implements KeyspacePopulator {
 
   @Override
   public void populate(CqlSession session) throws ScriptException {
-    dataDownsampledTableSpecs()
-        .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
-        .concatMap(spec -> createTable(spec, session))
-        .subscribe();
-
-    List.of(
-        delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()),
-        downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl())
-    ).forEach(spec -> createTableSynchronized(spec, session));
+    tableSpecifications().forEach(spec -> createTable(spec, session));
   }
 
   public Mono<List<String>> render() {
-    return dataDownsampledTableSpecs()
-        .concatWithValues(dataRawTableSpec(appProperties.getRawTtl()))
+    return Mono.just(
+        tableSpecifications()
+        .stream()
         .map(CreateTableCqlGenerator::toCql)
-        .collectList();
+        .collect(Collectors.toList())
+    );
   }
 
-  private Flux<CreateTableSpecification> dataDownsampledTableSpecs() {
-    return downsampleProperties.getGranularities() == null ? Flux.empty() :
-        Flux.fromStream(
-            downsampleProperties.getGranularities().stream()
-                .map(granularity -> dataDownsampledTableSpec(
-                    granularity.getWidth(),
-                    granularity.getTtl(),
-                    granularity.getPartitionWidth()
-                ))
-        );
+  private List<CreateTableSpecification> tableSpecifications() {
+    List<CreateTableSpecification> tableSpecifications = dataDownsampledTableSpecs();
+    tableSpecifications.add(dataRawTableSpec(appProperties.getRawTtl()));
+    tableSpecifications.add(downsamplingHashesTableSpec(appProperties.getDownsamplingHashesTtl()));
+    tableSpecifications.add(delayedDownsamplingHashesTableSpec(appProperties.getDelayedHashesTtl()));
+    return tableSpecifications;
   }
 
-  private Publisher<?> createTable(CreateTableSpecification createTableSpec,
-                                   CqlSession session) {
-    return session.executeReactive(CreateTableCqlGenerator.toCql(createTableSpec));
+  private List<CreateTableSpecification> dataDownsampledTableSpecs() {
+    return (downsampleProperties.getGranularities().isEmpty() || downsampleProperties.getGranularities() == null) ?
+        List.of()
+        :
+        downsampleProperties.getGranularities().stream()
+            .map(granularity -> dataDownsampledTableSpec(
+                granularity.getWidth(),
+                granularity.getTtl(),
+                granularity.getPartitionWidth())
+            ).collect(Collectors.toList());
   }
 
-  private ResultSet createTableSynchronized(CreateTableSpecification createTableSpec,
-                                            CqlSession session) {
-    return session.execute(CreateTableCqlGenerator.toCql(createTableSpec));
+  private void createTable(CreateTableSpecification createTableSpec,
+                                CqlSession session) {
+    // Cassandra doesn't like reactive version of create table
+    session.execute(CreateTableCqlGenerator.toCql(createTableSpec));
   }
 
   private CreateTableSpecification dataDownsampledTableSpec(Duration width, Duration ttl,
@@ -169,7 +165,6 @@ public class DataTablesPopulator implements KeyspacePopulator {
   }
 
   private Map<Option,Object> compactionOptions(Duration ttl) {
-
     // Docs recommend 20 - 30 windows
     final Duration calculatedWindowSize = ttl.dividedBy(30);
 
