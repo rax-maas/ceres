@@ -146,4 +146,7 @@ public class AppProperties {
   Duration ingestStartTime = Duration.ofDays(7);
 
   Duration ingestEndTime = Duration.ofDays(1);
+
+  @NotNull
+  String elasticSearchIndexName;
 }

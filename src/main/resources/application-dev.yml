@@ -34,6 +34,7 @@ ceres:
   delayed-hashes-cache-ttl: 10s
   delayed-timeslot-cache-ttl: 10s
   downsample-delay-factor: 1.2
+  elastic-search-index-name: metrics
 spring:
   data:
     cassandra:

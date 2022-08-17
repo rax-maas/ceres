@@ -16,11 +16,15 @@
 
 package com.rackspace.ceres.app.web;
 
+import com.rackspace.ceres.app.model.Criteria;
+import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
 import io.swagger.annotations.ApiOperation;
+import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
@@ -28,6 +32,8 @@ import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -142,6 +148,33 @@ public class MetadataController {
 
     return metadataService
         .getTags(tenantHeader, metricName, metricGroup);
+  }
+
+  @PostMapping(path = "/search")
+  public List<MetricDTO> multipleSearches(@ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId,
+      @RequestBody Criteria criteria)
+      throws IOException {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
+    return metadataService.search(tenantHeader, criteria);
+  }
+
+  @GetMapping(path = "/searchTagKeys")
+  public Set<String> searchTagKeys(@RequestParam String metricName,
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader)
+      throws IOException {
+    return metadataService.searchTagKeys(metricName, tenantHeader);
+  }
+
+  @GetMapping(path = "/searchTagValues")
+  public Set<String> searchTagValues(@RequestParam String metricName,
+      @RequestParam String tagKey,
+      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader)
+      throws IOException {
+    return metadataService.searchTagValues(metricName, tagKey, tenantHeader);
   }
 
   public boolean isDevProfileActive() {
