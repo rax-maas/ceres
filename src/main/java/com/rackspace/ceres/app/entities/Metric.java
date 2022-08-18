@@ -29,7 +29,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(indexName = "metrics")
+@Document(indexName = "#{@appProperties.getIndexName()}")
 public class Metric {
 
   @Id
@@ -41,7 +41,6 @@ public class Metric {
   @Field(type = FieldType.Keyword, name = "tenant")
   private String tenant;
 
-  @Field(type = FieldType.Nested, name = "tags")
   private Map<String,String> tags;
 }
 
