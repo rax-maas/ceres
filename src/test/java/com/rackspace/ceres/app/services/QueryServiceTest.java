@@ -115,7 +115,7 @@ class QueryServiceTest {
   void tearDown() {
     cassandraTemplate.truncate(MetricName.class)
         .and(cassandraTemplate.truncate(SeriesSet.class))
-        .block();
+        .subscribe();
   }
 
   @Test
