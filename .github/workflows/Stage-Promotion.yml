@@ -35,7 +35,7 @@ jobs:
       ### Seting up runner env ###
       - uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GIT_TOKEN }}
+          ssh-key: ${{ secrets.GIT_SSH_KEY }}
 
       - name: Maven Cache 
         uses: actions/cache@v3
@@ -104,7 +104,7 @@ jobs:
           repository: rax-maas/helm-ceres
           ref: pre-prod
           path: helm-ceres
-          token: ${{ secrets.GIT_TOKEN }}
+          ssh-key: ${{ secrets.GIT_SSH_KEY }}
 
       - name: Helm upgrade
         run: helm upgrade $HELM_CHART ${HELM_CHART_FOLDER}/${HELM_CHART} --set image.repository=gcr.io/${{ secrets.GCP_DEV_ACC }}/$IMAGE_NAME,image.tag=${{ needs.Setup.outputs.new_version }}     

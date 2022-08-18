@@ -106,7 +106,7 @@ jobs:
           repository: rax-maas/helm-ceres
           ref: master
           path: helm-ceres
-          token: ${{ secrets.GIT_TOKEN }}
+          ssh-key: ${{ secrets.GIT_SSH_KEY }}
 
       - uses: azure/setup-helm@v3
         with:
