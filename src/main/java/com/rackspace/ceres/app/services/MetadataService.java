@@ -187,7 +187,7 @@ public class MetadataService {
     BeanUtils.copyProperties(metric, metricEntity);
     metricEntity.setMetricName(metric.getMetric());
     metricEntity.setTenant(tenant);
-    log.info("saving metric {} to ES ", metric);
+    log.trace("saving metric {} to ES ", metric);
     metricRepository.save(metricEntity);
     return Mono.empty();
   }

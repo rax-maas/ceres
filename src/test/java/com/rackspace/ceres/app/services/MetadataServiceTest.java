@@ -34,6 +34,7 @@ import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Criteria;
+import com.rackspace.ceres.app.model.Filter;
 import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricDTO;
@@ -713,6 +714,27 @@ class MetadataServiceTest {
     List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, new Criteria());
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
     assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchWithInvalidCriteria() throws IOException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = "metric-1";
+
+    Metric metric = new Metric();
+    metric.setMetric(metricName);
+    Map<String, String> tags = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
+    metric.setTags(tags);
+    metadataService.saveMetricToES(tenantId, metric).block();
+
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("metricName");
+    filter.setFilterValue("xyz");
+    criteria.setFilter(List.of(filter));
+    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId+"axb", criteria);
+
+    assertThat(metricDTOSResult.size()).isEqualTo(0);
   }
 
   private Devices insertDeviceData(String tenantId, String device, Set<String> metricNames) {
