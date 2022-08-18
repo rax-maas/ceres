@@ -16,6 +16,17 @@
 
 package com.rackspace.ceres.app.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.CacheConfig;
@@ -27,7 +38,12 @@ import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.SuggestType;
+import com.rackspace.ceres.app.repo.MetricRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,16 +55,6 @@ import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.cassandra.core.query.Query;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
-
 /**
  * This unit test mocks out all datastore interactions to verify the different levels of caching
  * behavior with {@link MetadataService#storeMetadata(String, String, Metric)}.
@@ -58,7 +64,8 @@ import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtil
     MetadataService.class,
     SimpleMeterRegistry.class
 }, properties = {
-    "ceres.series-set-cache-size=1"
+    "ceres.series-set-cache-size=1",
+    "ceres.elastic-search-index-name=metrics"
 })
 @EnableConfigurationProperties({AppProperties.class, DownsampleProperties.class})
 public class MetadataServiceCachingTest {
@@ -68,6 +75,15 @@ public class MetadataServiceCachingTest {
 
   @MockBean
   ReactiveCassandraTemplate cassandraTemplate;
+
+  @MockBean
+  RestHighLevelClient restHighLevelClient;
+
+  @MockBean
+  private MetricRepository metricRepository;
+
+  @MockBean
+  ObjectMapper objectMapper;
 
   @Autowired
   MetadataService metadataService;

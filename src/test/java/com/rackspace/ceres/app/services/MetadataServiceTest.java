@@ -22,7 +22,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.CassandraContainerSetup;
+import com.rackspace.ceres.app.ESContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.Devices;
@@ -40,6 +42,7 @@ import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.model.TsdbFilter;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.repo.MetricRepository;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -51,7 +54,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +89,9 @@ class MetadataServiceTest {
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
       CassandraContainerSetup.DOCKER_IMAGE);
+
+  @Container
+  private static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
 
   private static final int REDIS_PORT = 6379;
 
@@ -125,11 +134,30 @@ class MetadataServiceTest {
   @MockBean
   IngestTrackingService ingestTrackingService;
 
+  @Autowired
+  ObjectMapper objectMapper;
+
+  @Autowired
+  RestHighLevelClient restHighLevelClient;
+
+  @Autowired
+  private MetricRepository metricRepository;
+
   @AfterEach
   void tearDown() {
     cassandraTemplate.truncate(MetricName.class)
         .and(cassandraTemplate.truncate(SeriesSet.class))
         .block();
+  }
+
+  @BeforeAll
+  static void setUp() {
+    elasticsearchContainer.start();
+  }
+
+  @AfterAll
+  static void destroy() {
+    elasticsearchContainer.stop();
   }
 
   @Test

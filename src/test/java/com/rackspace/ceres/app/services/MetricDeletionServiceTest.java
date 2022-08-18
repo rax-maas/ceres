@@ -1,14 +1,30 @@
 package com.rackspace.ceres.app.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.CassandraContainerSetup;
+import com.rackspace.ceres.app.ESContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.repo.MetricRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,17 +40,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 @ActiveProfiles(profiles = {"downsample", "test"})
 @SpringBootTest
@@ -52,6 +57,9 @@ public class MetricDeletionServiceTest {
       return cassandraContainer;
     }
   }
+
+  @Container
+  private static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
 
   static {
     GenericContainer redis = new GenericContainer("redis:3-alpine")
@@ -84,6 +92,15 @@ public class MetricDeletionServiceTest {
   @MockBean
   QueryService queryService;
 
+  @Autowired
+  ObjectMapper objectMapper;
+
+  @Autowired
+  RestHighLevelClient restHighLevelClient;
+
+  @Autowired
+  private MetricRepository metricRepository;
+
   private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
       + " AND time_slot = ?";
   private static final String QUERY_SERIES_SET_HASHES = "SELECT * FROM series_set_hashes"
@@ -97,6 +114,16 @@ public class MetricDeletionServiceTest {
   private static final String QUERY_DEVICES = "SELECT * FROM devices"
       + " WHERE tenant = ? AND device = ?";
   private static final String QUERY_TAGS_DATA = "SELECT * from tags_data where tenant = ? AND type IN ('TAGK', 'TAGV')";
+
+  @BeforeAll
+  static void setUp() {
+    elasticsearchContainer.start();
+  }
+
+  @AfterAll
+  static void destroy() {
+    elasticsearchContainer.stop();
+  }
 
   @Test
   public void testDeleteMetricsByTenantId() {
