@@ -151,7 +151,7 @@ public class MetadataController {
   }
 
   @PostMapping(path = "/search")
-  public List<MetricDTO> multipleSearches(@ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+  public List<MetricDTO> search(@ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String maskTenantId,
       @RequestBody Criteria criteria)
       throws IOException {

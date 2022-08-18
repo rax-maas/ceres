@@ -4,11 +4,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.model.Criteria;
+import com.rackspace.ceres.app.model.Filter;
+import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
 import io.lettuce.core.RedisBusyException;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -214,5 +219,164 @@ public class MetadataControllerTest {
 
     verify(metadataService).getTenants();
     verifyNoMoreInteractions(metadataService);
+  }
+
+  @Test
+  public void testSearchForMetricNames() throws IOException {
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("metricNames"));
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO("metric-1"), new MetricDTO("metric-2"));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
+  }
+
+  @Test
+  public void testSearchForMetricGroups() throws IOException {
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("tags.metricGroup"));
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO(Map
+        .of("metricGroup","group-1")), new MetricDTO(Map.of("metricGroup","group-2")));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
+  }
+  @Test
+  public void testSearchForGetTagsWithMetricName() throws IOException {
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("metricName");
+    filter.setFilterValue(metricName);
+    criteria.setFilter(List.of(filter));
+
+    Map<String, String> tags = Map.of("os", "linux", "host", "h1","metricGroup", "group-1");
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO(metricName, tags));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
+  }
+
+  @Test
+  public void testSearchForGetTagsWithMetricGroup() throws IOException {
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.metricGroup");
+    filter.setFilterValue(metricGroup);
+    criteria.setFilter(List.of(filter));
+
+    Map<String, String> tags = Map.of("os", "linux", "host", "h1","metricGroup", metricGroup);
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO(metricName, tags));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
+  }
+
+  @Test
+  public void testSearchForGetDevices() throws IOException {
+    final String metricName = RandomStringUtils.randomAlphabetic(5);
+    final String device = RandomStringUtils.randomAlphabetic(5);
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.device");
+    filter.setFilterValue(device);
+    criteria.setFilter(List.of(filter));
+
+    Map<String, String> tags = Map.of("os", "linux", "host", "h1","device", device);
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO(metricName, tags));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
+  }
+
+  @Test
+  public void testSearchForMetricNamesWithDeviceId() throws IOException {
+    final String device = RandomStringUtils.randomAlphabetic(5);
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.device");
+    filter.setFilterValue(device);
+    criteria.setFilter(List.of(filter));
+    criteria.setIncludeFields(List.of("metricNames"));
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO("metric-1"), new MetricDTO("metric-2"));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
+  }
+
+  @Test
+  public void testSearchForMetricGroupsWithDeviceId() throws IOException {
+    final String metricGroup = RandomStringUtils.randomAlphabetic(5);
+    final String device = RandomStringUtils.randomAlphabetic(5);
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.device");
+    filter.setFilterValue(device);
+    criteria.setFilter(List.of(filter));
+    criteria.setIncludeFields(List.of("tags.metricGroup"));
+
+    Map<String, String> tags = Map.of("os", "linux", "host", "h1","metricGroup", metricGroup);
+
+    List<MetricDTO> metricDTOS = List.of(new MetricDTO(tags));
+    String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
+    when(metadataService.search("t-1",criteria))
+        .thenReturn(metricDTOS);
+
+    webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
+            .build()).bodyValue(criteria)
+        .header("X-Tenant", "t-1")
+        .exchange()
+        .expectStatus().isOk().expectBody(String.class)
+        .isEqualTo(jsonResponse);
   }
 }

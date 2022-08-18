@@ -42,5 +42,11 @@ public class Metric {
   private String tenant;
 
   private Map<String,String> tags;
+
+  //to be used by test
+  public Metric(String metricName, Map<String,String> tags) {
+    this.metricName = metricName;
+    this.tags = tags;
+  }
 }
 

@@ -33,8 +33,10 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
+import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.SuggestType;
@@ -45,6 +47,7 @@ import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.repo.MetricRepository;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -58,6 +61,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -160,8 +164,14 @@ class MetadataServiceTest {
     elasticsearchContainer.stop();
   }
 
+  @BeforeEach
+  void testIsContainerRunning() {
+    assertTrue(elasticsearchContainer.isRunning());
+    metricRepository.deleteAll();
+  }
+
   @Test
-  void storeMetadata() {
+  void storeMetadata() throws IOException {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = randomAlphabetic(5);
     // NOTE: the series sets are normally encoded as a hash in the seriesSetHash field, but
@@ -229,6 +239,21 @@ class MetadataServiceTest {
             tagsData(tenantId, SuggestType.TAGV, "dev")
         );
     assertThat(cassandraTemplate.count(TagsData.class).block()).isEqualTo(10);
+
+    MetricDTO metricDTO1 = new MetricDTO(metricName, Map.of(
+        "host", "h-1", "os", "linux", "deployment", "prod"
+    ));
+    MetricDTO metricDTO2 = new MetricDTO(metricName, Map.of(
+        "host", "h-2", "os", "windows", "deployment", "prod"
+    ));
+    MetricDTO metricDTO3 = new MetricDTO(metricName, Map.of(
+        "host", "h-3", "os", "linux", "deployment", "dev"
+    ));
+    List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2, metricDTO3);
+
+    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, new Criteria());
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
   }
 
   private void store(String tenantId, String metricName,
@@ -660,6 +685,34 @@ class MetadataServiceTest {
     List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device1)
         .block();
     assertThat(metricNamesResult).containsExactlyInAnyOrder(metricName1, metricName2);
+  }
+
+  @Test
+  public void testSearch() throws IOException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName1);
+    Map<String, String> tags1 = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
+    metric1.setTags(tags1);
+    metadataService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName2);
+    Map<String, String> tags2 = Map.of("host", "h-2", "os", "windows", "deployment", "dev");
+    metric2.setTags(tags2);
+    metadataService.saveMetricToES(tenantId,metric2).block();
+
+    MetricDTO metricDTO1 = new MetricDTO(metricName1, tags1);
+    MetricDTO metricDTO2 = new MetricDTO(metricName2, tags2);
+    List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2);
+
+    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, new Criteria());
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
   }
 
   private Devices insertDeviceData(String tenantId, String device, Set<String> metricNames) {
