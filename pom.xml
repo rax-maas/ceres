@@ -171,8 +171,12 @@
 						<image>openjdk:14</image>
 					</from>
 					<to>
-            <image>${docker.image.prefix}/${project.artifactId}</image>
+            			<image>${docker.image.prefix}/${project.artifactId}</image>
 					</to>
+					<container>
+      					<filesModificationTime>${maven.build.timestamp}</filesModificationTime>
+      					<creationTime>${maven.build.timestamp}</creationTime>
+    				</container>
 				</configuration>
 			</plugin>
 		</plugins>
