@@ -66,7 +66,6 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.reactivestreams.Publisher;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -184,9 +183,9 @@ public class MetadataService {
 
   public Mono<Void> saveMetricToES(String tenant, Metric metric)  {
     com.rackspace.ceres.app.entities.Metric metricEntity = new com.rackspace.ceres.app.entities.Metric();
-    BeanUtils.copyProperties(metric, metricEntity);
     metricEntity.setMetricName(metric.getMetric());
     metricEntity.setTenant(tenant);
+    metricEntity.setTags(metric.getTags());
     log.trace("saving metric {} to ES ", metric);
     metricRepository.save(metricEntity);
     return Mono.empty();

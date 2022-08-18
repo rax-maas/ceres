@@ -148,6 +148,8 @@ public class AppProperties {
   Duration ingestEndTime = Duration.ofDays(1);
 
   @NotNull
+  String[] elasticSearchHosts;
+  @NotNull
   String elasticSearchIndexName;
   public String getIndexName() {
     return elasticSearchIndexName;

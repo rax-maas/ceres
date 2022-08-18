@@ -2,6 +2,7 @@ package com.rackspace.ceres.app.config;
 
 import com.rackspace.ceres.app.entities.Metric;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -16,10 +17,17 @@ import org.springframework.data.elasticsearch.repository.config.EnableElasticsea
 @ComponentScan(basePackages = { "com.rackspace.ceres.app.services" })
 public class ElasticSearchConfig {
 
+  private final AppProperties appProperties;
+
+  @Autowired
+  public ElasticSearchConfig(AppProperties appProperties) {
+    this.appProperties = appProperties;
+  }
+
   @Bean
   public RestHighLevelClient client() {
       ClientConfiguration clientConfiguration = ClientConfiguration.builder()
-          .connectedTo("localhost:9200")
+          .connectedTo(appProperties.elasticSearchHosts)
           .build();
       return RestClients.create(clientConfiguration).rest();
     }

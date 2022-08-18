@@ -65,6 +65,7 @@ import reactor.core.publisher.Mono;
     SimpleMeterRegistry.class
 }, properties = {
     "ceres.series-set-cache-size=1",
+    "ceres.elastic-search-hosts: localhost:9200",
     "ceres.elastic-search-index-name=metrics"
 })
 @EnableConfigurationProperties({AppProperties.class, DownsampleProperties.class})
