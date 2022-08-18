@@ -1,0 +1,34 @@
+Readiness:
+  - name: podReadiness
+    type: python
+    argsLine: "-u http://localhost:9000/actuator/health/readiness -i 2 -t 60"
+
+Smoke-test:
+  - name: ceres-e2et
+    type: java
+    argsLine: ""
+    env:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-01.dev.monplat.rackspace.net:9092,kafka-02.dev.monplat.rackspace.net:9092,kafka-03.dev.monplat.rackspace.net:9092
+      - APP_CERES-QUERY-BASE-URL: http://ceres-api.dev.monplat.rackspace.net/api
+      - APP_UMF-TEST-TOPIC: ufm2.metrics.json
+      - SPRING_PROFILES_ACTIVE: debug
+    k8sSecrets:
+      - ceres-e2e-test
+    k8sConfigMap:
+      - ceres-e2e-test
+    files:
+      - name: keystore-p12
+        k8s-secret: umb-ceres-ingestor-ssl
+        fileName: /tmp/keystore.p12
+        varName: SPRING_KAFKA_SSL_KEY_STORE_LOCATION
+        varValue: file:/tmp/keystore.p12
+      - name: truststore-jks
+        k8s-secret: umb-ceres-ingestor-ssl
+        fileName: /tmp/truststore.jks
+        varName: SPRING_KAFKA_SSL_TRUST_STORE_LOCATION
+        varValue: file:/tmp/truststore.jks
+
+Artifactory:
+  url: http://salus-artifactory.dev.monplat.rackspace.net/artifactory/
+  repository: test-modules
+    

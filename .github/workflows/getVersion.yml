@@ -1,0 +1,133 @@
+---
+name: getVersion
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+
+    secrets:
+      account:
+        required: true
+      GCPCreds:
+        required: true
+    outputs:
+      current_version:
+        description: "Last image version"
+        value: ${{ jobs.version.outputs.currentVersion }}
+      new_version:
+        description: "Current image version"
+        value: ${{ jobs.version.outputs.newVersion }}
+
+jobs:
+  version:
+    name: Get version
+    runs-on: ubuntu-latest
+
+    outputs:
+      currentVersion: ${{ steps.currentVersion.outputs.currentVersion }}
+      newVersion: ${{ steps.newVersion.outputs.newVersion }}
+
+    steps:
+      # Setting runner environment
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x' 
+          architecture: 'x64' 
+
+      - uses: 'google-github-actions/auth@v0'
+        with:
+          credentials_json: '${{ secrets.GCPCreds }}'
+
+      # Base version from pom
+      - run: |
+          POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "POM_VERSION=${POM_VERSION}" >> $GITHUB_ENV
+
+      - uses: jannekem/run-python-script-action@v1
+        with:
+          script: |
+            pomVersion = "${{ env.POM_VERSION }}".split(".")
+
+            major = pomVersion[0]
+            minor = pomVersion[1]
+            build = pomVersion[2]
+
+            version = major + '.' + minor + '.' + build
+
+            if int(major) == 0:
+              print(f"{version}:")
+              print('\033[1m' + "Not a release version, canceling promotion")
+            #  exit(1)
+
+            BaseVersion = f"{major}.{minor}"
+
+            print ("version detected: {majorVersion}")
+            set_env("BASE_VERSION", BaseVersion)           
+
+      # Last image version pushed to stage
+      - shell: bash
+        run: | 
+          LAST_VERSION=$(gcloud container images list-tags gcr.io/${{ secrets.account }}/${{ inputs.image }} --limit=1 --sort-by=~TIMESTAMP --filter="TAGS~${{ env.BASE_VERSION }}." --format='table[no-heading](tags)')
+          echo "LAST_VERSION=${LAST_VERSION}" >> $GITHUB_ENV
+      
+      # Sanity tag check 
+      - uses: jannekem/run-python-script-action@v1
+        name: Getting curent version
+        with:
+          script: |
+            lastVersion = "${{ env.LAST_VERSION }}"
+            if not lastVersion:
+              print ("No buid version detected for: ${{ env.BASE_VERSION }}")
+              print ("Will generate a new version starting at ${{ env.BASE_VERSION }}.0")
+              set_env("CURRENT_VERSION", "${{ env.BASE_VERSION }}.0")
+            else:
+              version = "${{ env.LAST_VERSION }}".strip(",latest")
+
+              if len(version.split(",")) > 1:
+                print('\033[1m' + "Two or more tags found using the same image, aborting...")
+                exit(1)
+              
+              print (f"version detected: {version}")
+              set_env("CURRENT_VERSION", version)
+        
+      - uses: jannekem/run-python-script-action@v1
+        name: Setting new version
+        with:
+          script: |
+            lastVersion = "${{ env.LAST_VERSION }}"
+            if not lastVersion:
+              print ("No buid version detected for: ${{ env.BASE_VERSION }}")
+              print ("Will generate a new version starting at ${{ env.BASE_VERSION }}.0")
+              set_env("NEW_VERSION", "${{ env.BASE_VERSION }}.0")
+            else:
+              oldVersion= "${{ env.CURRENT_VERSION }}".split(".")
+
+              major = oldVersion[0]
+              minor = oldVersion[1]
+              build = oldVersion[2]
+
+              newVersion = f"{major}.{minor}.{int(build) + 1}"
+
+              print ("new version: {newVersion}")
+              set_env("NEW_VERSION", newVersion)    
+
+      # Returns current version
+      - id: currentVersion
+        shell: bash
+        run: | 
+          echo "::set-output name=currentVersion::${{ env.CURRENT_VERSION }}"
+
+      # Returns build + 1 version
+      - id: newVersion
+        shell: bash
+        run: | 
+          echo "::set-output name=newVersion::${{ env.NEW_VERSION }}"
+
+
+      
+

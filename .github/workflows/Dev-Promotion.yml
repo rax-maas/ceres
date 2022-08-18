@@ -1,0 +1,125 @@
+---
+name: Dev promotion
+
+env:
+  IMAGE_NAME: ceres
+  HELM_CHART: ceres
+  HELM_CHART_FOLDER: helm-ceres/charts
+  CLUSTER_NAME: primary-cluster
+
+on: 
+  # pull_request:
+  #   types: [ closed ]
+  #   branches: 
+  #     - master
+  #   paths-ignore:
+  #     - '.github/workflows/**'
+  #     - 'test-script' 
+  workflow_dispatch:
+
+jobs:
+  Setup:
+    uses: ./.github/workflows/getVersion.yml
+    with:
+      image: ceres
+    secrets:
+      account:  ${{ secrets.GCP_DEV_ACC }}
+      GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+
+  Build:
+    needs: Setup
+
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    ### Seting up runner env ###
+      - uses: actions/checkout@v3
+
+      - name: Maven Cache 
+        uses: actions/cache@v3
+        with:
+          key: dev-promotion-cache
+          path: |
+            ~/.m2/repository
+
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+
+      - name: 'Maven settings'
+        run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
+
+      - name: Docker login
+        run: gcloud auth configure-docker gcr.io -q
+
+      - name: .m2 forder [*** fix it please ***]
+        run: sed -i 's*/root/.m2/*~/.m2/*g' ./.mvn/settings.xml
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '14'
+          distribution: 'adopt-hotspot'
+
+      - name: Set artifact name
+        shell: bash
+        run: |
+          echo "ARTIFACT_VERSION=${{ needs.Setup.outputs.new_version }}-SNAPSHOT" >> $GITHUB_ENV 
+
+      ### Maven build
+      - name: Build with Maven
+        shell: bash
+        run: |
+          mvn build-helper:parse-version versions:set -DnewVersion=${{ env.ARTIFACT_VERSION }} versions:commit
+          mvn -B deploy -s .mvn/settings.xml
+
+      # - name: Build with Maven
+      #   shell: bash
+      #   run: |
+      #     mvn build-helper:parse-version versions:set -DnewVersion=${{ env.ARTIFACT_VERSION }} versions:commit
+      #     mvn -B verify -s .mvn/settings.xml
+      
+      - run: ls ./target
+
+      - name: Build with jib
+        run: mvn compile jib:build -U -B -Dmaven.test.skip=true -Ddocker.image.prefix=gcr.io/${{ secrets.GCP_DEV_ACC }}      
+
+  Deploy:
+    runs-on: ubuntu-latest
+    needs: [Build]
+
+    steps:
+      ### Seting up runner env ###
+      - uses: actions/checkout@v3
+      
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+          k8sSetup: "TRUE"
+          GCPaccount: ${{ secrets.GCP_DEV_ACC }}
+          clusterName: $CLUSTER_NAME
+
+      - name: Checkout helm-repo
+        uses: actions/checkout@v3
+        with:
+          repository: rax-maas/helm-ceres
+          ref: master
+          path: helm-ceres
+          token: ${{ secrets.GIT_TOKEN }}
+
+      - uses: azure/setup-helm@v3
+        with:
+          version: 3.9.0
+        id: install
+      
+      ### deploying
+      
+      - name: Getting latest digest
+        shell: bash
+        run: | 
+          DIGEST=$(gcloud container images list-tags gcr.io/${{ secrets.GCP_DEV_ACC }}/$IMAGE_NAME --filter TAGS=latest --format=json | jq .[0]."digest" | tr -d "\"" | awk -F ":" '{print $2}')
+          echo "DIGEST=$(echo $DIGEST)" >> $GITHUB_ENV
+    
+      - name: Helm upgrade
+        run: helm upgrade $HELM_CHART ${HELM_CHART_FOLDER}/$HELM_CHART --set image.repository=gcr.io/${{ secrets.GCP_DEV_ACC }}/${IMAGE_NAME}@sha256,image.tag=${{ env.DIGEST }}

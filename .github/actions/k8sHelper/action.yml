@@ -1,0 +1,25 @@
+---
+name: GCPSetup
+description: 'Setup GCP environment'
+
+inputs:
+  action:
+    required: true
+    description: Action will take
+  service:
+    required: false
+    description: "[port-fordward] service to be used"
+  port-in:
+    required: false
+    description: "[port-fordward] cointainer port"
+  port-out:
+    required: false
+    description: "[port-fordward] runner port"
+runs:
+  using: "composite"
+  steps:
+
+    - if: inputs.action == 'port-forward'
+      shell: bash
+      run: |
+        kubectl port-forward service/${{ inputs.service }} ${{ inputs.port-out }}:${{ inputs.port-in }} &

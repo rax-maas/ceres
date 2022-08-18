@@ -1,0 +1,110 @@
+---
+name: Stage promotion
+
+env:
+  IMAGE_NAME: ceres
+  HELM_CHART: ceres
+  HELM_CHART_FOLDER: helm-ceres/charts
+  CLUSTER_NAME: primay-cluster
+  ARTIFACT_ID: ceres
+  GROUP_ID: com.rackspace.ceres
+
+# Only trigger, when the build workflow succeeded
+on:
+#  workflow_run:
+#    workflows: ["Dev-Smoke-test"]
+#    types:
+#      - completed
+  workflow_dispatch:
+
+jobs:
+  Setup:
+    uses: ./.github/workflows/getVersion.yml
+    with:
+      image: ceres-test
+    secrets:
+      account:  ${{ secrets.GCP_DEV_ACC }}
+      GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+
+  promotion:
+    runs-on: ubuntu-latest
+    needs: Setup
+
+    steps:
+
+      ### Seting up runner env ###
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GIT_TOKEN }}
+
+      - name: Maven Cache 
+        uses: actions/cache@v3
+        with:
+          key: stage-promotion-cache
+          path: |
+            ~/.m2
+
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+
+      - name: 'Maven settings'
+        run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
+
+      - name: .m2 forder [*** fix it please ***]
+        run: sed -i 's*/root/.m2/*~/.m2/*g' ./.mvn/settings.xml
+
+      #Promoting image & artifact
+      - name: 'Image promotion'
+        run: gcloud container images add-tag gcr.io/${{ secrets.GCP_DEV_ACC }}/$IMAGE_NAME:latest gcr.io/${{ secrets.GCP_DEV_ACC }}/$IMAGE_NAME:${{ needs.Setup.outputs.new_version }}
+
+      - name: 'POM promotion'
+        shell: bash
+        run: |
+          mvn versions:set -DnewVersion=${{ needs.Setup.outputs.new_version }}
+          git config --global user.email "mmi-automation@rackspace.com"
+          git config --global user.name "mmi-automation"
+          git add ./pom.xml
+          git commit -m "${{github.workflow }}: ${{ github.run_number }} - POM.xml update new version: ${{ needs.Setup.outputs.new_version }}" || true
+          git push origin master || true
+
+      - name: 'Artifact promotion'
+        shell: bash
+        run: |
+          mvn org.apache.maven.plugins:maven-dependency-plugin:2.10:get -DremoteRepositories=https://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-snapshot-local/ \
+                            -DgroupId=$GROUP_ID \
+                            -DartifactId=$ARTIFACT_ID \
+                            -Dversion=${{ needs.Setup.outputs.new_version }}-SNAPSHOT \
+                            -Dtransitive=false \
+                            -Ddest=./$ARTIFACT_ID-${{ needs.Setup.outputs.new_version }}.jar
+          
+          mvn -s ./.mvn/settings.xml deploy:deploy-file -Dfile=$ARTIFACT_ID-${{ needs.Setup.outputs.new_version }}.jar -DartifactId=$ARTIFACT_ID -DgroupId=$GROUP_ID -Dversion=${{ needs.Setup.outputs.new_version }} -DrepositoryId=salus-dev-release -Durl=http://salus-artifactory.dev.monplat.rackspace.net/artifactory/libs-release-local 
+
+      - name: md5 checksum
+        run: |
+          md5sum $ARTIFACT_ID-${{ needs.Setup.outputs.new_version }}.jar
+
+  Stage-Deploy:
+    runs-on: ubuntu-latest
+    needs: [promotion, Setup]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+          k8sSetup: "TRUE"
+          GCPaccount: ${{ secrets.GCP_STAGE_ACC }}
+          clusterName: $CLUSTER_NAME
+
+      - name: Checkout helm-repo
+        uses: actions/checkout@v3
+        with:
+          repository: rax-maas/helm-ceres
+          ref: pre-prod
+          path: helm-ceres
+          token: ${{ secrets.GIT_TOKEN }}
+
+      - name: Helm upgrade
+        run: helm upgrade $HELM_CHART ${HELM_CHART_FOLDER}/${HELM_CHART} --set image.repository=gcr.io/${{ secrets.GCP_DEV_ACC }}/$IMAGE_NAME,image.tag=${{ needs.Setup.outputs.new_version }}     
