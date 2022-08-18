@@ -1,9 +1,6 @@
 ceres:
   downsample:
     granularities:
-      - width: 30s
-        ttl: 6h
-        partitionWidth: 1m
       - width: 1m
         ttl: 6h
         partitionWidth: 1m

@@ -18,9 +18,11 @@ package com.rackspace.ceres.app.services;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
+import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.*;
 import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
 
 @Service
 @Slf4j
@@ -49,6 +52,8 @@ public class QueryService {
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
   private final AppProperties appProperties;
+  private final DownsampleProperties properties;
+  private final DownsamplingService downsamplingService;
   private final Counter dbOperationErrorsCounter;
 
   @Autowired
@@ -56,14 +61,18 @@ public class QueryService {
                       MetadataService metadataService,
                       DataTablesStatements dataTablesStatements,
                       TimeSlotPartitioner timeSlotPartitioner,
-                      AppProperties appProperties, MeterRegistry meterRegistry) {
+                      AppProperties appProperties,
+                      DownsampleProperties properties,
+                      DownsamplingService downsamplingService,
+                      MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
     this.appProperties = appProperties;
-    dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
-        "type", "read");
+    this.properties = properties;
+    this.downsamplingService = downsamplingService;
+    this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors", "type", "read");
   }
 
   public Flux<QueryResult> queryRaw(String tenant, String metricName, String metricGroup,
@@ -147,27 +156,33 @@ public class QueryService {
             .checkpoint();
   }
 
+  /**
+   * Tries to 'downsample-on-the-fly' i.e. if there are missing downsampled data before the end boundary we try to
+   * downsample that first before returning the result.
+   */
   private Flux<QueryResult> getQueryDownsampled(String tenant, String metricName,
                                                 Aggregator aggregator, Duration granularity,
                                                 Map<String, String> queryTags, Instant start,
                                                 Instant end) {
+    Duration group = getPartitionWidth(this.properties.getGranularities(), granularity);
     // given the queryTags filter, locate the series-set that apply
-    return metadataService.locateSeriesSetHashes(tenant, metricName, queryTags)
+    Flux<String> hashesFlux = metadataService.locateSeriesSetHashes(tenant, metricName, queryTags);
+    return downsampleLatest(hashesFlux, end, granularity, group, tenant).thenMany(
         // then perform a retrieval for each series-set
-        .flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
-            // over each time slot partition of the [start,end) range
+        hashesFlux.flatMap(seriesSet -> mapSeriesSetResult(tenant, seriesSet, aggregator,
+            // over each time slot partition of the [start,end] range
             Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
                 .concatMap(timeSlot ->
                     cqlTemplate.queryForRows(
                             dataTablesStatements.downsampleQuery(granularity),
                             tenant, timeSlot, seriesSet, start, end
                         )
-                        .doOnError(e ->
-                            dbOperationErrorsCounter.increment())
+                        .doOnError(e -> dbOperationErrorsCounter.increment())
                         .name("queryDownsampled")
                         .metrics()
                 ), buildMetaData(aggregator, start, end, granularity)
-        ));
+        ))
+    );
   }
 
   public Flux<TsdbQueryResult> queryTsdb(String tenant, List<TsdbQueryRequest> queries,
@@ -183,6 +198,29 @@ public class QueryService {
                         query.getSeriesSet(), timeSlot))
         ))
         .checkpoint();
+  }
+
+  /**
+   * Fetches data points to be downsampled. The data points are based on the next lower granularity downsampled data
+   * and if there is no lower downsampled data it fetches the raw data points. This is to avoid always fetching
+   * raw which might be a performance and memory problem if we are downsampling very large granularities like e.g. 24h.
+   */
+  public Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Duration granularity, boolean redoOld) {
+    Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity);
+    return isLowerGranularityRaw(lowerWidth) ?
+        queryRawWithSeriesSet(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group))
+        )
+        :
+        queryDownsampled(
+            set.getTenant(),
+            set.getSeriesSetHash(),
+            redoOld ? set.getTimeSlot().minus(Duration.parse(group)) : set.getTimeSlot(),
+            set.getTimeSlot().plus(Duration.parse(group)),
+            lowerWidth);
   }
 
   private Flux<Row> queryForRows(
@@ -270,5 +308,37 @@ public class QueryService {
         .setStartTime(startTime)
         .setEndTime(endTime)
         .setGranularity(granularity);
+  }
+
+  /**
+   * Downsample until the end to ensure all possible data points
+   */
+  private Flux<?> downsampleLatest(
+      Flux<String> hashesFlux, Instant end, Duration granularity, Duration group, String tenant) {
+    return hashesFlux
+        .flatMap(hash -> Flux.fromIterable(getTimeslots(end, group))
+            .flatMap(timeslot -> {
+              PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+                  .setTimeSlot(timeslot)
+                  .setTenant(tenant)
+                  .setSeriesSetHash(hash);
+              Flux<ValueSet> data = fetchData(pendingSet, group.toString(), granularity, false);
+              return this.downsamplingService.downsampleData(pendingSet, granularity, data);
+            })
+        );
+  }
+
+  /**
+   * Fetch the latest possible timeslots for downsampling
+   */
+  private List<Instant> getTimeslots(Instant end, Duration group) {
+    Instant timeslot = DateTimeUtils.normalize(Instant.now(), group.toString());
+    if (end.isAfter(timeslot.minusSeconds(2 * group.getSeconds()))) {
+      return List.of(
+          timeslot.minusSeconds(2 * group.getSeconds()),
+          timeslot.minusSeconds(group.getSeconds())
+      );
+    }
+    return List.of();
   }
 }
