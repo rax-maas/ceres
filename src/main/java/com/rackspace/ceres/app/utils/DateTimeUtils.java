@@ -131,6 +131,14 @@ public class DateTimeUtils {
     }
   }
 
+  public static Duration getPartitionWidth(List<Granularity> granularities, Duration width) {
+    return granularities.stream()
+        .filter(granularity -> granularity.getWidth().equals(width))
+        .findFirst()
+        .orElseThrow()
+        .getPartitionWidth();
+  }
+
   public static List<String> getPartitionWidths(List<Granularity> granularities) {
     return granularities.stream()
             .map(Granularity::getPartitionWidth).sorted()
@@ -152,8 +160,16 @@ public class DateTimeUtils {
     return timestamp.with(new TemporalNormalizer(Duration.parse(group))).getEpochSecond();
   }
 
+  public static Instant normalize(Instant timestamp, String group) {
+    return timestamp.with(new TemporalNormalizer(Duration.parse(group)));
+  }
+
   public static int randomDelay(Long maxInterval) {
       int minSchedulingInterval = 1;
       return Math.min(new Random().nextInt(maxInterval.intValue()) + minSchedulingInterval, maxInterval.intValue());
+  }
+
+  public static boolean isLowerGranularityRaw(Duration lowerWidth) {
+    return lowerWidth.toString().equals("PT0S");
   }
 }

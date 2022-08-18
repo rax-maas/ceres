@@ -40,6 +40,19 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 @ActiveProfiles(profiles = {"downsample", "test"})
 @SpringBootTest
@@ -82,6 +95,8 @@ public class MetricDeletionServiceTest {
   TimeSlotPartitioner timeSlotPartitioner;
   @Autowired
   DownsampleProcessor downsampleProcessor;
+  @Autowired
+  DownsamplingService downsamplingService;
 
   @Autowired
   MetadataService metadataService;
@@ -552,18 +567,15 @@ public class MetricDeletionServiceTest {
             .setTags(tags)
     ).block();
 
-    when(queryService.queryRawWithSeriesSet(any(), any(), any(), any()))
-        .thenReturn(Flux.fromIterable(List.of(
-            singleValue(currentTime.toString(), value.doubleValue())))
-        );
+    Flux<ValueSet> data = Flux.fromIterable(List.of(singleValue(currentTime.toString(), value.doubleValue())));
+
+    final PendingDownsampleSet pendingSet = new PendingDownsampleSet()
+        .setTenant(tenantId)
+        .setSeriesSetHash(seriesSetHash)
+        .setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot));
 
     List.of(granularity(1, 12), granularity(2, 24)).forEach(granularity ->
-        downsampleProcessor.downsampleData(
-            new PendingDownsampleSet()
-                .setTenant(tenantId).setSeriesSetHash(seriesSetHash).setTimeSlot(Instant.ofEpochSecond(normalizedTimeSlot)),
-            group,
-            granularity
-        ).subscribe()
+        this.downsamplingService.downsampleData(pendingSet, granularity.getWidth(), data).subscribe()
     );
 
     //delete its entry from data raw table
