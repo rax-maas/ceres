@@ -226,7 +226,12 @@ public class MetadataControllerTest {
     Criteria criteria = new Criteria();
     criteria.setIncludeFields(List.of("metricNames"));
 
-    List<MetricDTO> metricDTOS = List.of(new MetricDTO("metric-1"), new MetricDTO("metric-2"));
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setMetricName("metric-1");
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setMetricName("metric-1");
+
+    List<MetricDTO> metricDTOS = List.of(metricDTO1, metricDTO2);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
     when(metadataService.search("t-1",criteria))
         .thenReturn(metricDTOS);
@@ -244,8 +249,14 @@ public class MetadataControllerTest {
     Criteria criteria = new Criteria();
     criteria.setIncludeFields(List.of("tags.metricGroup"));
 
-    List<MetricDTO> metricDTOS = List.of(new MetricDTO(Map
-        .of("metricGroup","group-1")), new MetricDTO(Map.of("metricGroup","group-2")));
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setTags(Map
+        .of("metricGroup","group-1"));
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setTags(Map
+        .of("metricGroup","group-2"));
+
+    List<MetricDTO> metricDTOS = List.of(metricDTO1, metricDTO2);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
     when(metadataService.search("t-1",criteria))
         .thenReturn(metricDTOS);
@@ -341,7 +352,12 @@ public class MetadataControllerTest {
     criteria.setFilter(List.of(filter));
     criteria.setIncludeFields(List.of("metricNames"));
 
-    List<MetricDTO> metricDTOS = List.of(new MetricDTO("metric-1"), new MetricDTO("metric-2"));
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setMetricName("metric-1");
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setMetricName("metric-1");
+
+    List<MetricDTO> metricDTOS = List.of(metricDTO1, metricDTO2);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
     when(metadataService.search("t-1",criteria))
         .thenReturn(metricDTOS);
@@ -367,7 +383,9 @@ public class MetadataControllerTest {
 
     Map<String, String> tags = Map.of("os", "linux", "host", "h1","metricGroup", metricGroup);
 
-    List<MetricDTO> metricDTOS = List.of(new MetricDTO(tags));
+    MetricDTO metricDTO = new MetricDTO();
+    metricDTO.setTags(tags);
+    List<MetricDTO> metricDTOS = List.of(metricDTO);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
     when(metadataService.search("t-1",criteria))
         .thenReturn(metricDTOS);
