@@ -38,7 +38,6 @@ import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.SuggestType;
-import com.rackspace.ceres.app.repo.MetricRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -79,9 +78,6 @@ public class MetadataServiceCachingTest {
 
   @MockBean
   RestHighLevelClient restHighLevelClient;
-
-  @MockBean
-  private MetricRepository metricRepository;
 
   @MockBean
   ObjectMapper objectMapper;

@@ -45,7 +45,6 @@ import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.model.TsdbFilter;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.repo.MetricRepository;
 import com.rackspace.ceres.app.services.MetadataServiceTest.RedisEnvInit;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
@@ -58,7 +57,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -145,14 +147,14 @@ class MetadataServiceTest {
   @Autowired
   RestHighLevelClient restHighLevelClient;
 
-  @Autowired
-  private MetricRepository metricRepository;
-
   @AfterEach
-  void tearDown() {
+  void tearDown() throws IOException {
     cassandraTemplate.truncate(MetricName.class)
         .and(cassandraTemplate.truncate(SeriesSet.class))
         .block();
+
+    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
+    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
   }
 
   @BeforeAll
@@ -166,9 +168,11 @@ class MetadataServiceTest {
   }
 
   @BeforeEach
-  void testIsContainerRunning() {
+  void testIsContainerRunning() throws IOException {
     assertTrue(elasticsearchContainer.isRunning());
-    metricRepository.deleteAll();
+
+    CreateIndexRequest request = new CreateIndexRequest("metrics");
+    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
   }
 
   @Test

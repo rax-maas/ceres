@@ -14,7 +14,6 @@ import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.repo.MetricRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,19 +39,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 @ActiveProfiles(profiles = {"downsample", "test"})
 @SpringBootTest
@@ -112,9 +98,6 @@ public class MetricDeletionServiceTest {
 
   @Autowired
   RestHighLevelClient restHighLevelClient;
-
-  @Autowired
-  private MetricRepository metricRepository;
 
   private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
       + " AND time_slot = ?";

@@ -41,21 +41,28 @@ import com.rackspace.ceres.app.model.SuggestType;
 import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
-import com.rackspace.ceres.app.repo.MetricRepository;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -112,7 +119,6 @@ public class MetadataService {
       "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
   private static final String GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA = "SELECT data from tags_data where tenant = ? AND type = ?";
 
-  private MetricRepository metricRepository;
   private ObjectMapper objectMapper;
   private RestHighLevelClient restHighLevelClient;
 
@@ -122,7 +128,6 @@ public class MetadataService {
                          AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
                          MeterRegistry meterRegistry,
                          AppProperties appProperties,
-                         MetricRepository metricRepository,
                          ObjectMapper objectMapper,
                          RestHighLevelClient restHighLevelClient) {
     this.cqlTemplate = cqlTemplate;
@@ -136,7 +141,6 @@ public class MetadataService {
     readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "read");
     this.appProperties = appProperties;
-    this.metricRepository = metricRepository;
     this.restHighLevelClient = restHighLevelClient;
     this.objectMapper = objectMapper;
   }
@@ -175,13 +179,21 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
-  public Mono<Void> saveMetricToES(String tenant, Metric metric)  {
+  public Mono<Void> saveMetricToES(String tenant, Metric metric) {
     com.rackspace.ceres.app.entities.Metric metricEntity = new com.rackspace.ceres.app.entities.Metric();
     metricEntity.setMetricName(metric.getMetric());
     metricEntity.setTenant(tenant);
     metricEntity.setTags(metric.getTags());
     log.trace("saving metric {} to ES ", metric);
-    metricRepository.save(metricEntity);
+    IndexRequest indexRequest = new IndexRequest();
+    try {
+      indexRequest.index(appProperties.getIndexName());
+      indexRequest.source(objectMapper.writeValueAsString(metricEntity), XContentType.JSON);
+      indexRequest.routing(tenant);
+      restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     return Mono.empty();
   }
 
@@ -535,14 +547,14 @@ public class MetadataService {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    query.must(QueryBuilders.boolQuery().must(QueryBuilders.termQuery("tenant", tenantId)));
+    query.must(QueryBuilders.termQuery("tenant", tenantId));
 
     if(criteria.getFilter() != null) {
       criteria.getFilter().stream().filter(Objects::nonNull).forEach(filter ->
           query.filter(
               QueryBuilders.wildcardQuery(filter.getFilterKey(), filter.getFilterValue())));
-      searchSourceBuilder.query(query);
     }
+    searchSourceBuilder.query(query);
 
     searchSourceBuilder.fetchSource(
         criteria.getIncludeFields() == null ? null
@@ -553,6 +565,7 @@ public class MetadataService {
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.indices(appProperties.getIndexName());
     searchRequest.source(searchSourceBuilder);
+    searchRequest.routing(tenantId);
 
     SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
     List<MetricDTO> metrics = new ArrayList<>();
