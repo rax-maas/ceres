@@ -179,6 +179,14 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
+  /**
+   * index metric entity to es
+   * using tenantId as routing param.
+   *
+   * @param tenant the tenant
+   * @param metric the metric
+   * @return the mono
+   */
   public Mono<Void> saveMetricToES(String tenant, Metric metric) {
     com.rackspace.ceres.app.entities.Metric metricEntity = new com.rackspace.ceres.app.entities.Metric();
     metricEntity.setMetricName(metric.getMetric());
@@ -542,6 +550,15 @@ public class MetadataService {
         .collectList();
   }
 
+  /**
+   * performs a search operation on ES using given filters in Criteria object
+   * returns list of MetricDTO
+   *
+   * @param tenantId the tenant id
+   * @param criteria the criteria
+   * @return the list
+   * @throws IOException the io exception
+   */
   public List<MetricDTO> search(String tenantId, Criteria criteria)
       throws IOException {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
