@@ -568,8 +568,7 @@ public class MetadataService {
 
     if(criteria.getFilter() != null) {
       criteria.getFilter().stream().filter(Objects::nonNull).forEach(filter ->
-          query.filter(
-              QueryBuilders.wildcardQuery(filter.getFilterKey(), filter.getFilterValue())));
+          query.must(QueryBuilders.wildcardQuery(filter.getFilterKey(), filter.getFilterValue())));
     }
     searchSourceBuilder.query(query);
 
@@ -591,7 +590,7 @@ public class MetadataService {
       try {
         metric = objectMapper.readValue(e.getSourceAsString(), MetricDTO.class);
       } catch (Exception e1) {
-        e1.printStackTrace();
+       log.error("exception thrown while converting MetricDTO object",e1);
       }
       metrics.add(metric);
     });

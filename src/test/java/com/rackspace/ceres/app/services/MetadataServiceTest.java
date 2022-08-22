@@ -61,6 +61,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -172,11 +173,13 @@ class MetadataServiceTest {
     assertTrue(elasticsearchContainer.isRunning());
 
     CreateIndexRequest request = new CreateIndexRequest("metrics");
+    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
+    request.mapping(mapping, XContentType.JSON);
     restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
   }
 
   @Test
-  void storeMetadata() throws IOException {
+  void storeMetadata() throws IOException, InterruptedException {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName = randomAlphabetic(5);
     // NOTE: the series sets are normally encoded as a hash in the seriesSetHash field, but
@@ -256,11 +259,12 @@ class MetadataServiceTest {
     ));
     List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2, metricDTO3);
 
-    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, new Criteria());
+    Thread.sleep(1000);
+    Criteria criteria = new Criteria();
+    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, criteria);
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
     assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
   }
-
   private void store(String tenantId, String metricName,
                      String os, String host,
                      String deployment) {
@@ -693,7 +697,7 @@ class MetadataServiceTest {
   }
 
   @Test
-  public void testSearch() throws IOException {
+  public void testSearch() throws IOException, InterruptedException {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
 
     final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
@@ -715,6 +719,7 @@ class MetadataServiceTest {
     MetricDTO metricDTO2 = new MetricDTO(metricName2, tags2);
     List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2);
 
+    Thread.sleep(1000);
     List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, new Criteria());
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
     assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
