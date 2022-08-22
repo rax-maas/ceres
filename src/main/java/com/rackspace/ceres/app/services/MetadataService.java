@@ -31,7 +31,6 @@ import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Criteria;
-import com.rackspace.ceres.app.model.Filter;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
@@ -49,11 +48,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -595,42 +592,5 @@ public class MetadataService {
       metrics.add(metric);
     });
     return metrics;
-  }
-
-  public Set<String> searchTagKeys(String metricName, String tenantHeader) throws IOException {
-    Criteria criteria = new Criteria();
-    Filter filter = new Filter();
-    filter.setFilterKey("metricName");
-    filter.setFilterValue(metricName);
-    criteria.setFilter(List.of(filter));
-    criteria.setIncludeFields(List.of("tags"));
-
-    List<MetricDTO> metrics = search(tenantHeader, criteria);
-    Set<String> tagKeys = new HashSet<>();
-    metrics.stream().map(e -> e.getTags().keySet()).forEach(e -> {
-      tagKeys.addAll(e);
-    } );
-
-    return tagKeys;
-  }
-
-  public Set<String> searchTagValues(String metricName, String tagKey, String tenantHeader) throws IOException {
-    Criteria criteria = new Criteria();
-    Filter filter1 = new Filter();
-    filter1.setFilterKey("metricName");
-    filter1.setFilterValue(metricName);
-    Filter filter2 = new Filter();
-    filter2.setFilterKey("tags."+tagKey);
-    filter2.setFilterValue("*");
-
-    criteria.setFilter(List.of(filter1, filter2));
-    criteria.setIncludeFields(List.of("tags."+tagKey));
-    List<MetricDTO> metrics = search(tenantHeader, criteria);
-    Set<String> tagValues = new HashSet<>();
-    metrics.stream().map(e -> e.getTags().values()).forEach(e -> {
-      tagValues.addAll(e);
-    } );
-
-    return tagValues;
   }
 }

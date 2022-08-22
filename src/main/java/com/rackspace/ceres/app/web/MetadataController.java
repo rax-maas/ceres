@@ -24,7 +24,6 @@ import com.rackspace.ceres.app.validation.RequestValidator;
 import io.swagger.annotations.ApiOperation;
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
@@ -160,21 +159,6 @@ public class MetadataController {
       tenantHeader = maskTenantId;
     }
     return metadataService.search(tenantHeader, criteria);
-  }
-
-  @GetMapping(path = "/searchTagKeys")
-  public Set<String> searchTagKeys(@RequestParam String metricName,
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader)
-      throws IOException {
-    return metadataService.searchTagKeys(metricName, tenantHeader);
-  }
-
-  @GetMapping(path = "/searchTagValues")
-  public Set<String> searchTagValues(@RequestParam String metricName,
-      @RequestParam String tagKey,
-      @ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader)
-      throws IOException {
-    return metadataService.searchTagValues(metricName, tagKey, tenantHeader);
   }
 
   public boolean isDevProfileActive() {
