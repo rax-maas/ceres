@@ -154,6 +154,7 @@ public class MetadataController {
   }
 
   @PostMapping(path = "/search")
+  @ApiOperation(value = "This api is used to get all the metric info based upon given filter, include and exclude fields in Criteria object.")
   public List<MetricDTO> search(@ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
       @RequestParam(required = false) String maskTenantId,
       @RequestBody Criteria criteria)
