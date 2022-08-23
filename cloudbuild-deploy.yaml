@@ -50,6 +50,8 @@ steps:
     - "-B"
     - "-Dmaven.test.skip=true"
     - "-Ddocker.image.prefix=gcr.io/$PROJECT_ID"
+    - "-DforkCount=3"
+    - "-DreuseForks=true"
     volumes:
     - name: user.home
       path: /root
