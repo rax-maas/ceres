@@ -17,6 +17,7 @@
 
 package com.rackspace.ceres.app.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 
 @Configuration
+@Slf4j
 public class ElasticSearchConfig {
 
   private final AppProperties appProperties;
@@ -38,6 +40,7 @@ public class ElasticSearchConfig {
 
   @Bean
   public RestHighLevelClient client() {
+    log.info("elastic Search hosts ", appProperties.elasticSearchHosts);
       ClientConfiguration clientConfiguration = ClientConfiguration.builder()
           .connectedTo(appProperties.elasticSearchHosts)
           .build();
