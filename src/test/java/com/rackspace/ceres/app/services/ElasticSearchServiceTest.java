@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.ESContainerSetup;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Criteria;
@@ -43,7 +44,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -51,6 +56,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @ActiveProfiles("test")
 @Testcontainers
 public class ElasticSearchServiceTest {
+
+  @Container
+  public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
+      CassandraContainerSetup.DOCKER_IMAGE);
+  @TestConfiguration
+  @Import(CassandraContainerSetup.class)
+  public static class TestConfig {
+    @Bean
+    CassandraContainer<?> cassandraContainer() {
+      return cassandraContainer;
+    }
+  }
 
   @Container
   public static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
