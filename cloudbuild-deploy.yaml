@@ -32,7 +32,7 @@ steps:
 
   - id: DEPLOY
     name: 'maven:3.6-jdk-14'
-    args: ['mvn' , '-B', 'deploy', '-s', '.mvn/settings.xml', '-DforkCount=0', '-DargLine="-Xmx1024m -XX:MaxPermSize=256m"']
+    args: ['mvn' , '-B', 'deploy', '-s', '.mvn/settings.xml', '-DforkCount=3']
     volumes:
     - name: user.home
       path: /root
