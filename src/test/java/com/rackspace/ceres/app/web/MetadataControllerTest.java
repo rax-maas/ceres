@@ -10,6 +10,7 @@ import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.Filter;
 import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.services.ElasticSearchService;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
 import io.lettuce.core.RedisBusyException;
@@ -37,6 +38,9 @@ public class MetadataControllerTest {
 
   @MockBean
   MetadataService metadataService;
+
+  @MockBean
+  ElasticSearchService elasticSearchService;
 
   @Autowired
   RequestValidator requestValidator;
@@ -233,7 +237,7 @@ public class MetadataControllerTest {
 
     List<MetricDTO> metricDTOS = List.of(metricDTO1, metricDTO2);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
@@ -258,7 +262,7 @@ public class MetadataControllerTest {
 
     List<MetricDTO> metricDTOS = List.of(metricDTO1, metricDTO2);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
@@ -281,7 +285,7 @@ public class MetadataControllerTest {
 
     List<MetricDTO> metricDTOS = List.of(new MetricDTO(metricName, tags));
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
@@ -306,7 +310,7 @@ public class MetadataControllerTest {
 
     List<MetricDTO> metricDTOS = List.of(new MetricDTO(metricName, tags));
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
@@ -331,7 +335,7 @@ public class MetadataControllerTest {
 
     List<MetricDTO> metricDTOS = List.of(new MetricDTO(metricName, tags));
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
@@ -359,7 +363,7 @@ public class MetadataControllerTest {
 
     List<MetricDTO> metricDTOS = List.of(metricDTO1, metricDTO2);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")
@@ -387,7 +391,7 @@ public class MetadataControllerTest {
     metricDTO.setTags(tags);
     List<MetricDTO> metricDTOS = List.of(metricDTO);
     String jsonResponse = new ObjectMapper().writeValueAsString(metricDTOS);
-    when(metadataService.search("t-1",criteria))
+    when(elasticSearchService.search("t-1",criteria))
         .thenReturn(metricDTOS);
 
     webTestClient.post().uri(uriBuilder -> uriBuilder.path("/api/metadata/search")

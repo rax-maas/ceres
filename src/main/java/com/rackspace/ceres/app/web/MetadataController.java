@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.web;
 import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.services.ElasticSearchService;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
 import io.swagger.annotations.ApiOperation;
@@ -47,12 +48,15 @@ import springfox.documentation.annotations.ApiIgnore;
 public class MetadataController {
 
   private final MetadataService metadataService;
+  private final ElasticSearchService elasticSearchService;
 
   private final Environment environment;
 
   @Autowired
-  public MetadataController(MetadataService metadataService, Environment environment) {
+  public MetadataController(MetadataService metadataService, ElasticSearchService elasticSearchService,
+      Environment environment) {
     this.metadataService = metadataService;
+    this.elasticSearchService = elasticSearchService;
     this.environment = environment;
   }
 
@@ -158,7 +162,7 @@ public class MetadataController {
     if(maskTenantId!=null) {
       tenantHeader = maskTenantId;
     }
-    return metadataService.search(tenantHeader, criteria);
+    return elasticSearchService.search(tenantHeader, criteria);
   }
 
   public boolean isDevProfileActive() {

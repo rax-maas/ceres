@@ -21,7 +21,6 @@ import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
 import static org.springframework.data.cassandra.core.query.Criteria.where;
 import static org.springframework.data.cassandra.core.query.Query.query;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -30,9 +29,7 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
@@ -43,26 +40,15 @@ import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
@@ -116,8 +102,7 @@ public class MetadataService {
       "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
   private static final String GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA = "SELECT data from tags_data where tenant = ? AND type = ?";
 
-  private ObjectMapper objectMapper;
-  private RestHighLevelClient restHighLevelClient;
+  private ElasticSearchService elasticSearchService;
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
@@ -125,8 +110,7 @@ public class MetadataService {
                          AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
                          MeterRegistry meterRegistry,
                          AppProperties appProperties,
-                         ObjectMapper objectMapper,
-                         RestHighLevelClient restHighLevelClient) {
+                         ElasticSearchService elasticSearchService) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
@@ -138,8 +122,7 @@ public class MetadataService {
     readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "read");
     this.appProperties = appProperties;
-    this.restHighLevelClient = restHighLevelClient;
-    this.objectMapper = objectMapper;
+    this.elasticSearchService = elasticSearchService;
   }
 
   public Publisher<?> storeMetadata(String tenant, String seriesSetHash, Metric metric) {
@@ -169,37 +152,11 @@ public class MetadataService {
                                     Mono.just(true) :
                                     // not cached, so store the metadata to be sure
                                     storeMetadataInCassandra(tenant, seriesSetHash, metric)
-                                        .and(saveMetricToES(tenant, metric))
+                                        .and(elasticSearchService.saveMetricToES(tenant, metric))
                                             .map(it -> true))
                             .toFuture()
     );
     return Mono.fromFuture(result);
-  }
-
-  /**
-   * index metric entity to es
-   * using tenantId as routing param.
-   *
-   * @param tenant the tenant
-   * @param metric the metric
-   * @return the mono
-   */
-  public Mono<Void> saveMetricToES(String tenant, Metric metric) {
-    com.rackspace.ceres.app.entities.Metric metricEntity = new com.rackspace.ceres.app.entities.Metric();
-    metricEntity.setMetricName(metric.getMetric());
-    metricEntity.setTenant(tenant);
-    metricEntity.setTags(metric.getTags());
-    log.trace("saving metric {} to ES ", metric);
-    IndexRequest indexRequest = new IndexRequest();
-    try {
-      indexRequest.index(appProperties.getIndexName());
-      indexRequest.source(objectMapper.writeValueAsString(metricEntity), XContentType.JSON);
-      indexRequest.routing(tenant);
-      restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    return Mono.empty();
   }
 
   public Mono<?> updateMetricGroupAddMetricName(
@@ -545,52 +502,5 @@ public class MetadataService {
     )
         .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
-  }
-
-  /**
-   * performs a search operation on ES using given filters in Criteria object
-   * returns list of MetricDTO
-   *
-   * @param tenantId the tenant id
-   * @param criteria the criteria
-   * @return the list
-   * @throws IOException the io exception
-   */
-  public List<MetricDTO> search(String tenantId, Criteria criteria)
-      throws IOException {
-    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-
-    BoolQueryBuilder query = QueryBuilders.boolQuery();
-    query.must(QueryBuilders.termQuery("tenant", tenantId));
-
-    if(criteria.getFilter() != null) {
-      criteria.getFilter().stream().filter(Objects::nonNull).forEach(filter ->
-          query.must(QueryBuilders.wildcardQuery(filter.getFilterKey(), filter.getFilterValue())));
-    }
-    searchSourceBuilder.query(query);
-
-    searchSourceBuilder.fetchSource(
-        criteria.getIncludeFields() == null ? null
-            : Arrays.stream(criteria.getIncludeFields().toArray()).toArray(String[]::new),
-        criteria.getExcludeFields() == null ? null
-            : Arrays.stream(criteria.getExcludeFields().toArray()).toArray(String[]::new));
-
-    SearchRequest searchRequest = new SearchRequest();
-    searchRequest.indices(appProperties.getIndexName());
-    searchRequest.source(searchSourceBuilder);
-    searchRequest.routing(tenantId);
-
-    SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
-    List<MetricDTO> metrics = new ArrayList<>();
-    searchResponse.getHits().forEach(e -> {
-      MetricDTO metric = null;
-      try {
-        metric = objectMapper.readValue(e.getSourceAsString(), MetricDTO.class);
-      } catch (Exception e1) {
-       log.error("exception thrown while converting MetricDTO object",e1);
-      }
-      metrics.add(metric);
-    });
-    return metrics;
   }
 }

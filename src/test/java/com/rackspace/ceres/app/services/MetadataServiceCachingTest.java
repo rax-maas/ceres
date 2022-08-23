@@ -19,6 +19,7 @@ package com.rackspace.ceres.app.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -26,7 +27,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.CacheConfig;
@@ -42,7 +42,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,14 +75,11 @@ public class MetadataServiceCachingTest {
   @MockBean
   ReactiveCassandraTemplate cassandraTemplate;
 
-  @MockBean
-  RestHighLevelClient restHighLevelClient;
-
-  @MockBean
-  ObjectMapper objectMapper;
-
   @Autowired
   MetadataService metadataService;
+
+  @MockBean
+  ElasticSearchService elasticSearchService;
 
   @Autowired
   AsyncCache<SeriesSetCacheKey,Boolean/*exists*/> seriesSetExistenceCache;
@@ -102,6 +98,8 @@ public class MetadataServiceCachingTest {
             .thenReturn(Mono.just(Boolean.TRUE));
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(false));
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
     final String tenant = randomAlphanumeric(10);
     final String seriesSetHash = randomAlphanumeric(10);
     final String metricName = randomAlphanumeric(10);
@@ -164,6 +162,8 @@ public class MetadataServiceCachingTest {
 
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(true));
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
     Mono.from(
         metadataService.storeMetadata(tenant, seriesSetHash, new Metric().setMetric(metricName).setTags(tags))
     ).block();
@@ -189,6 +189,8 @@ public class MetadataServiceCachingTest {
     assertThat(seriesSetExistenceCache.synchronous().estimatedSize()).isEqualTo(0);
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(true));
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     // When
     Mono.from(

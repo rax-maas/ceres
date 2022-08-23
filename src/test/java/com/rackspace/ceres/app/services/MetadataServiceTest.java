@@ -34,7 +34,6 @@ import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Criteria;
-import com.rackspace.ceres.app.model.Filter;
 import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricDTO;
@@ -99,7 +98,7 @@ class MetadataServiceTest {
       CassandraContainerSetup.DOCKER_IMAGE);
 
   @Container
-  private static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
+  public static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
 
   private static final int REDIS_PORT = 6379;
 
@@ -135,6 +134,9 @@ class MetadataServiceTest {
 
   @Autowired
   MetadataService metadataService;
+
+  @Autowired
+  ElasticSearchService elasticSearchService;
 
   @Autowired
   MeterRegistry meterRegistry;
@@ -261,7 +263,7 @@ class MetadataServiceTest {
 
     Thread.sleep(1000);
     Criteria criteria = new Criteria();
-    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, criteria);
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
     assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
   }
@@ -694,56 +696,6 @@ class MetadataServiceTest {
     List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device1)
         .block();
     assertThat(metricNamesResult).containsExactlyInAnyOrder(metricName1, metricName2);
-  }
-
-  @Test
-  public void testSearch() throws IOException, InterruptedException {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-
-    final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName2 = RandomStringUtils.randomAlphanumeric(10);
-
-    Metric metric1 = new Metric();
-    metric1.setMetric(metricName1);
-    Map<String, String> tags1 = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
-    metric1.setTags(tags1);
-    metadataService.saveMetricToES(tenantId,metric1).block();
-
-    Metric metric2 = new Metric();
-    metric2.setMetric(metricName2);
-    Map<String, String> tags2 = Map.of("host", "h-2", "os", "windows", "deployment", "dev");
-    metric2.setTags(tags2);
-    metadataService.saveMetricToES(tenantId,metric2).block();
-
-    MetricDTO metricDTO1 = new MetricDTO(metricName1, tags1);
-    MetricDTO metricDTO2 = new MetricDTO(metricName2, tags2);
-    List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2);
-
-    Thread.sleep(1000);
-    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId, new Criteria());
-    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
-    assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
-  }
-
-  @Test
-  public void testSearchWithInvalidCriteria() throws IOException {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName = "metric-1";
-
-    Metric metric = new Metric();
-    metric.setMetric(metricName);
-    Map<String, String> tags = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
-    metric.setTags(tags);
-    metadataService.saveMetricToES(tenantId, metric).block();
-
-    Criteria criteria = new Criteria();
-    Filter filter = new Filter();
-    filter.setFilterKey("metricName");
-    filter.setFilterValue("xyz");
-    criteria.setFilter(List.of(filter));
-    List<MetricDTO> metricDTOSResult = metadataService.search(tenantId+"axb", criteria);
-
-    assertThat(metricDTOSResult.size()).isEqualTo(0);
   }
 
   private Devices insertDeviceData(String tenantId, String device, Set<String> metricNames) {
