@@ -1,5 +1,9 @@
 spring:
   data:
+    elasticsearch:
+      client:
+        reactive:
+          endpoints: ""
     cassandra:
       contact-points: ""
       request:
@@ -20,8 +24,15 @@ ceres:
   tag-value-limit: 10
   ingest-start-time: 7d
   ingest-end-time: 1d
-  elastic-search-hosts: localhost:9200
   elastic-search-index-name: metrics
 management:
   server:
     port: 8082
+logging:
+  level:
+    org:
+      springframework:
+        data:
+          elasticsearch:
+            client:
+              WIRE: trace
