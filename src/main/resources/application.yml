@@ -1,5 +1,9 @@
 spring:
   data:
+    elasticsearch:
+      client:
+        reactive:
+          endpoints: localhost:9200
     cassandra:
       keyspace-name: ceres
       schema-action: create_if_not_exists

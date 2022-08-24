@@ -147,12 +147,12 @@ public class AppProperties {
 
   Duration ingestEndTime = Duration.ofDays(1);
 
-  /**
-   * The Elastic search hosts and ports.
-   * ex: localhost:9200
-   */
-  @NotNull
-  String[] elasticSearchHosts;
+//  /**
+//   * The Elastic search hosts and ports.
+//   * ex: localhost:9200
+//   */
+//  @NotNull
+//  String[] elasticSearchHosts;
 
   /**
    * The Elastic search index name.
