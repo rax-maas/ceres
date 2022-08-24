@@ -478,7 +478,7 @@ class QueryServiceTest {
     );
 
     final Map<String, Double> expectedDps = Map.of(
-//        String.valueOf(normTS1.getEpochSecond()), 1.8,
+        String.valueOf(normTS1.getEpochSecond()), 1.8,
         String.valueOf(normTS2.getEpochSecond()), 8.4
     );
 
