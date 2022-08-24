@@ -40,6 +40,7 @@ public class ElasticSearchConfig {
 
   @Bean
   public RestHighLevelClient client() {
+    log.info("elastic index name ", appProperties.elasticSearchIndexName);
     log.info("elastic Search hosts ", appProperties.elasticSearchHosts);
       ClientConfiguration clientConfiguration = ClientConfiguration.builder()
           .connectedTo(appProperties.elasticSearchHosts)
