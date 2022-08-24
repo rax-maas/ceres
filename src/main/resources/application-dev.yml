@@ -31,10 +31,13 @@ ceres:
   delayed-hashes-cache-ttl: 10s
   delayed-timeslot-cache-ttl: 10s
   downsample-delay-factor: 1.2
-  elastic-search-hosts: localhost:9200
   elastic-search-index-name: metrics
 spring:
   data:
+    elasticsearch:
+      client:
+        reactive:
+          endpoints: localhost:9200
     cassandra:
       local-datacenter: datacenter1
       connection:
@@ -47,5 +50,11 @@ management:
 logging:
   level:
     com.rackspace.ceres.app: debug
+    org:
+      springframework:
+        data:
+          elasticsearch:
+            client:
+              WIRE: trace
   file:
     name: ceres-application.log
