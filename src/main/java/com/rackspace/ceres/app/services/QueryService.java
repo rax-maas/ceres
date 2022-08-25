@@ -40,7 +40,6 @@ import java.util.Map.Entry;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Profile;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -48,7 +47,6 @@ import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
-@Profile("query")
 public class QueryService {
   private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
