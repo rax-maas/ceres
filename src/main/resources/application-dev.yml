@@ -32,6 +32,8 @@ ceres:
   delayed-timeslot-cache-ttl: 10s
   downsample-delay-factor: 1.2
   elastic-search-index-name: metrics
+  elastic-search-host: localhost
+  elastic-search-port: 9200
 spring:
   data:
     elasticsearch:

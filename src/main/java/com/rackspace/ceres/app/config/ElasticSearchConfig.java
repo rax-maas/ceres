@@ -23,12 +23,13 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 @Configuration
 @Slf4j
+@Profile("query")
 public class ElasticSearchConfig {
 
   private final AppProperties appProperties;
@@ -38,15 +39,10 @@ public class ElasticSearchConfig {
     this.appProperties = appProperties;
   }
 
-  @Value("${ceres.elasticsearch.host}")
-  public String host;
-
-  @Value("${ceres.elasticsearch.port}")
-  public int port;
-
   @Bean(destroyMethod = "close")
   public RestHighLevelClient restClient1() {
-    RestClientBuilder restClientBuilder = RestClient.builder(new HttpHost(host, port));
+    RestClientBuilder restClientBuilder = RestClient.builder(
+        new HttpHost(appProperties.getElasticSearchHost(), appProperties.elasticSearchPort));
     RestHighLevelClient client = new RestHighLevelClient(restClientBuilder);
     return client;
   }

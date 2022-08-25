@@ -64,7 +64,7 @@ import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
 @SpringBootTest
-@ActiveProfiles(profiles = {"test", "downsample"})
+@ActiveProfiles(profiles = {"test", "downsample","query"})
 @Testcontainers
 @Slf4j
 class QueryServiceTest {
