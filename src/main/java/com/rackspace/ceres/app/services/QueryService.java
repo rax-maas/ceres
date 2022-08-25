@@ -16,6 +16,11 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.utils.DateTimeUtils.getLowerGranularity;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.getPartitionWidth;
+import static com.rackspace.ceres.app.utils.DateTimeUtils.isLowerGranularityRaw;
+import static java.util.Objects.requireNonNull;
+
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
@@ -25,14 +30,6 @@ import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -40,9 +37,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import static java.util.Objects.requireNonNull;
-import static com.rackspace.ceres.app.utils.DateTimeUtils.*;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j

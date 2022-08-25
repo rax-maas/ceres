@@ -16,6 +16,11 @@
 
 package com.rackspace.ceres.app.services;
 
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
+import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
+import static org.springframework.data.cassandra.core.query.Criteria.where;
+import static org.springframework.data.cassandra.core.query.Query.query;
+
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -24,10 +29,25 @@ import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.entities.TagsData;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.SeriesSetCacheKey;
+import com.rackspace.ceres.app.model.SuggestType;
+import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,16 +57,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_SERIES_SET_HASH;
-import static com.rackspace.ceres.app.entities.SeriesSetHash.COL_TENANT;
-import static org.springframework.data.cassandra.core.query.Criteria.where;
-import static org.springframework.data.cassandra.core.query.Query.query;
 
 @Service
 @Slf4j
@@ -92,12 +102,15 @@ public class MetadataService {
       "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
   private static final String GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA = "SELECT data from tags_data where tenant = ? AND type = ?";
 
+  private ElasticSearchService elasticSearchService;
+
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
                          ReactiveCassandraTemplate cassandraTemplate,
                          AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
                          MeterRegistry meterRegistry,
-                         AppProperties appProperties) {
+                         AppProperties appProperties,
+                         ElasticSearchService elasticSearchService) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
@@ -109,6 +122,7 @@ public class MetadataService {
     readDbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors",
         "type", "read");
     this.appProperties = appProperties;
+    this.elasticSearchService = elasticSearchService;
   }
 
   public Publisher<?> storeMetadata(String tenant, String seriesSetHash, Metric metric) {
@@ -138,6 +152,7 @@ public class MetadataService {
                                     Mono.just(true) :
                                     // not cached, so store the metadata to be sure
                                     storeMetadataInCassandra(tenant, seriesSetHash, metric)
+                                        .and(elasticSearchService.saveMetricToES(tenant, metric))
                                             .map(it -> true))
                             .toFuture()
     );
