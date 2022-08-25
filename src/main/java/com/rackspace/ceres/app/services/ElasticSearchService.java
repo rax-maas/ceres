@@ -68,8 +68,6 @@ public class ElasticSearchService {
    * @return the mono
    */
   public Mono<Void> saveMetricToES(String tenant, Metric metric) {
-    restHighLevelClient.getLowLevelClient().getNodes().forEach(e ->
-        log.info("name {}, host {} ", e.getName(), e.getHost().getHostName()));
     com.rackspace.ceres.app.entities.Metric metricEntity = new com.rackspace.ceres.app.entities.Metric();
     metricEntity.setMetricName(metric.getMetric());
     metricEntity.setTenant(tenant);
