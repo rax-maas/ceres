@@ -63,7 +63,9 @@ import reactor.core.publisher.Mono;
     SimpleMeterRegistry.class
 }, properties = {
     "ceres.series-set-cache-size=1",
-    "ceres.elastic-search-index-name=metrics"
+    "ceres.elastic-search-index-name=metrics",
+    "ceres.elasticsearch.host=localhost",
+    "ceres.elasticsearch.port=9200"
 })
 @EnableConfigurationProperties({AppProperties.class, DownsampleProperties.class})
 public class MetadataServiceCachingTest {
