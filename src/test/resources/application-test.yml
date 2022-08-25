@@ -1,9 +1,15 @@
 spring:
   data:
+    elasticsearch:
+      client:
+        reactive:
+          endpoints: localhost:9200
     cassandra:
       contact-points: ""
       request:
         timeout: 5s
+  main:
+    allow-bean-definition-overriding: true
 ceres:
   downsample:
     initialProcessingDelay: 1s
@@ -18,6 +24,18 @@ ceres:
   tag-value-limit: 10
   ingest-start-time: 7d
   ingest-end-time: 1d
+  elastic-search-index-name: metrics
+  elasticsearch:
+    host: localhost
+    port: 9200
 management:
   server:
     port: 8082
+logging:
+  level:
+    org:
+      springframework:
+        data:
+          elasticsearch:
+            client:
+              WIRE: trace

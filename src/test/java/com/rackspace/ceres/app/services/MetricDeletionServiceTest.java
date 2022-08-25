@@ -1,5 +1,10 @@
 package com.rackspace.ceres.app.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
@@ -8,6 +13,11 @@ import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,19 +34,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 @ActiveProfiles(profiles = {"downsample", "test"})
 @SpringBootTest
@@ -85,8 +82,12 @@ public class MetricDeletionServiceTest {
   DataTablesStatements dataTablesStatements;
   @MockBean
   IngestTrackingService ingestTrackingService;
+
   @MockBean
   QueryService queryService;
+
+  @MockBean
+  ElasticSearchService elasticSearchService;
 
   private static final String QUERY_RAW = "SELECT * FROM data_raw_p_pt1h WHERE tenant = ?"
       + " AND time_slot = ?";
@@ -120,6 +121,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -172,6 +175,8 @@ public class MetricDeletionServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
     dataWriteService.ingest(
@@ -221,6 +226,8 @@ public class MetricDeletionServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
 
@@ -263,6 +270,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -314,6 +323,8 @@ public class MetricDeletionServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
@@ -361,6 +372,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -410,6 +423,8 @@ public class MetricDeletionServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
     Metric metric = dataWriteService.ingest(
@@ -458,6 +473,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -514,6 +531,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -580,6 +599,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
@@ -663,6 +684,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTimeMinus5Hours = Instant.now().minus(5, ChronoUnit.HOURS);
@@ -781,6 +804,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash = seriesSetService.hash(metricName, tags);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTimeMinus5Hours = Instant.now().minus(5, ChronoUnit.HOURS);
@@ -903,6 +928,8 @@ public class MetricDeletionServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
     dataWriteService.ingest(
@@ -972,6 +999,8 @@ public class MetricDeletionServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any()))
         .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();
     dataWriteService.ingest(
@@ -1036,6 +1065,8 @@ public class MetricDeletionServiceTest {
     final String seriesSetHash2 = seriesSetService.hash(metricName2, tags1);
 
     when(ingestTrackingService.track(any(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
 
     Instant currentTime = Instant.now();

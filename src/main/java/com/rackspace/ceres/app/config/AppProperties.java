@@ -146,4 +146,19 @@ public class AppProperties {
   Duration ingestStartTime = Duration.ofDays(7);
 
   Duration ingestEndTime = Duration.ofDays(1);
+
+  @NotNull
+  String elasticSearchHost = "localhost";
+
+  @NotNull
+  int elasticSearchPort = 9200;
+
+  /**
+   * The Elastic search index name.
+   */
+  @NotNull
+  String elasticSearchIndexName = "metrics";
+  public String getIndexName() {
+    return elasticSearchIndexName;
+  }
 }
