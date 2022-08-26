@@ -17,7 +17,6 @@
 package com.rackspace.ceres.app.services;
 
 import com.rackspace.ceres.app.config.DownsampleProperties;
-import com.rackspace.ceres.app.helper.MetricDeletionHelper;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -44,19 +43,16 @@ public class DownsampleProcessor {
   private final DownsamplingService downsamplingService;
   private final QueryService queryService;
   private final Timer meterTimer;
-  private final MetricDeletionHelper metricDeletionHelper;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
                              DownsamplingService downsamplingService,
                              QueryService queryService,
-                             MeterRegistry meterRegistry,
-                             MetricDeletionHelper metricDeletionHelper) {
+                             MeterRegistry meterRegistry) {
     this.properties = properties;
     this.downsamplingService = downsamplingService;
     this.queryService = queryService;
     this.meterTimer = meterRegistry.timer("downsampling.delay");
-    this.metricDeletionHelper = metricDeletionHelper;
   }
 
   @PostConstruct
@@ -66,28 +62,15 @@ public class DownsampleProcessor {
     }
   }
 
-  public Publisher<?> processDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
-    log.trace("processDownsampleSet {} {} {}", pendingSet, partition, group);
-    return processSet(pendingSet, partition, group, "downsample.set");
-  }
-
-  public Publisher<?> processDelayedDownsampleSet(PendingDownsampleSet pendingSet, int partition, String group) {
-    log.trace("processDelayedDownsampleSet {} {} {}", pendingSet, partition, group);
-    return processSet(pendingSet, partition, group, "delayed.set");
-  }
-
-  private Publisher<?> processSet(PendingDownsampleSet pendingSet, int partition, String group, String metrics) {
+  public Publisher<?> processSet(PendingDownsampleSet pendingSet, int partition, String group, String metrics) {
     Duration downsamplingDelay = Duration.between(pendingSet.getTimeSlot(), Instant.now());
     this.meterTimer.record(downsamplingDelay.getSeconds(), TimeUnit.SECONDS);
 
     return Flux.fromIterable(DateTimeUtils.filterGroupGranularities(group, properties.getGranularities()))
-        .concatMap(granularity -> metrics.equals("downsample.set") ?
+        .concatMap(granularity ->
             this.downsamplingService.downsampleData(pendingSet, granularity.getWidth(),
                 this.queryService.fetchData(pendingSet, group, granularity.getWidth(), true))
-            :
-            this.downsamplingService.downsampleData(pendingSet, granularity.getWidth(),
-                    this.queryService.fetchData(pendingSet, group, granularity.getWidth(), true))
-                .then(this.metricDeletionHelper.deleteDelayedHash(partition, group, encodeDelayedHash(pendingSet))))
+        )
         .name(metrics)
         .tag("partition", String.valueOf(partition))
         .tag("group", group)
@@ -99,9 +82,5 @@ public class DownsampleProcessor {
                 epochToLocalDateTime(pendingSet.getTimeSlot().getEpochSecond()),
                 partition, group))
         .checkpoint();
-  }
-
-  private String encodeDelayedHash(PendingDownsampleSet set) {
-    return String.format("%d|%s|%s", set.getTimeSlot().getEpochSecond(), set.getTenant(), set.getSeriesSetHash());
   }
 }
