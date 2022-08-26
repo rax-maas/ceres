@@ -18,10 +18,7 @@ package com.rackspace.ceres.app.config;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.rackspace.ceres.app.model.DelayedHashCacheKey;
-import com.rackspace.ceres.app.model.DownsampleSetCacheKey;
-import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.TimeslotCacheKey;
+import com.rackspace.ceres.app.model.*;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,8 +80,8 @@ public class CacheConfig {
   }
 
   @Bean
-  public AsyncCache<DelayedHashCacheKey, Boolean> delayedDownsampleHashExistenceCache() {
-    final AsyncCache<DelayedHashCacheKey, Boolean> cache = Caffeine
+  public AsyncCache<DownsampleSetCacheKey, Boolean> delayedDownsampleHashExistenceCache() {
+    final AsyncCache<DownsampleSetCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(400000)
         .expireAfterWrite(appProperties.getDelayedHashesCacheTtl())
@@ -95,8 +92,8 @@ public class CacheConfig {
   }
 
   @Bean
-  public AsyncCache<TimeslotCacheKey, Boolean> delayedTimeslotExistenceCache() {
-    final AsyncCache<TimeslotCacheKey, Boolean> cache = Caffeine
+  public AsyncCache<DelayedTimeslotCacheKey, Boolean> delayedTimeslotExistenceCache() {
+    final AsyncCache<DelayedTimeslotCacheKey, Boolean> cache = Caffeine
         .newBuilder()
         .maximumSize(10000)
         // Expiration to allow for repeated updates of the same timeslot

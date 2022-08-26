@@ -103,7 +103,7 @@ public class DownsampleJobProcessor {
               .tag("group", group)
               .metrics()
               .concatMap(downsampleSet ->
-                  this.downsampleProcessor.processDownsampleSet(downsampleSet, partition, group))
+                  this.downsampleProcessor.processSet(downsampleSet, partition, group, "downsample.set"))
               .then(trackingService.deleteTimeslot(partition, group, timeslot))
               .doOnError(Throwable::printStackTrace);
         });

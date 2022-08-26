@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.rackspace.ceres.app.model;
 
 import lombok.Data;
 
 @Data
-public class DelayedHashCacheKey {
+public class DelayedTimeslotCacheKey {
   final Integer partition;
   final String group;
-  final String hash;
+  final Long timeslot;
 }
