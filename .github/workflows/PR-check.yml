@@ -13,18 +13,11 @@ env:
 
 jobs:
   build:
-    name: PR Check
+    name: test
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Maven Cache 
-        uses: actions/cache@v3
-        with:
-          key: cache-${{ github.workflow }}
-          path: |
-            ~/.m2/repository
 
       - uses: ./.github/actions/GCPSetup
         with:
@@ -34,18 +27,17 @@ jobs:
         run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
 
       - name: .m2 forder [*** fix it please ***]
-        run: sed -i 's*/root/.m2/*~/.m2/*g' ./.mvn/settings.xml
+        run: sed -i '/<localRepository>/d' ./.mvn/settings.xml
 
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           java-version: '14'
           distribution: 'adopt-hotspot'
+          cache: maven
 
       - name: Build with Maven
         shell: bash
         run: |
-          mvn -B verify -s .mvn/settings.xml 
+          mvn -B -s .mvn/settings.xml verify jib:dockerBuild -Ddocker.image.prefix=dummy   
 
-      - name: Build with jib
-        run: mvn compile jib:dockerBuild -U -B -Dmaven.test.skip=true -Ddocker.image.prefix=dummy    
