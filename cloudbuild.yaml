@@ -54,4 +54,4 @@ steps:
 
 options:
     pool:
-      name: 'projects/$PROJECT_ID/locations/$REGION/workerPools/test'
+      name: 'projects/ceres-dev-222017/locations/us-east-1/workerPools/test'
