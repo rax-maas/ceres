@@ -55,7 +55,7 @@ public class AppProperties {
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)
-  Duration delayedHashesCacheTtl = Duration.ofMinutes(5);
+  Duration delayedHashesCacheTtl = Duration.ofHours(1);
 
   @NotNull
   @DurationUnit(ChronoUnit.SECONDS)
@@ -146,4 +146,19 @@ public class AppProperties {
   Duration ingestStartTime = Duration.ofDays(7);
 
   Duration ingestEndTime = Duration.ofDays(1);
+
+  @NotNull
+  String elasticSearchHost = "localhost";
+
+  @NotNull
+  int elasticSearchPort = 9200;
+
+  /**
+   * The Elastic search index name.
+   */
+  @NotNull
+  String elasticSearchIndexName = "metrics";
+  public String getIndexName() {
+    return elasticSearchIndexName;
+  }
 }

@@ -16,6 +16,17 @@
 
 package com.rackspace.ceres.app.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
+
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.CacheConfig;
@@ -28,6 +39,9 @@ import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.SuggestType;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,16 +53,6 @@ import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.data.cassandra.core.query.Query;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
-
 /**
  * This unit test mocks out all datastore interactions to verify the different levels of caching
  * behavior with {@link MetadataService#storeMetadata(String, String, Metric)}.
@@ -58,7 +62,10 @@ import static org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtil
     MetadataService.class,
     SimpleMeterRegistry.class
 }, properties = {
-    "ceres.series-set-cache-size=1"
+    "ceres.series-set-cache-size=1",
+    "ceres.elastic-search-index-name=metrics",
+    "ceres.elasticsearch.host=localhost",
+    "ceres.elasticsearch.port=9200"
 })
 @EnableConfigurationProperties({AppProperties.class, DownsampleProperties.class})
 public class MetadataServiceCachingTest {
@@ -71,6 +78,9 @@ public class MetadataServiceCachingTest {
 
   @Autowired
   MetadataService metadataService;
+
+  @MockBean
+  ElasticSearchService elasticSearchService;
 
   @Autowired
   AsyncCache<SeriesSetCacheKey,Boolean/*exists*/> seriesSetExistenceCache;
@@ -89,6 +99,8 @@ public class MetadataServiceCachingTest {
             .thenReturn(Mono.just(Boolean.TRUE));
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(false));
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
     final String tenant = randomAlphanumeric(10);
     final String seriesSetHash = randomAlphanumeric(10);
     final String metricName = randomAlphanumeric(10);
@@ -151,6 +163,8 @@ public class MetadataServiceCachingTest {
 
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(true));
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
     Mono.from(
         metadataService.storeMetadata(tenant, seriesSetHash, new Metric().setMetric(metricName).setTags(tags))
     ).block();
@@ -176,6 +190,8 @@ public class MetadataServiceCachingTest {
     assertThat(seriesSetExistenceCache.synchronous().estimatedSize()).isEqualTo(0);
     when(cassandraTemplate.exists(any(Query.class), any(Class.class)))
             .thenReturn(Mono.just(true));
+    when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
+        .thenReturn(Mono.empty());
 
     // When
     Mono.from(

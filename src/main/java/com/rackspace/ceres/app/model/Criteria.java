@@ -12,15 +12,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package com.rackspace.ceres.app.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import java.util.List;
 import lombok.Data;
 
 @Data
-public class DelayedHashCacheKey {
-  final Integer partition;
-  final String group;
-  final String hash;
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(Include.NON_NULL)
+public class Criteria {
+
+  private List<Filter> filter;
+  private List<String> includeFields;
+  private List<String> excludeFields;
 }

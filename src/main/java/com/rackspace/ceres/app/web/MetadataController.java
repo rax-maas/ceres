@@ -16,10 +16,14 @@
 
 package com.rackspace.ceres.app.web;
 
+import com.rackspace.ceres.app.model.Criteria;
+import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.TagsResponse;
+import com.rackspace.ceres.app.services.ElasticSearchService;
 import com.rackspace.ceres.app.services.MetadataService;
 import com.rackspace.ceres.app.validation.RequestValidator;
 import io.swagger.annotations.ApiOperation;
+import java.io.IOException;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -28,6 +32,8 @@ import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,12 +48,15 @@ import springfox.documentation.annotations.ApiIgnore;
 public class MetadataController {
 
   private final MetadataService metadataService;
+  private final ElasticSearchService elasticSearchService;
 
   private final Environment environment;
 
   @Autowired
-  public MetadataController(MetadataService metadataService, Environment environment) {
+  public MetadataController(MetadataService metadataService, ElasticSearchService elasticSearchService,
+      Environment environment) {
     this.metadataService = metadataService;
+    this.elasticSearchService = elasticSearchService;
     this.environment = environment;
   }
 
@@ -142,6 +151,19 @@ public class MetadataController {
 
     return metadataService
         .getTags(tenantHeader, metricName, metricGroup);
+  }
+
+  @PostMapping(path = "/search")
+  @ApiOperation(value = "This api is used to get all the metric info based upon given filter, include and exclude fields in Criteria object.")
+  public List<MetricDTO> search(@ApiIgnore @RequestHeader(value = "#{appProperties.tenantHeader}") String tenantHeader,
+      @RequestParam(required = false) String maskTenantId,
+      @RequestBody Criteria criteria)
+      throws IOException {
+    //TODO Need to remove this code as this is part of testing and demo purpose only.
+    if(maskTenantId!=null) {
+      tenantHeader = maskTenantId;
+    }
+    return elasticSearchService.search(tenantHeader, criteria);
   }
 
   public boolean isDevProfileActive() {
