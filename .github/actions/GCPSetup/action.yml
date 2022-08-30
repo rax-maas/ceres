@@ -33,5 +33,5 @@ runs:
           export USE_GKE_GCLOUD_AUTH_PLUGIN=True
           gcloud container clusters get-credentials ${{ inputs.clusterName }} --zone us-east1-b --project ${{ inputs.GCPaccount }}
         else
-          echo "Skiping k8s setup"
+          echo "Skipping k8s setup"
         fi
