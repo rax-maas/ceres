@@ -39,6 +39,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
+import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
+
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
 @Slf4j
@@ -149,6 +151,7 @@ public class IngestTrackingService {
   }
 
   private Mono<?> saveDelayedTimeslot(Integer partition, String group, Long timeslot) {
+    log.info("Save delayed timeslot {} {} {} {}", partition, group, timeslot, epochToLocalDateTime(timeslot));
     final CompletableFuture<Boolean> result = delayedTimeslotExistenceCache.get(
         new DelayedTimeslotCacheKey(partition, group, timeslot),
         (key, executor) ->
