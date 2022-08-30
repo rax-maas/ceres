@@ -26,20 +26,21 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
-import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
-import com.rackspace.ceres.app.entities.TagsData;
+import com.rackspace.ceres.app.model.Criteria;
+import com.rackspace.ceres.app.model.Filter;
 import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
 import com.rackspace.ceres.app.model.SuggestType;
-import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,7 +55,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -159,20 +159,8 @@ public class MetadataService {
     return Mono.fromFuture(result);
   }
 
-  public Mono<?> updateMetricGroupAddMetricName(
-      String tenant, String metricGroup, String metricName, String updatedAt) {
-    if(metricGroup == null || metricGroup.isEmpty()) {
-      return Mono.empty();
-    }
-    return cqlTemplate.execute(String.format(
-        UPDATE_METRIC_GROUP_ADD_METRIC_NAME, metricName, updatedAt, tenant, metricGroup))
-        .doOnError(e -> writeDbOperationErrorsCounter.increment());
-  }
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash, Metric metric) {
-    String updatedAt = metric.getTimestamp().toString();
-    String metricGroup = metric.getTags().get(LABEL_METRIC_GROUP);
-    String device = metric.getTags().get(LABEL_RESOURCE);
     String metricName = metric.getMetric();
     Map<String,String> tags = metric.getTags();
     return cassandraTemplate.insert(
@@ -185,12 +173,6 @@ public class MetadataService {
         .retryWhen(
             appProperties.getRetryInsertMetadata().build()
         )
-            .and(this.updateMetricGroupAddMetricName(tenant, metricGroup, metricName, updatedAt)).retryWhen(
-                    appProperties.getRetryInsertMetadata().build()
-            )
-            .and(this.updateDeviceAddMetricName(tenant, device, metricName, updatedAt)).retryWhen(
-                    appProperties.getRetryInsertMetadata().build()
-            )
         .and(
             cassandraTemplate.insert(
                 new MetricName().setTenant(tenant)
@@ -198,44 +180,6 @@ public class MetadataService {
             )
                 .retryWhen(
                     appProperties.getRetryInsertMetadata().build()
-                )
-                .and(
-                    Flux.fromIterable(tags.entrySet())
-                        .flatMap(tagsEntry ->
-                            Flux.concat(
-                                cassandraTemplate.insert(
-                                    new SeriesSet()
-                                        .setTenant(tenant)
-                                        .setMetricName(metricName)
-                                        .setTagKey(tagsEntry.getKey())
-                                        .setTagValue(tagsEntry.getValue())
-                                        .setSeriesSetHash(seriesSetHash)
-                                )
-                                    .retryWhen(
-                                        appProperties.getRetryInsertMetadata().build()
-                                    ),
-                                //Insert tenant-tagKeys mapping in TagsData table.
-                                cassandraTemplate.insert(
-                                    new TagsData()
-                                          .setTenant(tenant)
-                                          .setType(SuggestType.TAGK)
-                                          .setData(tagsEntry.getKey())
-                                )
-                                    .retryWhen(
-                                        appProperties.getRetryInsertMetadata().build()
-                                    ),
-                                //Insert tenant-tagValues mapping in TagsData table.
-                                cassandraTemplate.insert(
-                                    new TagsData()
-                                        .setTenant(tenant)
-                                        .setType(SuggestType.TAGV)
-                                        .setData(tagsEntry.getValue())
-                                )
-                                    .retryWhen(
-                                        appProperties.getRetryInsertMetadata().build()
-                                    )
-                            )
-                        )
                 )
         )
         .doOnError(e -> writeDbOperationErrorsCounter.increment());
@@ -258,55 +202,41 @@ public class MetadataService {
         .collectList();
   }
 
-  public Mono<List<String>> getMetricGroups(String tenant) {
-    return cqlTemplate.queryForFlux(GET_METRIC_GROUPS_QUERY,
-        String.class,
-        tenant
-    )
-        .doOnError(e -> readDbOperationErrorsCounter.increment())
-        .collectList();
-  }
-
   public Flux<String> getMetricNamesFromMetricGroup(String tenant, String metricGroup) {
-    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY, tenant, metricGroup)
-        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)))
-        .doOnError(e -> readDbOperationErrorsCounter.increment());
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.metricGroup");
+    filter.setFilterValue(metricGroup);
+    criteria.setIncludeFields(List.of("metricName"));
+    criteria.setFilter(List.of(filter));
+
+    try {
+      List<MetricDTO> metricDTOList = elasticSearchService.search(tenant, criteria);
+      List<String> metrics = metricDTOList.stream().map(e -> e.getMetricName()).collect(Collectors.toList());
+      return Flux.fromIterable(metrics);
+    } catch (IOException e) {
+      log.error("error occurred while getMetricNamesUsingMetricGroup from es ",e);
+      return Flux.error(e);
+    }
   }
 
   public Flux<Map<String, String>> getTags(String tenantHeader, String metricName) {
-    return this.getTagKeys(tenantHeader, metricName)
-            .flatMapMany(Flux::fromIterable)
-            .flatMap(tag -> this.getTagValueMaps(tag, tenantHeader, metricName)
-                    .flatMapMany(Flux::fromIterable)
-                    .flatMap(Mono::just)
-            );
-  }
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("metricName");
+    filter.setFilterValue(metricName);
+    criteria.setIncludeFields(List.of("tags"));
+    criteria.setFilter(List.of(filter));
 
-  public Mono<List<String>> getTagKeys(String tenant, String metricName) {
-    return getTagKeysRaw(tenant, metricName).collectList();
-  }
-
-  public Mono<List<String>> getTagValues(String tenant, String metricName, String tagKey) {
-    return getTagValuesRaw(tenant, metricName, tagKey).collectList();
-  }
-
-  private Flux<String> getTagKeysRaw(String tenant, String metricName) {
-    return cqlTemplate.queryForFlux(GET_TAG_KEY_QUERY,
-            String.class,
-            tenant, metricName
-    ).doOnError(e -> readDbOperationErrorsCounter.increment());
-  }
-
-  private Mono<List<Map<String, String>>> getTagValueMaps(String tagKey, String tenantHeader, String metricName) {
-    return getTagValuesRaw(tenantHeader, metricName, tagKey)
-            .map(tagValue -> Map.of(tagKey, tagValue)).collectList();
-  }
-
-  private Flux<String> getTagValuesRaw(String tenant, String metricName, String tagKey) {
-    return cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY,
-            String.class,
-            tenant, metricName, tagKey
-    ).doOnError(e -> readDbOperationErrorsCounter.increment());
+    try {
+      List<MetricDTO> metricDTOList = elasticSearchService.search(tenantHeader, criteria);
+      Map<String, String> tags = new HashMap<>();
+      metricDTOList.stream().map(e -> e.getTags()).forEach(e -> tags.putAll(e));
+      return Flux.just(tags);
+    } catch (IOException e) {
+      log.error("error occurred while getMetricNamesUsingMetricGroup from es ",e);
+      return Flux.error(e);
+    }
   }
 
   /**
@@ -428,63 +358,6 @@ public class MetadataService {
                 .setTags(result.getTags())
         );
 
-  }
-
-
-  /**
-   * Returns Tags based upon tenantId and metricName/metricGroup
-   *
-   * @param tenantHeader the tenant header
-   * @param metricName   the metric name
-   * @param metricGroup  the metric group
-   * @return the tags
-   */
-  public Mono<TagsResponse> getTags(String tenantHeader, String metricName,
-      String metricGroup) {
-    HashMap<String, String> tags = new HashMap<>();
-    if (StringUtils.hasText(metricName)) {
-      return getTags(tenantHeader, metricName).map(e -> {
-        tags.putAll(e);
-        return tags;
-      }).then(Mono.just(buildTagsResponse(tenantHeader, tags).setMetric(metricName)));
-    } else {
-      return getMetricNamesFromMetricGroup(tenantHeader, metricGroup)
-          .flatMap(metricName1 -> getTags(tenantHeader, metricName1)).map(e -> {
-            tags.putAll(e);
-            return tags;
-          }).then(Mono.just(buildTagsResponse(tenantHeader, tags).setMetricGroup(metricGroup)));
-    }
-  }
-
-  private TagsResponse buildTagsResponse(String tenantHeader, HashMap<String, String> tags) {
-    return new TagsResponse().setTags(tags)
-        .setTenantId(tenantHeader);
-  }
-
-  public Mono<Boolean> updateDeviceAddMetricName(
-      String tenant, String device, String metricName, String updatedAt) {
-    if(device == null || device.isEmpty()) {
-      return Mono.just(false);
-    }
-    return cqlTemplate.execute(String.format(
-        UPDATE_DEVICE_ADD_METRIC_NAME, metricName, updatedAt, tenant, device))
-        .doOnError(e -> writeDbOperationErrorsCounter.increment());
-  }
-
-  public Mono<List<String>> getDevices(String tenant) {
-    return cqlTemplate.queryForFlux(GET_DEVICES_PER_TENANT_QUERY,
-        String.class,
-        tenant
-    )
-        .doOnError(e -> readDbOperationErrorsCounter.increment())
-        .collectList();
-  }
-
-  public Mono<List<String>> getMetricNamesFromDevice(String tenantHeader, String device) {
-    return cqlTemplate.queryForRows(GET_METRIC_NAMES_FROM_DEVICE_QUERY, tenantHeader, device)
-        .flatMap(row -> Flux.fromIterable(row.getSet("metric_names", String.class)))
-        .doOnError(e -> readDbOperationErrorsCounter.increment())
-        .collectList();
   }
 
   /**

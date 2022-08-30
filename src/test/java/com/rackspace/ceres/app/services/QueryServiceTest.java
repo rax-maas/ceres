@@ -27,7 +27,6 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
-import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
@@ -119,7 +118,6 @@ class QueryServiceTest {
   @AfterEach
   void tearDown() {
     cassandraTemplate.truncate(MetricName.class)
-        .and(cassandraTemplate.truncate(SeriesSet.class))
         .subscribe();
   }
 
@@ -154,11 +152,6 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
 
     dataWriteService.ingest(
         tenantId,
@@ -210,9 +203,6 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(
@@ -258,10 +248,6 @@ class QueryServiceTest {
     when(metadataService.storeMetadata(any(), any(), any()))
         .thenReturn(Mono.empty());
 
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any()))
         .thenReturn(Flux.just(seriesSetHash));
 
@@ -306,8 +292,6 @@ class QueryServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
@@ -363,8 +347,6 @@ class QueryServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
@@ -422,8 +404,6 @@ class QueryServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
