@@ -177,6 +177,7 @@ class MetadataServiceTest {
     CreateIndexRequest request = new CreateIndexRequest("metrics");
     String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
     request.mapping(mapping, XContentType.JSON);
+    System.out.println("creating indices");
     restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
   }
 
