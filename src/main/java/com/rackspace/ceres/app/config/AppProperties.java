@@ -147,10 +147,10 @@ public class AppProperties {
 
   Duration ingestEndTime = Duration.ofDays(1);
 
-  @NotNull
+//  @NotNull
   String elasticSearchHost = "localhost";
 
-  @NotNull
+//  @NotNull
   int elasticSearchPort = 9200;
 
   /**
