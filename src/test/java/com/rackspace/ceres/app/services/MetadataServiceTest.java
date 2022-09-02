@@ -97,8 +97,15 @@ class MetadataServiceTest {
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
       CassandraContainerSetup.DOCKER_IMAGE);
 
-  @Container
-  public static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
+  public static ESContainerSetup elasticsearchContainer;
+
+  static {
+    elasticsearchContainer = new ESContainerSetup();
+    elasticsearchContainer.start();
+
+    System.setProperty("ceres.elastic-search-host", elasticsearchContainer.getContainerIpAddress());
+    System.setProperty("ceres.elastic-search-port", elasticsearchContainer.getFirstMappedPort() + "");
+  }
 
   private static final int REDIS_PORT = 6379;
 

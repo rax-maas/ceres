@@ -25,7 +25,7 @@ ceres:
   ingest-start-time: 7d
   ingest-end-time: 1d
   elastic-search-index-name: metrics
-  elastic-search-host: ""
+  elastic-search-host: localhost
   elastic-search-port: 9200
 management:
   server:
