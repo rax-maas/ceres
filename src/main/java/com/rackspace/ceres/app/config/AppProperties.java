@@ -150,7 +150,6 @@ public class AppProperties {
 //  @NotNull
   String elasticSearchHost = "localhost";
 
-
 //  @NotNull
   int elasticSearchPort = 9200;
 
