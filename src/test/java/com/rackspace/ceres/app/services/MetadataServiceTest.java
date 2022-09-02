@@ -97,12 +97,15 @@ class MetadataServiceTest {
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
       CassandraContainerSetup.DOCKER_IMAGE);
 
+  @Container
   public static ESContainerSetup elasticsearchContainer;
 
   static {
     elasticsearchContainer = new ESContainerSetup();
     elasticsearchContainer.start();
 
+    System.setProperty("spring.data.elasticsearch.client.reactive.endpoints",
+        elasticsearchContainer.getContainerIpAddress()+":"+elasticsearchContainer.getFirstMappedPort());
     System.setProperty("ceres.elastic-search-host", elasticsearchContainer.getContainerIpAddress());
     System.setProperty("ceres.elastic-search-port", elasticsearchContainer.getFirstMappedPort() + "");
   }

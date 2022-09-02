@@ -70,7 +70,17 @@ public class ElasticSearchServiceTest {
   }
 
   @Container
-  public static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
+  public static ESContainerSetup elasticsearchContainer;
+
+  static {
+    elasticsearchContainer = new ESContainerSetup();
+    elasticsearchContainer.start();
+
+    System.setProperty("spring.data.elasticsearch.client.reactive.endpoints",
+        elasticsearchContainer.getContainerIpAddress()+":"+elasticsearchContainer.getFirstMappedPort());
+    System.setProperty("ceres.elastic-search-host", elasticsearchContainer.getContainerIpAddress());
+    System.setProperty("ceres.elastic-search-port", elasticsearchContainer.getFirstMappedPort() + "");
+  }
 
   @Autowired
   ElasticSearchService elasticSearchService;
