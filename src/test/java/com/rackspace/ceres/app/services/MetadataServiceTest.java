@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.jupiter.api.AfterAll;
@@ -86,6 +87,7 @@ import reactor.core.publisher.Mono;
 @ActiveProfiles("test")
 @ContextConfiguration(initializers = RedisEnvInit.class)
 @Testcontainers
+@Slf4j
 class MetadataServiceTest {
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
@@ -97,7 +99,9 @@ class MetadataServiceTest {
   static {
     elasticsearchContainer = new ESContainerSetup();
     elasticsearchContainer.start();
-
+    log.info("es host {} and port {} ", elasticsearchContainer.getContainerIpAddress(),
+        elasticsearchContainer.getFirstMappedPort());
+    log.info("exposed ports {} ", elasticsearchContainer.getExposedPorts());
     System.setProperty("spring.data.elasticsearch.client.reactive.endpoints",
         elasticsearchContainer.getContainerIpAddress()+":"+elasticsearchContainer.getFirstMappedPort());
     System.setProperty("ceres.elastic-search-host", elasticsearchContainer.getContainerIpAddress());
