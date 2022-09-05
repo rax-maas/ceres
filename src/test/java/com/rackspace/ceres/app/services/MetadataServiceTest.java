@@ -55,11 +55,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,26 +90,13 @@ import reactor.core.publisher.Mono;
 @ActiveProfiles("test")
 @ContextConfiguration(initializers = RedisEnvInit.class)
 @Testcontainers
-@Slf4j
 class MetadataServiceTest {
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
       CassandraContainerSetup.DOCKER_IMAGE);
 
   @Container
-  public static ESContainerSetup elasticsearchContainer;
-
-  static {
-    elasticsearchContainer = new ESContainerSetup();
-    elasticsearchContainer.start();
-    log.info("es host {} and port {} ", elasticsearchContainer.getContainerIpAddress(),
-        elasticsearchContainer.getFirstMappedPort());
-    log.info("exposed ports {} ", elasticsearchContainer.getExposedPorts());
-    System.setProperty("spring.data.elasticsearch.client.reactive.endpoints",
-        elasticsearchContainer.getContainerIpAddress()+":"+elasticsearchContainer.getFirstMappedPort());
-    System.setProperty("ceres.elastic-search-host", elasticsearchContainer.getContainerIpAddress());
-    System.setProperty("ceres.elastic-search-port", "9300");
-  }
+  public static ESContainerSetup elasticsearchContainer = new ESContainerSetup();
 
   private static final int REDIS_PORT = 6379;
 
@@ -178,16 +168,15 @@ class MetadataServiceTest {
     elasticsearchContainer.stop();
   }
 
-//  @BeforeEach
-//  void testIsContainerRunning() throws IOException {
-//    assertTrue(elasticsearchContainer.isRunning());
-//
-//    CreateIndexRequest request = new CreateIndexRequest("metrics");
-//    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
-//    request.mapping(mapping, XContentType.JSON);
-//    System.out.println("creating indices");
-//    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
-//  }
+  @BeforeEach
+  void testIsContainerRunning() throws IOException {
+    assertTrue(elasticsearchContainer.isRunning());
+
+    CreateIndexRequest request = new CreateIndexRequest("metrics");
+    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
+    request.mapping(mapping, XContentType.JSON);
+    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
+  }
 
   @Test
   void storeMetadata() throws IOException, InterruptedException {
