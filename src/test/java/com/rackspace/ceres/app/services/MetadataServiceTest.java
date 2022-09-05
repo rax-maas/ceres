@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -90,6 +91,7 @@ import reactor.core.publisher.Mono;
 @ActiveProfiles("test")
 @ContextConfiguration(initializers = RedisEnvInit.class)
 @Testcontainers
+@Slf4j
 class MetadataServiceTest {
   @Container
   public static CassandraContainer<?> cassandraContainer = new CassandraContainer<>(
@@ -175,6 +177,7 @@ class MetadataServiceTest {
     CreateIndexRequest request = new CreateIndexRequest("metrics");
     String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
     request.mapping(mapping, XContentType.JSON);
+    log.info("cluster info {} ",restHighLevelClient.cluster().toString());
     restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
   }
 
