@@ -105,7 +105,7 @@ class MetadataServiceTest {
     System.setProperty("spring.data.elasticsearch.client.reactive.endpoints",
         elasticsearchContainer.getContainerIpAddress()+":"+elasticsearchContainer.getFirstMappedPort());
     System.setProperty("ceres.elastic-search-host", elasticsearchContainer.getContainerIpAddress());
-    System.setProperty("ceres.elastic-search-port", elasticsearchContainer.getFirstMappedPort() + "");
+    System.setProperty("ceres.elastic-search-port", "9300");
   }
 
   private static final int REDIS_PORT = 6379;
