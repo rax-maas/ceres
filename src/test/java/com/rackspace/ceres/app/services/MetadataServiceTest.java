@@ -56,15 +56,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -160,15 +154,15 @@ class MetadataServiceTest {
   @Autowired
   RestHighLevelClient restHighLevelClient;
 
-  @AfterEach
-  void tearDown() throws IOException {
-    cassandraTemplate.truncate(MetricName.class)
-        .and(cassandraTemplate.truncate(SeriesSet.class))
-        .block();
-
-    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
-    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
-  }
+//  @AfterEach
+//  void tearDown() throws IOException {
+//    cassandraTemplate.truncate(MetricName.class)
+//        .and(cassandraTemplate.truncate(SeriesSet.class))
+//        .block();
+//
+//    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
+//    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
+//  }
 
   @BeforeAll
   static void setUp() {
@@ -180,16 +174,16 @@ class MetadataServiceTest {
     elasticsearchContainer.stop();
   }
 
-  @BeforeEach
-  void testIsContainerRunning() throws IOException {
-    assertTrue(elasticsearchContainer.isRunning());
-
-    CreateIndexRequest request = new CreateIndexRequest("metrics");
-    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
-    request.mapping(mapping, XContentType.JSON);
-    System.out.println("creating indices");
-    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
-  }
+//  @BeforeEach
+//  void testIsContainerRunning() throws IOException {
+//    assertTrue(elasticsearchContainer.isRunning());
+//
+//    CreateIndexRequest request = new CreateIndexRequest("metrics");
+//    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
+//    request.mapping(mapping, XContentType.JSON);
+//    System.out.println("creating indices");
+//    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
+//  }
 
   @Test
   void storeMetadata() throws IOException, InterruptedException {
