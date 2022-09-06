@@ -50,49 +50,30 @@ class DelayedTrackingServiceTest {
   @Test
   public void isNotInProgress() {
     DelayedTrackingService delayedTrackingService =
-        new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob, null);
+        new DelayedTrackingService(redisTemplate, properties, redisGetDelayedJob);
     String timeslotInProgress = String.format("%d|t-1|my-little-hash|in-progress", Instant.now().getEpochSecond());
-    Assertions.assertFalse(delayedTrackingService.isNotInProgress(timeslotInProgress, 1, "PT15M"));
+    Assertions.assertFalse(delayedTrackingService.isNotInProgress(timeslotInProgress, 1));
     String timeslotNotInProgress = String.format("%d|t-1|my-little-hash", Instant.now().getEpochSecond());
-    Assertions.assertTrue(delayedTrackingService.isNotInProgress(timeslotNotInProgress, 1, "PT15M"));
+    Assertions.assertTrue(delayedTrackingService.isNotInProgress(timeslotNotInProgress, 1));
    }
 
   @Test
   public void isInProgressHanging() {
     DelayedTrackingService delayedTrackingService =
-        new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob, null);
+        new DelayedTrackingService(redisTemplate, properties, redisGetDelayedJob);
     String timeslotHangingInProgress =
         String.format("%d|t-1|my-little-hash|in-progress",
             Instant.now().minusSeconds(appProperties.getIngestStartTime().getSeconds() + 1).getEpochSecond());
-    Assertions.assertTrue(delayedTrackingService.isNotInProgress(timeslotHangingInProgress, 1, "PT15M"));
+    Assertions.assertTrue(delayedTrackingService.isNotInProgress(timeslotHangingInProgress, 1));
   }
 
   @Test
   public void isInProgress() {
     DelayedTrackingService delayedTrackingService =
-        new DelayedTrackingService(redisTemplate, properties, appProperties, redisGetDelayedJob, null);
+        new DelayedTrackingService(redisTemplate, properties, redisGetDelayedJob);
     String timeslotInProgress = String.format("%d|t-1|my-little-hash|in-progress", Instant.now().getEpochSecond());
     Assertions.assertTrue(delayedTrackingService.isInProgress(timeslotInProgress));
     String timeslotNotInProgress = String.format("%d|t-1|my-little-hash", Instant.now().getEpochSecond());
     Assertions.assertFalse(delayedTrackingService.isInProgress(timeslotNotInProgress));
-  }
-
-  @Test
-  public void buildPendingSet() {
-    String timeslot = "1655868939|t-1|my-little-hash";
-    PendingDownsampleSet set = DelayedTrackingService.buildDownsampleSet(1, "PT15M", timeslot);
-    Assertions.assertEquals(Instant.ofEpochSecond(1655868939), set.getTimeSlot());
-    Assertions.assertEquals("my-little-hash", set.getSeriesSetHash());
-    Assertions.assertEquals("t-1", set.getTenant());
-  }
-
-  @Test
-  public void encodeDelayedTimeslot() {
-    String timeslot = "1655868939|t-1|my-little-hash";
-    PendingDownsampleSet set = DelayedTrackingService.buildDownsampleSet(1, "PT15M", timeslot);
-    Assertions.assertEquals(Instant.ofEpochSecond(1655868939), set.getTimeSlot());
-    Assertions.assertEquals("my-little-hash", set.getSeriesSetHash());
-    Assertions.assertEquals("t-1", set.getTenant());
-    Assertions.assertEquals(timeslot, DelayedTrackingService.encodeDelayedTimeslot(set));
   }
 }
