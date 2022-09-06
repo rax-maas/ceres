@@ -1,0 +1,37 @@
+---
+name: GCPSetup
+description: 'Setup GCP environment'
+
+inputs:
+  GCPCreds:
+    required: true
+    description: GCP credentials
+  k8sSetup:
+    required: false
+    default: ""
+    description: "install or not k8s credentials, with TRUE as string"
+  GCPaccount:
+    required: false
+    description: GCP account only need if login into k8s
+  clusterName:
+    required: false
+    description: Cluster name to login
+
+runs:
+  using: "composite"
+  steps:
+    - uses: 'google-github-actions/auth@v0'
+      with:
+        credentials_json: '${{ inputs.GCPCreds }}'
+
+    - uses: 'google-github-actions/setup-gcloud@v0'
+
+    - shell: bash
+      run: |
+        if [ "${{ inputs.k8sSetup }}" = "TRUE" ]; then
+          gcloud components install gke-gcloud-auth-plugin
+          export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+          gcloud container clusters get-credentials ${{ inputs.clusterName }} --zone us-east1-b --project ${{ inputs.GCPaccount }}
+        else
+          echo "Skipping k8s setup"
+        fi
