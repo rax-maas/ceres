@@ -16,6 +16,8 @@
 
 package com.rackspace.ceres.app.services;
 
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
@@ -24,6 +26,9 @@ import com.rackspace.ceres.app.downsample.AggregatedValueSet;
 import com.rackspace.ceres.app.model.Metric;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
@@ -34,18 +39,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-
-import static java.time.temporal.ChronoUnit.SECONDS;
-
 @Service
 @Slf4j
 public class DataWriteService {
 
-  private static final String LABEL_METRIC_GROUP = "metricGroup";
-  private static final String LABEL_RESOURCE = "resource";
   private final ReactiveCqlTemplate cqlTemplate;
   private final SeriesSetService seriesSetService;
   private final MetadataService metadataService;

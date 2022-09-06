@@ -26,6 +26,7 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
+import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.Filter;
@@ -63,8 +64,6 @@ import reactor.core.publisher.Mono;
 public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
-  private static final String LABEL_METRIC_GROUP = "metricGroup";
-  private static final String LABEL_RESOURCE = "resource";
   private static final String DELIM = "|";
   private static final String TAG_VALUE_REGEX = ".*\\{.*\\}$";
   private final ReactiveCqlTemplate cqlTemplate;
@@ -75,42 +74,23 @@ public class MetadataService {
   private final Counter writeDbOperationErrorsCounter;
   private final Counter readDbOperationErrorsCounter;
   private final AppProperties appProperties;
+  private final ElasticSearchService elasticSearchService;
 
   // use GROUP BY since unable to SELECT DISTINCT on primary key column
   private static final String GET_TENANT_QUERY = "SELECT tenant FROM metric_names GROUP BY tenant";
   private static final String GET_METRIC_NAMES_QUERY =
       "SELECT metric_name FROM metric_names WHERE tenant = ?";
-  private static final String GET_METRIC_GROUPS_QUERY =
-      "SELECT metric_group FROM metric_groups WHERE tenant = ?";
-  private static final String GET_TAG_KEY_QUERY = "SELECT tag_key FROM series_sets"
-      + " WHERE tenant = ? AND metric_name = ? GROUP BY tag_key";
-  private static final String GET_TAG_VALUE_QUERY = "SELECT tag_value FROM series_sets"
-      + " WHERE tenant = ? AND metric_name = ? AND tag_key = ? GROUP BY tag_value";
   private static final String GET_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash "
       + "FROM series_sets WHERE tenant = ? AND metric_name = ? AND tag_key = ? AND tag_value = ?";
-  private static final String GET_METRIC_NAMES_FROM_METRIC_GROUP_QUERY =
-      "SELECT metric_names FROM metric_groups WHERE tenant = ? AND metric_group = ?";
-  private static final String UPDATE_METRIC_GROUP_ADD_METRIC_NAME =
-      "UPDATE metric_groups SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
-          + "tenant = '%s' AND metric_group = '%s'";
-  private static final String UPDATE_DEVICE_ADD_METRIC_NAME =
-      "UPDATE devices SET metric_names = metric_names + {'%s'}, updated_at = '%s' WHERE "
-          + "tenant = '%s' AND device = '%s'";
-  private static final String GET_DEVICES_PER_TENANT_QUERY =
-      "SELECT device FROM devices WHERE tenant = ?";
-  private static final String GET_METRIC_NAMES_FROM_DEVICE_QUERY =
-      "SELECT metric_names FROM devices WHERE tenant = ? AND device = ?";
   private static final String GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA = "SELECT data from tags_data where tenant = ? AND type = ?";
-
-  private ElasticSearchService elasticSearchService;
 
   @Autowired
   public MetadataService(ReactiveCqlTemplate cqlTemplate,
-                         ReactiveCassandraTemplate cassandraTemplate,
-                         AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
-                         MeterRegistry meterRegistry,
-                         AppProperties appProperties,
-                         ElasticSearchService elasticSearchService) {
+      ReactiveCassandraTemplate cassandraTemplate,
+      AsyncCache<SeriesSetCacheKey, Boolean> seriesSetExistenceCache,
+      MeterRegistry meterRegistry,
+      AppProperties appProperties,
+      ElasticSearchService elasticSearchService) {
     this.cqlTemplate = cqlTemplate;
     this.cassandraTemplate = cassandraTemplate;
     this.seriesSetExistenceCache = seriesSetExistenceCache;
@@ -127,34 +107,34 @@ public class MetadataService {
 
   public Publisher<?> storeMetadata(String tenant, String seriesSetHash, Metric metric) {
     final CompletableFuture<Boolean> result = seriesSetExistenceCache.get(
-            new SeriesSetCacheKey(tenant, seriesSetHash),
-            (key, executor) ->
-                    cassandraTemplate.exists(
-                                    query(
-                                            where(COL_TENANT).is(tenant),
-                                            where(COL_SERIES_SET_HASH).is(seriesSetHash)
-                                    ),
-                                    SeriesSetHash.class
-                            )
-                            .name("metadataExists")
-                            .metrics()
-                            .retryWhen(appProperties.getRetryInsertMetadata().build())
-                            .doOnError(t -> log.error("Exception in exists check "+t.getMessage()))
-                            .doOnNext(exists -> {
-                              if (exists) {
-                                cassandraHit.increment();
-                              } else {
-                                cassandraMiss.increment();
-                              }
-                            })
-                            // not cached in cassandra?
-                            .flatMap(exists -> exists ?
-                                    Mono.just(true) :
-                                    // not cached, so store the metadata to be sure
-                                    storeMetadataInCassandra(tenant, seriesSetHash, metric)
-                                        .and(elasticSearchService.saveMetricToES(tenant, metric))
-                                            .map(it -> true))
-                            .toFuture()
+        new SeriesSetCacheKey(tenant, seriesSetHash),
+        (key, executor) ->
+            cassandraTemplate.exists(
+                    query(
+                        where(COL_TENANT).is(tenant),
+                        where(COL_SERIES_SET_HASH).is(seriesSetHash)
+                    ),
+                    SeriesSetHash.class
+                )
+                .name("metadataExists")
+                .metrics()
+                .retryWhen(appProperties.getRetryInsertMetadata().build())
+                .doOnError(t -> log.error("Exception in exists check " + t.getMessage()))
+                .doOnNext(exists -> {
+                  if (exists) {
+                    cassandraHit.increment();
+                  } else {
+                    cassandraMiss.increment();
+                  }
+                })
+                // not cached in cassandra?
+                .flatMap(exists -> exists ?
+                    Mono.just(true) :
+                    // not cached, so store the metadata to be sure
+                    storeMetadataInCassandra(tenant, seriesSetHash, metric)
+                        .and(elasticSearchService.saveMetricToES(tenant, metric))
+                        .map(it -> true))
+                .toFuture()
     );
     return Mono.fromFuture(result);
   }
@@ -162,24 +142,42 @@ public class MetadataService {
 
   private Mono<?> storeMetadataInCassandra(String tenant, String seriesSetHash, Metric metric) {
     String metricName = metric.getMetric();
-    Map<String,String> tags = metric.getTags();
+    Map<String, String> tags = metric.getTags();
     return cassandraTemplate.insert(
-        new SeriesSetHash()
-            .setTenant(tenant)
-            .setSeriesSetHash(seriesSetHash)
-            .setMetricName(metricName)
-            .setTags(tags)
-    )
+            new SeriesSetHash()
+                .setTenant(tenant)
+                .setSeriesSetHash(seriesSetHash)
+                .setMetricName(metricName)
+                .setTags(tags)
+        )
         .retryWhen(
             appProperties.getRetryInsertMetadata().build()
         )
         .and(
             cassandraTemplate.insert(
-                new MetricName().setTenant(tenant)
-                    .setMetricName(metricName)
-            )
+                    new MetricName().setTenant(tenant)
+                        .setMetricName(metricName)
+                )
                 .retryWhen(
                     appProperties.getRetryInsertMetadata().build()
+                )
+                .and(
+                    Flux.fromIterable(tags.entrySet())
+                        .flatMap(tagsEntry ->
+                            Flux.concat(
+                                cassandraTemplate.insert(
+                                        new SeriesSet()
+                                            .setTenant(tenant)
+                                            .setMetricName(metricName)
+                                            .setTagKey(tagsEntry.getKey())
+                                            .setTagValue(tagsEntry.getValue())
+                                            .setSeriesSetHash(seriesSetHash)
+                                    )
+                                    .retryWhen(
+                                        appProperties.getRetryInsertMetadata().build()
+                                    )
+                            )
+                        )
                 )
         )
         .doOnError(e -> writeDbOperationErrorsCounter.increment());
@@ -187,17 +185,17 @@ public class MetadataService {
 
   public Mono<List<String>> getTenants() {
     return cqlTemplate.queryForFlux(GET_TENANT_QUERY,
-        String.class
-    )
+            String.class
+        )
         .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
 
   public Mono<List<String>> getMetricNames(String tenant) {
     return cqlTemplate.queryForFlux(GET_METRIC_NAMES_QUERY,
-        String.class,
-        tenant
-    )
+            String.class,
+            tenant
+        )
         .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }
@@ -212,10 +210,11 @@ public class MetadataService {
 
     try {
       List<MetricDTO> metricDTOList = elasticSearchService.search(tenant, criteria);
-      List<String> metrics = metricDTOList.stream().map(e -> e.getMetricName()).collect(Collectors.toList());
+      List<String> metrics = metricDTOList.stream().map(e -> e.getMetricName())
+          .collect(Collectors.toList());
       return Flux.fromIterable(metrics);
     } catch (IOException e) {
-      log.error("error occurred while getMetricNamesUsingMetricGroup from es ",e);
+      log.error("error occurred while getMetricNamesUsingMetricGroup from es ", e);
       return Flux.error(e);
     }
   }
@@ -234,7 +233,7 @@ public class MetadataService {
       metricDTOList.stream().map(e -> e.getTags()).forEach(e -> tags.putAll(e));
       return Flux.just(tags);
     } catch (IOException e) {
-      log.error("error occurred while getMetricNamesUsingMetricGroup from es ",e);
+      log.error("error occurred while getMetricNamesUsingMetricGroup from es ", e);
       return Flux.error(e);
     }
   }
@@ -242,20 +241,21 @@ public class MetadataService {
   /**
    * Locates the recorded series-sets (<code>metricName,tagK=tagV,...</code>) that match the given
    * search criteria.
-   * @param tenant series-sets are located by this tenant
+   *
+   * @param tenant     series-sets are located by this tenant
    * @param metricName series-sets are located by this metric name
-   * @param queryTags series-sets are located by and'ing these tag key-value pairs
+   * @param queryTags  series-sets are located by and'ing these tag key-value pairs
    * @return the matching series-sets
    */
   public Flux<String> locateSeriesSetHashes(String tenant, String metricName,
-                                                 Map<String, String> queryTags) {
+      Map<String, String> queryTags) {
     return Flux.fromIterable(queryTags.entrySet())
         // find the series-sets for each query tag
         .flatMap(tagEntry ->
             cqlTemplate.queryForFlux(GET_SERIES_SET_HASHES_QUERY,
-                String.class,
-                tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
-            )
+                    String.class,
+                    tenant, metricName, tagEntry.getKey(), tagEntry.getValue()
+                )
                 .doOnError(e -> readDbOperationErrorsCounter.increment())
                 .collect(Collectors.toSet())
         )
@@ -268,59 +268,59 @@ public class MetadataService {
         .flatMapMany(Flux::fromIterable);
   }
 
-    public Flux<TsdbQuery> locateSeriesSetHashesFromQuery(String tenant, TsdbQuery query) {
-        return locateSeriesSetHashes(tenant, query.getMetricName(), query.getTags())
-                .flatMap(seriesSet -> {
-                    query.setSeriesSet(seriesSet);
-                    return Flux.just(query);
-                });
-    }
-
-    private TsdbQuery parseTsdbQuery(String metric, String downsample, String tagKey, String tagValue,
-                                     List<Granularity> granularities) {
-        Map<String, String> tags = Map.of(tagKey, tagValue);
-        TsdbQuery tsdbQuery = new TsdbQuery();
-
-        if (downsample != null && !downsample.isEmpty()) {
-            String[] downsampleValues = downsample.split("-");
-
-            Duration granularity =
-                    DateTimeUtils.getGranularity(Duration.parse("PT" + downsampleValues[0].toUpperCase()),
-                            granularities);
-
-            tsdbQuery.setMetricName(metric)
-                    .setTags(tags)
-                    .setGranularity(granularity)
-                    .setAggregator(Aggregator.valueOf(downsampleValues[1]));
-        } else {
-            tsdbQuery.setMetricName(metric)
-                    .setTags(tags)
-                    .setGranularity(null)
-                    .setAggregator(Aggregator.raw);
-        }
-        return tsdbQuery;
-    }
-
-    public Flux<TsdbQuery> getTsdbQueries(
-            List<TsdbQueryRequest> requests, List<Granularity> granularities) {
-        List<TsdbQuery> result = new ArrayList<>();
-
-        requests.forEach(request -> {
-
-            if (request.getFilters() != null) {
-                String metric = request.getMetric();
-                String downsample = request.getDownsample();
-
-                request.getFilters().forEach(filter -> {
-                    String tagKey = filter.getTagk();
-                    Arrays.stream(filter.getFilter().split("\\|"))
-                            .forEach(tagValue ->
-                                    result.add(parseTsdbQuery(metric, downsample, tagKey, tagValue, granularities)));
-                });
-            }
+  public Flux<TsdbQuery> locateSeriesSetHashesFromQuery(String tenant, TsdbQuery query) {
+    return locateSeriesSetHashes(tenant, query.getMetricName(), query.getTags())
+        .flatMap(seriesSet -> {
+          query.setSeriesSet(seriesSet);
+          return Flux.just(query);
         });
-        return Flux.fromIterable(result);
+  }
+
+  private TsdbQuery parseTsdbQuery(String metric, String downsample, String tagKey, String tagValue,
+      List<Granularity> granularities) {
+    Map<String, String> tags = Map.of(tagKey, tagValue);
+    TsdbQuery tsdbQuery = new TsdbQuery();
+
+    if (downsample != null && !downsample.isEmpty()) {
+      String[] downsampleValues = downsample.split("-");
+
+      Duration granularity =
+          DateTimeUtils.getGranularity(Duration.parse("PT" + downsampleValues[0].toUpperCase()),
+              granularities);
+
+      tsdbQuery.setMetricName(metric)
+          .setTags(tags)
+          .setGranularity(granularity)
+          .setAggregator(Aggregator.valueOf(downsampleValues[1]));
+    } else {
+      tsdbQuery.setMetricName(metric)
+          .setTags(tags)
+          .setGranularity(null)
+          .setAggregator(Aggregator.raw);
     }
+    return tsdbQuery;
+  }
+
+  public Flux<TsdbQuery> getTsdbQueries(
+      List<TsdbQueryRequest> requests, List<Granularity> granularities) {
+    List<TsdbQuery> result = new ArrayList<>();
+
+    requests.forEach(request -> {
+
+      if (request.getFilters() != null) {
+        String metric = request.getMetric();
+        String downsample = request.getDownsample();
+
+        request.getFilters().forEach(filter -> {
+          String tagKey = filter.getTagk();
+          Arrays.stream(filter.getFilter().split("\\|"))
+              .forEach(tagValue ->
+                  result.add(parseTsdbQuery(metric, downsample, tagKey, tagValue, granularities)));
+        });
+      }
+    });
+    return Flux.fromIterable(result);
+  }
 
   public MetricNameAndMultiTags getMetricNameAndTags(String m) {
     MetricNameAndMultiTags metricNameAndTags = new MetricNameAndMultiTags();
@@ -342,15 +342,16 @@ public class MetadataService {
 
   public Mono<MetricNameAndTags> resolveSeriesSetHash(String tenant, String seriesSetHash) {
     return cassandraTemplate.selectOne(
-        query(
-            where(COL_TENANT).is(tenant),
-            where(COL_SERIES_SET_HASH).is(seriesSetHash)
-        ),
-        SeriesSetHash.class
-    )
+            query(
+                where(COL_TENANT).is(tenant),
+                where(COL_SERIES_SET_HASH).is(seriesSetHash)
+            ),
+            SeriesSetHash.class
+        )
         .doOnError(e -> readDbOperationErrorsCounter.increment())
         .switchIfEmpty(Mono.error(
-            new IllegalStateException("Unable to resolve series-set from hash \""+seriesSetHash+"\"")
+            new IllegalStateException(
+                "Unable to resolve series-set from hash \"" + seriesSetHash + "\"")
         ))
         .map(result ->
             new MetricNameAndTags()
@@ -369,10 +370,10 @@ public class MetadataService {
    */
   public Mono<List<String>> getTagKeysOrValuesForTenant(String tenantId, SuggestType type) {
     return cqlTemplate.queryForFlux(GET_TAG_KEYS_OR_VALUES_FROM_TAGS_DATA,
-        String.class,
-        tenantId,
-        type.name()
-    )
+            String.class,
+            tenantId,
+            type.name()
+        )
         .doOnError(e -> readDbOperationErrorsCounter.increment())
         .collectList();
   }

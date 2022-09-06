@@ -37,25 +37,12 @@ import java.time.Instant;
 @Component
 public class MetricDeletionHelper {
 
-  private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
-      + "AND metric_name = ?";
   private final String DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? "
       + "AND metric_name = ?";
   private final String DELETE_SERIES_SET_HASHES_QUERY = "DELETE FROM series_set_hashes "
       + "WHERE tenant = ? AND series_set_hash = ?";
   private final String SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets "
       + "WHERE tenant = ? AND metric_name = ?";
-  private final String DELETE_METRIC_GROUP_QUERY = "DELETE from metric_groups WHERE tenant = ? "
-      + "AND metric_group = ?";
-  private final String GET_TAG_VALUE_QUERY = "select tag_value from series_sets where "
-      + "tenant=? AND metric_name=? AND tag_key=?";
-  private final String UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY = "UPDATE metric_groups SET metric_names = "
-      + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND metric_group = '%s'";
-  private final String UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY = "UPDATE devices SET metric_names = "
-      + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND device = '%s'";
-  private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
-  private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
-  private final String DELETE_ALL_TAGS_DATA_QUERY = "DELETE FROM tags_data WHERE tenant = ? AND type IN ('TAGK', 'TAGV')";
 
   private final AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -225,18 +212,4 @@ public class MetricDeletionHelper {
     return cqlTemplate.queryForFlux(SELECT_SERIES_SET_HASHES_QUERY, String.class,
         tenant, metricName).distinct().doOnError(e -> readDbOperationErrorsCounter.increment());
   }
-
-//  /**
-//   * Delete metric_groups by tenant and metric group.
-//   *
-//   * @param tenant     the tenant
-//   * @param metricGroup the metric name
-//   * @return the mono
-//   */
-//  public Mono<Boolean> deleteMetricGroupByTenantAndMetricGroup(String tenant, String metricGroup) {
-//    return cqlTemplate
-//        .execute(DELETE_METRIC_GROUP_QUERY, tenant, metricGroup)
-//        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
-//        .retryWhen(appProperties.getRetryDelete().build());
-//  }
 }

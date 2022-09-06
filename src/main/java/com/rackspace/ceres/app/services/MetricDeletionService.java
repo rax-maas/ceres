@@ -118,6 +118,7 @@ public class MetricDeletionService {
     log.debug("Deleting metrics {} for tenant: {} ", metricName, tenant);
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromSeriesSets(tenant,
         metricName);
+    seriesSetHashes.doOnNext(e -> log.info("series set hash {} ", e));
     if (start != null) {
       final Instant startDateTime = start;
       return seriesSetHashes.flatMap(seriesSetHash ->
