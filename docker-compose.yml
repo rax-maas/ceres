@@ -12,8 +12,18 @@ services:
     ports:
     - 6379:6379
     volumes:
-    - redis:/data
+      - redis:/data
+  es:
+    container_name: es.7.6.2
+    image: elasticsearch:7.6.2
+    ports:
+      - 9200:9200
+    volumes:
+      - es:/data
+    environment:
+      discovery.type: single-node
 
 volumes:
   cassandra: {}
   redis: {}
+  es: {}
