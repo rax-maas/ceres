@@ -22,7 +22,6 @@ ceres:
       - width: 1h
         ttl: 1d
         partitionWidth: 1h
-    partitions: 2
   tag-filter: exclude
   tag-value-limit: 10
   ingest-start-time: 7d
