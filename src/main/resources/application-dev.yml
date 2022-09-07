@@ -35,6 +35,8 @@ ceres:
   elastic-search-host: localhost
   elastic-search-port: 9200
 spring:
+#  autoconfigure:
+#    exclude: org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
   data:
     elasticsearch:
       client:

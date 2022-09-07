@@ -86,7 +86,7 @@ class DownsampleProcessorTest {
   QueryService queryService;
 
   @MockBean
-  DataWriteService dataWriteService;
+  DownsampleWriteService dataWriteService;
 
   @MockBean
   MetadataService metadataService;
