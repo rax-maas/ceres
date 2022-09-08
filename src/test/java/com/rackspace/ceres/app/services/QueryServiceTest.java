@@ -58,7 +58,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
-@ActiveProfiles(profiles = {"test", "downsample","query"})
+@ActiveProfiles(profiles = {"test", "downsample","query", "ingest"})
 @Testcontainers
 @Slf4j
 class QueryServiceTest {

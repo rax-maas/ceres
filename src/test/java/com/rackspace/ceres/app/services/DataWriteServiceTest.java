@@ -60,7 +60,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test", "ingest"})
 @Testcontainers
 class DataWriteServiceTest {
 
