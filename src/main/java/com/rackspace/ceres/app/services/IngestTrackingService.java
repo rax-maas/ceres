@@ -28,6 +28,7 @@ import com.rackspace.ceres.app.utils.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("UnstableApiUsage") // guava
 @Service
 @Slf4j
+@Profile("ingest")
 public class IngestTrackingService {
 
   private final DownsampleProperties properties;
