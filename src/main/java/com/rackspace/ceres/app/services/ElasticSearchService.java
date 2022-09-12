@@ -38,18 +38,18 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 @Slf4j
 @Service
+@Profile({"query", "ingest", "admin"})
 public class ElasticSearchService {
 
-  private AppProperties appProperties;
-
-  private RestHighLevelClient restHighLevelClient;
-
-  private ObjectMapper objectMapper;
+  private final AppProperties appProperties;
+  private final RestHighLevelClient restHighLevelClient;
+  private final ObjectMapper objectMapper;
 
   @Autowired
   public ElasticSearchService(RestHighLevelClient restHighLevelClient, AppProperties appProperties,

@@ -22,6 +22,7 @@ import com.rackspace.ceres.app.downsample.ValueSetCollectors;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -31,12 +32,13 @@ import java.time.Instant;
 
 @Service
 @Slf4j
+@Profile({"query", "downsample"})
 public class DownsamplingService {
-  private final DataWriteService dataWriteService;
+  private final DownsampleWriteService writeService;
 
   @Autowired
-  public DownsamplingService(DataWriteService dataWriteService) {
-    this.dataWriteService = dataWriteService;
+  public DownsamplingService(DownsampleWriteService writeService) {
+    this.writeService = writeService;
   }
 
   public Mono<?> downsampleData(PendingDownsampleSet pendingSet, Duration granularity, Flux<ValueSet> data) {
@@ -45,7 +47,7 @@ public class DownsamplingService {
             valueSet.getTimestamp().with(new TemporalNormalizer(granularity)), Instant::equals)
         .concatMap(valueSetFlux -> valueSetFlux.collect(ValueSetCollectors.gaugeCollector(granularity)));
 
-    return dataWriteService.storeDownsampledData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash())
+    return writeService.storeDownsampledData(aggregated, pendingSet.getTenant(), pendingSet.getSeriesSetHash())
         .checkpoint();
   }
 }

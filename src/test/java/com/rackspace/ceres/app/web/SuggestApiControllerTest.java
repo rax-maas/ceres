@@ -34,7 +34,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-@ActiveProfiles(profiles = {"test"})
+@ActiveProfiles(profiles = {"test", "query"})
 @SpringBootTest(classes = {SuggestApiController.class, AppProperties.class,
     SuggestTypeEnumConverter.class})
 @AutoConfigureWebTestClient

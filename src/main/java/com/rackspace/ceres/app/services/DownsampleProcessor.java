@@ -41,13 +41,13 @@ import static com.rackspace.ceres.app.utils.DateTimeUtils.epochToLocalDateTime;
 public class DownsampleProcessor {
   private final DownsampleProperties properties;
   private final DownsamplingService downsamplingService;
-  private final QueryService queryService;
+  private final DownsampleQueryService queryService;
   private final Timer meterTimer;
 
   @Autowired
   public DownsampleProcessor(DownsampleProperties properties,
                              DownsamplingService downsamplingService,
-                             QueryService queryService,
+                             DownsampleQueryService queryService,
                              MeterRegistry meterRegistry) {
     this.properties = properties;
     this.downsamplingService = downsamplingService;
