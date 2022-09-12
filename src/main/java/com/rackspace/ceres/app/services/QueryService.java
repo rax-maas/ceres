@@ -16,20 +16,24 @@
 
 package com.rackspace.ceres.app.services;
 
-import static com.rackspace.ceres.app.utils.DateTimeUtils.getLowerGranularity;
-import static com.rackspace.ceres.app.utils.DateTimeUtils.getPartitionWidth;
-import static com.rackspace.ceres.app.utils.DateTimeUtils.isLowerGranularityRaw;
-import static java.util.Objects.requireNonNull;
-
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
-import com.rackspace.ceres.app.downsample.*;
+import com.rackspace.ceres.app.downsample.Aggregator;
+import com.rackspace.ceres.app.downsample.ValueSet;
 import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -37,24 +41,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import static com.rackspace.ceres.app.utils.DateTimeUtils.getPartitionWidth;
+import static java.util.Objects.requireNonNull;
 
 @Service
 @Slf4j
+@Profile("query")
 public class QueryService {
   private final ReactiveCqlTemplate cqlTemplate;
   private final MetadataService metadataService;
   private final DataTablesStatements dataTablesStatements;
   private final TimeSlotPartitioner timeSlotPartitioner;
-  private final AppProperties appProperties;
   private final DownsampleProperties properties;
   private final DownsamplingService downsamplingService;
+  private final DownsampleQueryService downsampleQueryService;
   private final Counter dbOperationErrorsCounter;
 
   @Autowired
@@ -62,17 +63,17 @@ public class QueryService {
                       MetadataService metadataService,
                       DataTablesStatements dataTablesStatements,
                       TimeSlotPartitioner timeSlotPartitioner,
-                      AppProperties appProperties,
                       DownsampleProperties properties,
                       DownsamplingService downsamplingService,
+                      DownsampleQueryService downsampleQueryService,
                       MeterRegistry meterRegistry) {
     this.cqlTemplate = cqlTemplate;
     this.metadataService = metadataService;
     this.dataTablesStatements = dataTablesStatements;
     this.timeSlotPartitioner = timeSlotPartitioner;
-    this.appProperties = appProperties;
     this.properties = properties;
     this.downsamplingService = downsamplingService;
+    this.downsampleQueryService = downsampleQueryService;
     this.dbOperationErrorsCounter = meterRegistry.counter("ceres.db.operation.errors", "type", "read");
   }
 
@@ -101,48 +102,6 @@ public class QueryService {
                         .metrics()
                 ), buildMetaData(Aggregator.raw, start, end, null)
         ));
-  }
-
-  public Flux<ValueSet> queryRawWithSeriesSet(String tenant, String seriesSet,
-                                              Instant start, Instant end) {
-    return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, null))
-        .concatMap(timeSlot ->
-            cqlTemplate.queryForRows(dataTablesStatements.rawQuery(), tenant, timeSlot, seriesSet, start, end)
-                .name("queryRawWithSeriesSet")
-                .metrics()
-                .retryWhen(appProperties.getRetryQueryForDownsample().build())
-                .map(row -> new SingleValueSet().setValue(row.getDouble(1)).setTimestamp(row.getInstant(0)))
-                .doOnError(e -> dbOperationErrorsCounter.increment())
-        )
-        .checkpoint();
-  }
-
-  public Flux<ValueSet> queryDownsampled(
-      String tenant, String seriesSet, Instant start, Instant end, Duration granularity) {
-    return Flux.fromIterable(timeSlotPartitioner.partitionsOverRange(start, end, granularity))
-        .concatMap(timeSlot ->
-            cqlTemplate.queryForRows(dataTablesStatements.downsampleQuery(granularity),
-                    tenant,
-                    timeSlot,
-                    seriesSet,
-                    start,
-                    end)
-                .name("queryDownsampledWithSeriesSet")
-                .metrics()
-                .retryWhen(appProperties.getRetryQueryForDownsample().build())
-                .map(row -> // TIMESTAMP, MIN, MAX, SUM, AVG, COUNT
-                    new AggregatedValueSet()
-                        .setMin(row.getDouble(1))
-                        .setMax(row.getDouble(2))
-                        .setSum(row.getDouble(3))
-                        .setAverage(row.getDouble(4))
-                        .setCount(row.getInt(5))
-                        .setGranularity(granularity)
-                        .setTimestamp(row.getInstant(0))
-                )
-                .doOnError(e -> dbOperationErrorsCounter.increment())
-        )
-        .checkpoint();
   }
 
   public Flux<QueryResult> queryDownsampled(String tenant, String metricName, String metricGroup,
@@ -199,29 +158,6 @@ public class QueryService {
                         query.getSeriesSet(), timeSlot))
         ))
         .checkpoint();
-  }
-
-  /**
-   * Fetches data points to be downsampled. The data points are based on the next lower granularity downsampled data
-   * and if there is no lower downsampled data it fetches the raw data points. This is to avoid always fetching
-   * raw which might be a performance and memory problem if we are downsampling very large granularities like e.g. 24h.
-   */
-  public Flux<ValueSet> fetchData(PendingDownsampleSet set, String group, Duration granularity, boolean redoOld) {
-    Duration lowerWidth = getLowerGranularity(properties.getGranularities(), granularity);
-    return isLowerGranularityRaw(lowerWidth) ?
-        queryRawWithSeriesSet(
-            set.getTenant(),
-            set.getSeriesSetHash(),
-            set.getTimeSlot(),
-            set.getTimeSlot().plus(Duration.parse(group))
-        )
-        :
-        queryDownsampled(
-            set.getTenant(),
-            set.getSeriesSetHash(),
-            redoOld ? set.getTimeSlot().minus(Duration.parse(group)) : set.getTimeSlot(),
-            set.getTimeSlot().plus(Duration.parse(group)),
-            lowerWidth);
   }
 
   private Flux<Row> queryForRows(
@@ -323,7 +259,8 @@ public class QueryService {
                   .setTimeSlot(timeslot)
                   .setTenant(tenant)
                   .setSeriesSetHash(hash);
-              Flux<ValueSet> data = fetchData(pendingSet, group.toString(), granularity, false);
+              Flux<ValueSet> data =
+                  this.downsampleQueryService.fetchData(pendingSet, group.toString(), granularity, false);
               return this.downsamplingService.downsampleData(pendingSet, granularity, data);
             })
         );

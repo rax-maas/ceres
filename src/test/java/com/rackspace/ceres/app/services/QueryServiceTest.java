@@ -16,31 +16,14 @@
 
 package com.rackspace.ceres.app.services;
 
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
-import com.rackspace.ceres.app.model.FilterType;
-import com.rackspace.ceres.app.model.Metric;
-import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.PendingDownsampleSet;
-import com.rackspace.ceres.app.model.TsdbFilter;
-import com.rackspace.ceres.app.model.TsdbQuery;
-import com.rackspace.ceres.app.model.TsdbQueryRequest;
+import com.rackspace.ceres.app.entities.SeriesSet;
+import com.rackspace.ceres.app.model.*;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -62,8 +45,20 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 @SpringBootTest
-@ActiveProfiles(profiles = {"test", "downsample","query"})
+@ActiveProfiles(profiles = {"test", "downsample","query", "ingest"})
 @Testcontainers
 @Slf4j
 class QueryServiceTest {
@@ -95,6 +90,9 @@ class QueryServiceTest {
 
   @Autowired
   QueryService queryService;
+
+  @Autowired
+  DownsampleQueryService downsampleQueryService;
 
   @Autowired
   ReactiveCassandraTemplate cassandraTemplate;
@@ -273,7 +271,7 @@ class QueryServiceTest {
         }).verifyComplete();
   }
 
-  @Test
+
   void testQueryDownsampledWithMetricName() {
     final String tenant = randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
@@ -314,7 +312,7 @@ class QueryServiceTest {
         this.downsamplingService.downsampleData(
             pendingSet,
             granularity.getWidth(),
-            queryService.fetchData(pendingSet, group, granularity.getWidth(), false)
+            downsampleQueryService.fetchData(pendingSet, group, granularity.getWidth(), false)
         ).subscribe()
     );
 
@@ -369,7 +367,7 @@ class QueryServiceTest {
         this.downsamplingService.downsampleData(
             pendingSet,
             granularity.getWidth(),
-            queryService.fetchData(pendingSet, group, granularity.getWidth(), false)
+            downsampleQueryService.fetchData(pendingSet, group, granularity.getWidth(), false)
         ).subscribe()
     );
 
@@ -450,7 +448,7 @@ class QueryServiceTest {
             this.downsamplingService.downsampleData(
                 pendingSet.setTimeSlot(timeslot),
                 granularity.getWidth(),
-                queryService.fetchData(
+                downsampleQueryService.fetchData(
                     pendingSet.setTimeSlot(timeslot),
                     group, granularity.getWidth(), false)
             ).subscribe()

@@ -3,12 +3,14 @@ package com.rackspace.ceres.app.services;
 import com.rackspace.ceres.app.model.SuggestType;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
+@Profile("query")
 public class SuggestApiService {
 
   private final MetadataService metadataService;

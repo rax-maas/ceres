@@ -53,6 +53,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.cassandra.core.ReactiveCassandraTemplate;
 import org.springframework.data.cassandra.core.cql.ReactiveCqlTemplate;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,7 @@ import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
+@Profile({"ingest", "query", "admin"})
 public class MetadataService {
 
   private static final String PREFIX_SERIES_SET_HASHES = "seriesSetHashes";
