@@ -162,7 +162,7 @@ public class IngestTrackingService {
     return Mono.fromFuture(result);
   }
 
-  private static String encodeSetHash(String tenant, String setHash) {
+  public static String encodeSetHash(String tenant, String setHash) {
     return String.format("%s|%s", tenant, setHash);
   }
 
