@@ -1,0 +1,100 @@
+---
+name: Dev promotion
+
+on: 
+  push:
+    branches: 
+      - master
+    paths-ignore:
+      - '.github/workflows/**'
+      - 'test-script'
+      - '**/pom.xml' 
+  workflow_dispatch:
+
+env:
+  IMAGE_BASE_NAME: ceres-test
+  HELM_CHART: ceres
+  HELM_CHART_FOLDER: helm-ceres/cherts/ceres
+  CLUSTER_NAME: primary-cluster
+  REGISTRY: gcr.io
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.setVersion.outputs.version }}
+    steps:
+    ### Seting up runner env ###
+      - uses: actions/checkout@v3
+
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+
+      - name: 'Maven settings'
+        run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
+
+      - name: Docker login
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} -q
+
+      - name: .m2 forder [*** fix it please ***]
+        run: sed -i '/<localRepository>/d' ./.mvn/settings.xml
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '14'
+          distribution: 'adopt-hotspot'
+          cache: maven
+
+      - name: Set version
+        id: setVersion
+        shell: bash
+        run: |
+          POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          RUN_ID=${{ github.run_number }}
+          COMMIT_SHA=${{ github.sha }}
+          VERSION=${POM_VERSION}-${RUN_ID}-${COMMIT_SHA}
+          IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_DEV_ACC }}/${{ env.IMAGE_BASE_NAME }}:${VERSION}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "::set-output name=version::$(echo $VERSION)"    
+
+      - name: Maven build
+        shell: bash
+        run: | 
+          mvn build-helper:parse-version versions:set -DnewVersion=${{ env.VERSION }} versions:commit
+          mvn -B -U -s .mvn/settings.xml deploy jib:build -Dimage=${{ env.IMAGE_NAME }}
+
+  Deploy:
+    runs-on: ubuntu-latest
+    needs: [Build]
+
+    steps:
+      ### Seting up runner env ###
+      - uses: actions/checkout@v3
+
+      - name: Checkout helm-repo
+        uses: actions/checkout@v3
+        with:
+          repository: rax-maas/helm-ceres
+          ref: master
+          path: helm-ceres
+          token: ${{ secrets.GIT_TOKEN }}
+
+      - uses: azure/setup-helm@v3
+        with:
+          version: 3.9.0
+        id: install
+
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+          k8sSetup: "TRUE"
+          GCPaccount: ${{ secrets.GCP_DEV_ACC }}
+          clusterName: $CLUSTER_NAME
+   
+      ### deploying
+      
+      - name: Helm upgrade
+        run: helm upgrade $HELM_CHART $HELM_CHART_FOLDER --set image.repository=${{ env.REGISTRY }}/${{ secrets.GCP_DEV_ACC }}/${{ env.IMAGE_BASE_NAME }}:${{ needs.Build.outputs.version }}
