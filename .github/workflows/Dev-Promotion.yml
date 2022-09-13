@@ -2,13 +2,13 @@
 name: Dev promotion
 
 on: 
-  push:
-    branches: 
-      - master
-    paths-ignore:
-      - '.github/workflows/**'
-      - 'test-script'
-      - '**/pom.xml' 
+#  push:
+#    branches: 
+#      - master
+#    paths-ignore:
+#      - '.github/workflows/**'
+#      - 'test-script'
+#      - '**/pom.xml' 
   workflow_dispatch:
 
 env:
@@ -97,4 +97,4 @@ jobs:
       ### deploying
       
       - name: Helm upgrade
-        run: helm upgrade $HELM_CHART $HELM_CHART_FOLDER --set image.repository=${{ env.REGISTRY }}/${{ secrets.GCP_DEV_ACC }}/${{ env.IMAGE_BASE_NAME }}:${{ needs.Build.outputs.version }}
+        run: helm upgrade $HELM_CHART $HELM_CHART_FOLDER --set image.repository=${{ env.REGISTRY }}/${{ secrets.GCP_DEV_ACC }}/${{ env.IMAGE_BASE_NAME }},image.tag=${{ needs.Build.outputs.version }}
