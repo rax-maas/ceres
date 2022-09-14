@@ -31,9 +31,16 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.common.xcontent.XContentType;
+import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -46,7 +53,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test","query"})
 @Testcontainers
 public class ElasticSearchServiceTest {
 
@@ -87,21 +94,21 @@ public class ElasticSearchServiceTest {
   @Autowired
   RestHighLevelClient restHighLevelClient;
 
-//  @AfterEach
-//  void tearDown() throws IOException {
-//    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
-//    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
-//  }
+  @AfterEach
+  void tearDown() throws IOException {
+    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
+    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
+  }
 
-//  @BeforeEach
-//  void testIsContainerRunning() throws IOException {
-//    assertTrue(elasticsearchContainer.isRunning());
-//
-//    CreateIndexRequest request = new CreateIndexRequest("metrics");
-//    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
-//    request.mapping(mapping, XContentType.JSON);
-//    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
-//  }
+  @BeforeEach
+  void testIsContainerRunning() throws IOException {
+    Assert.assertTrue(elasticsearchContainer.isRunning());
+
+    CreateIndexRequest request = new CreateIndexRequest("metrics");
+    String mapping = "{\n    \"properties\": {\n        \"id\": {\n          \"type\": \"keyword\"\n        },\n        \"metricName\": {\n          \"type\": \"keyword\"\n        },\n        \"tenant\": {\n          \"type\": \"keyword\"\n        }\n    }\n  }";
+    request.mapping(mapping, XContentType.JSON);
+    restHighLevelClient.indices().create(request, RequestOptions.DEFAULT);
+  }
 
   @BeforeAll
   static void setUp() {

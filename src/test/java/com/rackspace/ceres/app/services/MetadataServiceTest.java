@@ -57,11 +57,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -88,7 +90,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles(profiles = {"test", "query"})
 @ContextConfiguration(initializers = RedisEnvInit.class)
 @Testcontainers
 @Slf4j
@@ -150,15 +152,15 @@ class MetadataServiceTest {
   @Autowired
   RestHighLevelClient restHighLevelClient;
 
-//  @AfterEach
-//  void tearDown() throws IOException {
-//    cassandraTemplate.truncate(MetricName.class)
-//        .and(cassandraTemplate.truncate(SeriesSet.class))
-//        .block();
-//
-//    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
-//    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
-//  }
+  @AfterEach
+  void tearDown() throws IOException {
+    cassandraTemplate.truncate(MetricName.class)
+        .and(cassandraTemplate.truncate(SeriesSet.class))
+        .block();
+
+    DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest("metrics");
+    restHighLevelClient.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
+  }
 
   @BeforeAll
   static void setUp() {
