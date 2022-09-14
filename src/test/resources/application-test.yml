@@ -27,14 +27,14 @@ ceres:
   ingest-start-time: 7d
   ingest-end-time: 1d
   elastic-search-index-name: metrics
-  elasticsearch:
-    host: localhost
-    port: 9200
+  elastic-search-host: localhost
+  elastic-search-port: 9200
 management:
   server:
     port: 8082
 logging:
   level:
+    com.rackspace.ceres.app: debug
     org:
       springframework:
         data:
