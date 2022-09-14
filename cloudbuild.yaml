@@ -51,3 +51,7 @@ steps:
     volumes:
     - name: user.home
       path: /root
+
+options:
+    pool:
+      name: 'projects/ceres-dev-222017/locations/us-east1/workerPools/test'
