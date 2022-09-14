@@ -35,7 +35,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-@ActiveProfiles(profiles = {"downsample", "test"})
+@ActiveProfiles(profiles = {"downsample", "test", "query", "ingest"})
 @SpringBootTest
 @Testcontainers
 public class MetricDeletionServiceTest {

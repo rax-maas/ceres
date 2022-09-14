@@ -1,0 +1,43 @@
+---
+name: PR Check
+
+on: 
+#  pull_request:
+#    paths-ignore:
+#      - '.github/workflows/**'
+#      - 'test-script'  
+  workflow_dispatch:
+
+env:
+  ARTIFACT_VERSION: dummy-verison 
+
+jobs:
+  build:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: ./.github/actions/GCPSetup
+        with:
+          GCPCreds: ${{ secrets.GCP_SA_JSON }} 
+
+      - name: 'Maven settings'
+        run: 'gsutil cp gs://salus-mavenrepository/m2-settings.xml ./.mvn/settings.xml'
+
+      - name: .m2 forder [*** fix it please ***]
+        run: sed -i '/<localRepository>/d' ./.mvn/settings.xml
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '14'
+          distribution: 'adopt-hotspot'
+          cache: maven
+
+      - name: Build with Maven
+        shell: bash
+        run: |
+          mvn -B -s .mvn/settings.xml verify jib:dockerBuild -Ddocker.image.prefix=dummy   
+
