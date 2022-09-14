@@ -145,6 +145,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
   }
@@ -190,6 +193,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 0);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
   }
@@ -228,6 +234,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 0);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
@@ -274,6 +283,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -322,6 +334,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
   }
@@ -368,6 +383,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 0);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
@@ -417,6 +435,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
   }
@@ -464,6 +485,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 0);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -537,6 +561,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
   }
@@ -598,6 +625,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
@@ -609,6 +639,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 0);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 0);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
@@ -701,6 +734,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
@@ -723,6 +759,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -815,6 +854,9 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
@@ -838,6 +880,9 @@ public class MetricDeletionServiceTest {
 
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash, 1);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName, 6);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
@@ -903,6 +948,10 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash1, 1);
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash2, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName1, 6);
+    assertSeriesSetViaQuery(tenantId, metricName2, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName1, 1);
     assertMetricNamesViaQuery(tenantId, metricName2, 1);
@@ -965,6 +1014,10 @@ public class MetricDeletionServiceTest {
     //validate series_set_hashes
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash1, 0);
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash2, 0);
+
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName1, 0);
+    assertSeriesSetViaQuery(tenantId, metricName2, 0);
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName1, 0);
@@ -1036,6 +1089,10 @@ public class MetricDeletionServiceTest {
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash1, 0);
     assertSeriesSetHashesViaQuery(tenantId, seriesSetHash2, 1);
 
+    //validate series_sets
+    assertSeriesSetViaQuery(tenantId, metricName1, 0);
+    assertSeriesSetViaQuery(tenantId, metricName2, 6);
+
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName1, 0);
     assertMetricNamesViaQuery(tenantId, metricName2, 1);
@@ -1062,6 +1119,12 @@ public class MetricDeletionServiceTest {
         tenant, metricName
     ).collectList().block();
     assertThat(metricNamesResult).hasSize(expectedRowNum);
+  }
+
+  private void assertSeriesSetViaQuery(String tenant, String metricName, int expectedRowNum)  {
+    final List<Row> seriesSetsResult = cqlTemplate.queryForRows(QUERY_SERIES_SET, tenant,
+        metricName).collectList().block();
+    assertThat(seriesSetsResult).hasSize(expectedRowNum);
   }
 
   private void assertSeriesSetHashesViaQuery(String tenant, String seriesSetHash,

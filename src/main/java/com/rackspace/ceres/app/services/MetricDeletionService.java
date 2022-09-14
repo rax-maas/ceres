@@ -203,10 +203,6 @@ public class MetricDeletionService {
         deleteSeriesSetHashesAndCache(tenant, seriesSetHash))
         .then(metricNames.flatMap(metricName -> deleteSeriesSetAndMetricName(tenant, metricName))
             .then(Mono.just(true)));
-    //TODO - remove documents from ES
-//        .then(metricDeletionHelper.deleteMetricGroups(tenant))
-//        .then(metricDeletionHelper.deleteDevices(tenant))
-//        .then(metricDeletionHelper.deleteTagsData(tenant));
   }
 
   /**
@@ -219,10 +215,8 @@ public class MetricDeletionService {
    */
   private Mono<Boolean> deleteMetadataByTenantIdAndSeriesSet(String seriesSetHash, String tenant,
       String metricName) {
-    return deleteSeriesSetHashesAndCache(tenant, seriesSetHash);
-//        .then(metricDeletionHelper.deleteMetricNamesFromDevices(tenant, metricName))
-//        .then(metricDeletionHelper.deleteMetricNamesFromMetricGroups(tenant, metricName))
-//        .then(metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName));
+    return deleteSeriesSetHashesAndCache(tenant, seriesSetHash)
+        .then(metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName));
   }
 
 
@@ -246,9 +240,8 @@ public class MetricDeletionService {
    * @return the mono
    */
   private Mono<Boolean> deleteSeriesSetAndMetricName(String tenant, String metricName) {
-    return metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName);
-//    return metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName)
-//        .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName));
+    return metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName)
+        .then(metricDeletionHelper.deleteMetricNamesByTenantAndMetricName(tenant, metricName));
   }
 
   /**

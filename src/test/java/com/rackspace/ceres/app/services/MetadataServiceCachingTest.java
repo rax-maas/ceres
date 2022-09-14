@@ -32,6 +32,7 @@ import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.config.CacheConfig;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.entities.MetricName;
+import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
@@ -124,6 +125,14 @@ public class MetadataServiceCachingTest {
         new MetricName()
             .setTenant(tenant)
             .setMetricName(metricName)
+    );
+    verify(cassandraTemplate).insert(
+        new SeriesSet()
+            .setTenant(tenant)
+            .setMetricName(metricName)
+            .setTagKey(tagK)
+            .setTagValue(tagV)
+            .setSeriesSetHash(seriesSetHash)
     );
     verify(cassandraTemplate).exists(any(Query.class), any(Class.class));
     verifyNoMoreInteractions(cqlTemplate, cassandraTemplate);

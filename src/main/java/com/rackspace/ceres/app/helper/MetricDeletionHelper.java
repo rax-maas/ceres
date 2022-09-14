@@ -37,6 +37,8 @@ import java.time.Instant;
 @Component
 public class MetricDeletionHelper {
 
+  private final String DELETE_SERIES_SET_QUERY = "DELETE FROM series_sets WHERE tenant = ? "
+      + "AND metric_name = ?";
   private final String DELETE_METRIC_NAMES_QUERY = "DELETE FROM metric_names WHERE tenant = ? "
       + "AND metric_name = ?";
   private final String DELETE_SERIES_SET_HASHES_QUERY = "DELETE FROM series_set_hashes "
@@ -84,6 +86,21 @@ public class MetricDeletionHelper {
         .doOnError(e -> deleteDbOperationErrorsCounter.increment())
         .retryWhen(appProperties.getRetryDelete()
             .build());
+  }
+
+  /**
+   * Delete series_sets by tenant id and metric name.
+   *
+   * @param tenant     the tenant
+   * @param metricName the metric name
+   * @return the mono
+   */
+  public Mono<Boolean> deleteSeriesSetsByTenantIdAndMetricName(String tenant,
+      String metricName) {
+    return cqlTemplate
+        .execute(DELETE_SERIES_SET_QUERY, tenant, metricName)
+        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
+        .retryWhen(appProperties.getRetryDelete().build());
   }
 
   /**
