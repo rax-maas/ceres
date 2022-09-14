@@ -75,9 +75,6 @@ public class MetricDeletionService {
       Instant end) {
     return metadataService.getMetricNamesFromMetricGroup(tenant, metricGroup)
         .flatMap(metricName -> deleteMetricsByMetricName(tenant, metricName, start, end))
-        .then(start == null ? metricDeletionHelper
-            .deleteMetricGroupByTenantAndMetricGroup(tenant, metricGroup).then(Mono.empty())
-            : Mono.empty())
         .then(Mono.empty());
   }
 
@@ -123,6 +120,7 @@ public class MetricDeletionService {
     log.debug("Deleting metrics {} for tenant: {} ", metricName, tenant);
     Flux<String> seriesSetHashes = metricDeletionHelper.getSeriesSetHashFromSeriesSets(tenant,
         metricName);
+    seriesSetHashes.doOnNext(e -> log.info("series set hash {} ", e));
     if (start != null) {
       final Instant startDateTime = start;
       return seriesSetHashes.flatMap(seriesSetHash ->
@@ -204,10 +202,7 @@ public class MetricDeletionService {
     return seriesSetHashes.flatMap(seriesSetHash ->
         deleteSeriesSetHashesAndCache(tenant, seriesSetHash))
         .then(metricNames.flatMap(metricName -> deleteSeriesSetAndMetricName(tenant, metricName))
-            .then(Mono.just(true)))
-        .then(metricDeletionHelper.deleteMetricGroups(tenant))
-        .then(metricDeletionHelper.deleteDevices(tenant))
-        .then(metricDeletionHelper.deleteTagsData(tenant));
+            .then(Mono.just(true)));
   }
 
   /**
@@ -221,8 +216,6 @@ public class MetricDeletionService {
   private Mono<Boolean> deleteMetadataByTenantIdAndSeriesSet(String seriesSetHash, String tenant,
       String metricName) {
     return deleteSeriesSetHashesAndCache(tenant, seriesSetHash)
-        .then(metricDeletionHelper.deleteMetricNamesFromDevices(tenant, metricName))
-        .then(metricDeletionHelper.deleteMetricNamesFromMetricGroups(tenant, metricName))
         .then(metricDeletionHelper.deleteSeriesSetsByTenantIdAndMetricName(tenant, metricName));
   }
 

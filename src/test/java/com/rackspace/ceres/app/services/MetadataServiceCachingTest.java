@@ -34,10 +34,8 @@ import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
-import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.SeriesSetCacheKey;
-import com.rackspace.ceres.app.model.SuggestType;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -135,18 +133,6 @@ public class MetadataServiceCachingTest {
             .setTagKey(tagK)
             .setTagValue(tagV)
             .setSeriesSetHash(seriesSetHash)
-    );
-    verify(cassandraTemplate).insert(
-        new TagsData()
-            .setTenant(tenant)
-            .setType(SuggestType.TAGK)
-            .setData(tagK)
-    );
-    verify(cassandraTemplate).insert(
-        new TagsData()
-            .setTenant(tenant)
-            .setType(SuggestType.TAGV)
-            .setData(tagV)
     );
     verify(cassandraTemplate).exists(any(Query.class), any(Class.class));
     verifyNoMoreInteractions(cqlTemplate, cassandraTemplate);
