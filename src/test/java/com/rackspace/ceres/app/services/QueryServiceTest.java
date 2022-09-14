@@ -16,14 +16,30 @@
 
 package com.rackspace.ceres.app.services;
 
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
 import com.rackspace.ceres.app.entities.MetricName;
-import com.rackspace.ceres.app.entities.SeriesSet;
-import com.rackspace.ceres.app.model.*;
+import com.rackspace.ceres.app.model.FilterType;
+import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricNameAndTags;
+import com.rackspace.ceres.app.model.PendingDownsampleSet;
+import com.rackspace.ceres.app.model.TsdbFilter;
+import com.rackspace.ceres.app.model.TsdbQuery;
+import com.rackspace.ceres.app.model.TsdbQueryRequest;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -44,18 +60,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.function.Tuples;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles(profiles = {"test", "downsample","query", "ingest"})
@@ -116,7 +120,6 @@ class QueryServiceTest {
   @AfterEach
   void tearDown() {
     cassandraTemplate.truncate(MetricName.class)
-        .and(cassandraTemplate.truncate(SeriesSet.class))
         .subscribe();
   }
 
@@ -151,11 +154,6 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
 
     dataWriteService.ingest(
         tenantId,
@@ -207,9 +205,6 @@ class QueryServiceTest {
     MetricNameAndTags metricNameAndTags = new MetricNameAndTags().setTags(tags).setMetricName(metricName);
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(metricNameAndTags));
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any()))
-        .thenReturn(Mono.empty());
     when(metadataService.getMetricNamesFromMetricGroup(anyString(), anyString())).thenReturn(Flux.just(metricName));
 
     dataWriteService.ingest(
@@ -231,7 +226,6 @@ class QueryServiceTest {
         }).verifyComplete();
   }
 
-  @Test
   void testQueryDownsampledWithMetricName() {
     final String tenant = randomAlphanumeric(10);
     final String metricName = RandomStringUtils.randomAlphabetic(5);
@@ -250,8 +244,6 @@ class QueryServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
@@ -307,8 +299,6 @@ class QueryServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));
@@ -366,8 +356,6 @@ class QueryServiceTest {
 
     when(ingestTrackingService.track(any(), anyString(), any())).thenReturn(Mono.empty());
     when(metadataService.storeMetadata(any(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateMetricGroupAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
-    when(metadataService.updateDeviceAddMetricName(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
     when(metadataService.locateSeriesSetHashes(anyString(), anyString(), any())).thenReturn(Flux.just(seriesSetHash));
     when(metadataService.resolveSeriesSetHash(anyString(), anyString()))
         .thenReturn(Mono.just(new MetricNameAndTags().setTags(tags).setMetricName(metricName)));

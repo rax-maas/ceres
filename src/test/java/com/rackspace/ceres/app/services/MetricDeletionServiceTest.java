@@ -10,12 +10,16 @@ import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.SingleValueSet;
 import com.rackspace.ceres.app.downsample.ValueSet;
+import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.Metric;
+import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.PendingDownsampleSet;
 import com.rackspace.ceres.app.utils.DateTimeUtils;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -97,11 +101,6 @@ public class MetricDeletionServiceTest {
       + " WHERE tenant = ? AND metric_name = ?";
   private static final String QUERY_METRIC_NAMES = "SELECT * FROM metric_names"
       + " WHERE tenant = ? AND metric_name = ?";
-  private static final String QUERY_METRIC_GROUPS = "SELECT * FROM metric_groups"
-      + " WHERE tenant = ? AND metric_group = ?";
-  private static final String QUERY_DEVICES = "SELECT * FROM devices"
-      + " WHERE tenant = ? AND device = ?";
-  private static final String QUERY_TAGS_DATA = "SELECT * from tags_data where tenant = ? AND type IN ('TAGK', 'TAGV')";
 
   @Test
   public void testDeleteMetricsByTenantId() {
@@ -151,9 +150,6 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
-
-    //validate tags_data
-    assertTagsDataViaQuery(tenantId, 12);
   }
 
   @Test
@@ -202,9 +198,6 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
-
-    //validate tags_data
-    assertTagsDataViaQuery(tenantId, 0);
   }
 
   @Test
@@ -247,9 +240,6 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
-
-    //validate tags_data
-    assertTagsDataViaQuery(tenantId, 0);
   }
 
   @Test
@@ -299,9 +289,6 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
-
-    //validate tags_data
-    assertTagsDataViaQuery(tenantId, 12);
   }
 
   @Test
@@ -644,9 +631,6 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 1);
 
-    //validate tags_data
-    assertTagsDataViaQuery(tenantId, 12);
-
     metricDeletionService.deleteMetricsByTenantId(tenantId, null, Instant.now()).block();
 
     //validate data raw
@@ -661,9 +645,6 @@ public class MetricDeletionServiceTest {
 
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName, 0);
-
-    //validate tags_data
-    assertTagsDataViaQuery(tenantId, 0);
   }
 
   @Test
@@ -908,7 +889,7 @@ public class MetricDeletionServiceTest {
   }
 
   @Test
-  public void testDeleteMetricsByMetricGroup_WithStartTime() {
+  public void testDeleteMetricsByMetricGroup_WithStartTime() throws IOException {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName1 = RandomStringUtils.randomAlphabetic(5);
     final String metricName2 = RandomStringUtils.randomAlphabetic(5);
@@ -930,6 +911,10 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
     when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
+    List<MetricDTO> metricDTOList = new ArrayList<>();
+    metricDTOList.add(new MetricDTO(metricName1, tags));
+    metricDTOList.add(new MetricDTO(metricName2, tags));
+    when(elasticSearchService.search(anyString(), any(Criteria.class))).thenReturn(metricDTOList);
 
     Instant currentTime = Instant.now();
     dataWriteService.ingest(
@@ -970,16 +955,10 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName1, 1);
     assertMetricNamesViaQuery(tenantId, metricName2, 1);
-
-    //validate metric_groups
-    assertMetricGroupViaQuery(tenantId, metricGroup, 1);
-
-    //validate devices
-    assertDevicesViaQuery(tenantId, resource, 1);
   }
 
   @Test
-  public void testDeleteMetricsByMetricGroup_WithoutStartTime() {
+  public void testDeleteMetricsByMetricGroup_WithoutStartTime() throws IOException {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName1 = RandomStringUtils.randomAlphabetic(5);
     final String metricName2 = RandomStringUtils.randomAlphabetic(5);
@@ -1001,6 +980,10 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
     when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
+    List<MetricDTO> metricDTOList = new ArrayList<>();
+    metricDTOList.add(new MetricDTO(metricName1, tags));
+    metricDTOList.add(new MetricDTO(metricName2, tags));
+    when(elasticSearchService.search(anyString(), any(Criteria.class))).thenReturn(metricDTOList);
 
     Instant currentTime = Instant.now();
     dataWriteService.ingest(
@@ -1039,13 +1022,10 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName1, 0);
     assertMetricNamesViaQuery(tenantId, metricName2, 0);
-
-    //validate metric_groups
-    assertMetricGroupViaQuery(tenantId, metricGroup, 0);
   }
 
   @Test
-  public void testPartialDeletionOfMetricNamesFromMetricgroupsAndDevices() {
+  public void testPartialDeletionOfMetricNamesFromMetricgroupsAndDevices() throws IOException {
     final String tenantId = RandomStringUtils.randomAlphanumeric(10);
     final String metricName1 = RandomStringUtils.randomAlphabetic(5);
     final String metricName2 = RandomStringUtils.randomAlphabetic(5);
@@ -1068,6 +1048,12 @@ public class MetricDeletionServiceTest {
         .thenReturn(Mono.empty());
     when(elasticSearchService.saveMetricToES(anyString(), any(Metric.class)))
         .thenReturn(Mono.empty());
+
+    MetricDTO metricDTO1 = new MetricDTO(metricName1, tags1);
+    MetricDTO metricDTO2 = new MetricDTO(metricName2, tags1);
+    List<MetricDTO> metricDTOList = List.of(metricDTO1, metricDTO2);
+
+    when(elasticSearchService.search(anyString(), any(Criteria.class))).thenReturn(metricDTOList);
 
     Instant currentTime = Instant.now();
     dataWriteService.ingest(
@@ -1110,12 +1096,6 @@ public class MetricDeletionServiceTest {
     //validate metric_names
     assertMetricNamesViaQuery(tenantId, metricName1, 0);
     assertMetricNamesViaQuery(tenantId, metricName2, 1);
-
-    //validate metric_groups
-    assertMetricGroupViaQuery(tenantId, metricGroup, 1);
-
-    //validate devices
-    assertDevicesViaQuery(tenantId, resource, 1);
   }
 
   private void deleteDataFromRawTable(String tenant, Instant timeSlot) {
@@ -1155,30 +1135,10 @@ public class MetricDeletionServiceTest {
     assertThat(seriesSetHashesResult).hasSize(expectedRowNum);
   }
 
-  private void assertMetricGroupViaQuery(String tenant, String metricGroup, int expectedRowNum)  {
-    final List<Row> metricNamesResult = cqlTemplate.queryForRows(QUERY_METRIC_GROUPS,
-        tenant, metricGroup
-    ).collectList().block();
-    assertThat(metricNamesResult).hasSize(expectedRowNum);
-  }
-
-  private void assertDevicesViaQuery(String tenant, String device, int expectedRowNum)  {
-    final List<Row> devicesResult = cqlTemplate.queryForRows(QUERY_DEVICES,
-        tenant, device
-    ).collectList().block();
-    assertThat(devicesResult).hasSize(expectedRowNum);
-  }
-
   private void assertQueryRawViaQuery(String tenant, Instant timeSlot, int expectedRowNum) {
     final List<Row> queryRawResult = cqlTemplate.queryForRows(QUERY_RAW, tenant, timeSlot)
         .collectList().block();
 
     assertThat(queryRawResult).hasSize(expectedRowNum);
-  }
-
-  private void assertTagsDataViaQuery(String tenant, int expectedRowNum) {
-    final List<Row> tagsDataResult = cqlTemplate.queryForRows(QUERY_TAGS_DATA, tenant)
-        .collectList().block();
-    assertThat(tagsDataResult).hasSize(expectedRowNum);
   }
 }
