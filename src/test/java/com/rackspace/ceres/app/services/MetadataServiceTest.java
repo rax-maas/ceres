@@ -27,20 +27,15 @@ import com.rackspace.ceres.app.CassandraContainerSetup;
 import com.rackspace.ceres.app.ESContainerSetup;
 import com.rackspace.ceres.app.config.DownsampleProperties.Granularity;
 import com.rackspace.ceres.app.downsample.Aggregator;
-import com.rackspace.ceres.app.entities.Devices;
-import com.rackspace.ceres.app.entities.MetricGroup;
 import com.rackspace.ceres.app.entities.MetricName;
 import com.rackspace.ceres.app.entities.SeriesSet;
 import com.rackspace.ceres.app.entities.SeriesSetHash;
-import com.rackspace.ceres.app.entities.TagsData;
 import com.rackspace.ceres.app.model.Criteria;
 import com.rackspace.ceres.app.model.FilterType;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricDTO;
 import com.rackspace.ceres.app.model.MetricNameAndMultiTags;
 import com.rackspace.ceres.app.model.MetricNameAndTags;
-import com.rackspace.ceres.app.model.SuggestType;
-import com.rackspace.ceres.app.model.TagsResponse;
 import com.rackspace.ceres.app.model.TsdbFilter;
 import com.rackspace.ceres.app.model.TsdbQuery;
 import com.rackspace.ceres.app.model.TsdbQueryRequest;
@@ -52,7 +47,6 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
@@ -238,21 +232,6 @@ class MetadataServiceTest {
             .block()
     ).containsExactly(metricName);
 
-    assertThat(cassandraTemplate.select(Query.query(), TagsData.class).collectList().block())
-        .containsExactlyInAnyOrder(
-            tagsData(tenantId, SuggestType.TAGK, "host"),
-            tagsData(tenantId, SuggestType.TAGK, "os"),
-            tagsData(tenantId, SuggestType.TAGK, "deployment"),
-            tagsData(tenantId, SuggestType.TAGV, "h-1"),
-            tagsData(tenantId, SuggestType.TAGV, "h-2"),
-            tagsData(tenantId, SuggestType.TAGV, "h-3"),
-            tagsData(tenantId, SuggestType.TAGV, "linux"),
-            tagsData(tenantId, SuggestType.TAGV, "windows"),
-            tagsData(tenantId, SuggestType.TAGV, "prod"),
-            tagsData(tenantId, SuggestType.TAGV, "dev")
-        );
-    assertThat(cassandraTemplate.count(TagsData.class).block()).isEqualTo(10);
-
     MetricDTO metricDTO1 = new MetricDTO(metricName, Map.of(
         "host", "h-1", "os", "linux", "deployment", "prod"
     ));
@@ -400,57 +379,6 @@ class MetadataServiceTest {
     }
   }
 
-  @Test
-  void getTagKeys() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName = randomAlphabetic(5);
-    final String tagK1 = randomAlphabetic(5);
-    final String tagK2 = randomAlphabetic(5);
-    final String tagV1 = randomAlphabetic(5);
-    final String tagV2 = randomAlphabetic(5);
-
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
-    ).block();
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
-    ).block();
-    // and one with different metric name
-    cassandraTemplate.insert(
-        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
-    ).block();
-
-    final List<String> results = metadataService.getTagKeys(tenantId, metricName)
-        .block();
-
-    assertThat(results).containsExactlyInAnyOrder(tagK1, tagK2);
-  }
-
-  @Test
-  void getTagValues() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName = randomAlphabetic(5);
-    final String tagK = randomAlphabetic(5);
-    final String tagV1 = randomAlphabetic(5);
-    final String tagV2 = randomAlphabetic(5);
-
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK, tagV1, randomAlphabetic(5))
-    ).block();
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK, tagV2, randomAlphabetic(5))
-    ).block();
-    // and one with different tag key
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, "not-"+tagK, randomAlphabetic(5), randomAlphabetic(5))
-    ).block();
-
-    final List<String> results = metadataService.getTagValues(tenantId, metricName, tagK)
-        .block();
-
-    assertThat(results).containsExactlyInAnyOrder(tagV1, tagV2);
-  }
-
   private SeriesSet seriesSet(String tenantId, String metricName, String tagKey, String tagValue,
                               String seriesSetHash) {
     return new SeriesSet().setTenant(tenantId).setMetricName(metricName).setTagKey(tagKey)
@@ -578,135 +506,5 @@ class MetadataServiceTest {
     return new Granularity()
         .setWidth(Duration.ofMinutes(minutes))
         .setTtl(Duration.ofHours(ttlHours));
-  }
-
-  @Test
-  void getTagsWithMetricName() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName = randomAlphabetic(5);
-    final String tagK1 = randomAlphabetic(5);
-    final String tagK2 = randomAlphabetic(5);
-    final String tagV1 = randomAlphabetic(5);
-    final String tagV2 = randomAlphabetic(5);
-
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
-    ).block();
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
-    ).block();
-    // and one with different metric name
-    cassandraTemplate.insert(
-        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
-    ).block();
-
-    final TagsResponse tagsResponse = metadataService.getTags(tenantId, metricName, "")
-        .block();
-
-    assertThat(tagsResponse.getTenantId()).isEqualTo(tenantId);
-    assertThat(tagsResponse.getMetric()).isEqualTo(metricName);
-    assertThat(tagsResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
-  }
-
-  @Test
-  void getTagsWithMetricGroup() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName = randomAlphabetic(5);
-    final String metricGroup = randomAlphabetic(5);
-    final String tagK1 = randomAlphabetic(5);
-    final String tagK2 = randomAlphabetic(5);
-    final String tagV1 = randomAlphabetic(5);
-    final String tagV2 = randomAlphabetic(5);
-
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK1, tagV1, randomAlphabetic(5))
-    ).block();
-    cassandraTemplate.insert(
-        seriesSet(tenantId, metricName, tagK2, tagV2, randomAlphabetic(5))
-    ).block();
-    // and one with different metric name
-    cassandraTemplate.insert(
-        seriesSet(tenantId, "not-"+metricName, randomAlphabetic(5), randomAlphabetic(5), randomAlphabetic(5))
-    ).block();
-
-    cassandraTemplate.insert(
-        metricGroup(tenantId, metricGroup, metricName)
-    ).block();
-
-    final TagsResponse tagsResponse = metadataService.getTags(tenantId, "", metricGroup)
-        .block();
-
-    assertThat(tagsResponse.getTenantId()).isEqualTo(tenantId);
-    assertThat(tagsResponse.getMetricGroup()).isEqualTo(metricGroup);
-    assertThat(tagsResponse.getTags()).isEqualTo(Map.of(tagK1, tagV1, tagK2, tagV2));
-  }
-
-  private MetricGroup metricGroup(String tenantId, String metricGroup, String metricName) {
-    return new MetricGroup().setTenant(tenantId).setMetricGroup(metricGroup).setMetricNames(Set.of(metricName))
-        .setUpdatedAt(Instant.now().toString());
-  }
-
-
-  @Test
-  public void testGetMetricNamesFromDevice() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String device = RandomStringUtils.randomAlphanumeric(10);
-    final Set<String> metricNames = Set.of("metricName1", "metricName2", "metricName3");
-
-    cassandraTemplate.insert(
-        insertDeviceData(tenantId, device, metricNames)
-    ).block();
-
-    List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device).block();
-    assertThat(metricNamesResult).containsExactlyInAnyOrderElementsOf(metricNames);
-  }
-
-  @Test
-  public void testGetDevices() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String device1 = RandomStringUtils.randomAlphanumeric(10);
-    final String device2 = RandomStringUtils.randomAlphanumeric(10);
-    final Set<String> metricNames1 = Set.of("metricName1", "metricName2", "metricName3");
-    final Set<String> metricNames2 = Set.of("metricName4", "metricName5", "metricName6");
-
-
-    cassandraTemplate.insert(
-        insertDeviceData(tenantId, device1, metricNames1)
-    ).block();
-
-    cassandraTemplate.insert(
-        insertDeviceData(tenantId, device2, metricNames2)
-    ).block();
-
-    List<String> metricNamesResult = metadataService.getDevices(tenantId).block();
-    assertThat(metricNamesResult).containsExactlyInAnyOrder(device1, device2);
-  }
-
-  @Test
-  public void testUpdateDeviceAddMetricName() {
-    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
-    final String device1 = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
-    final String metricName2 = RandomStringUtils.randomAlphanumeric(10);
-
-    metadataService
-        .updateDeviceAddMetricName(tenantId, device1, metricName1, Instant.now().toString())
-        .block();
-    metadataService
-        .updateDeviceAddMetricName(tenantId, device1, metricName2, Instant.now().toString())
-        .block();
-
-    List<String> metricNamesResult = metadataService.getMetricNamesFromDevice(tenantId, device1)
-        .block();
-    assertThat(metricNamesResult).containsExactlyInAnyOrder(metricName1, metricName2);
-  }
-
-  private Devices insertDeviceData(String tenantId, String device, Set<String> metricNames) {
-    return new Devices().setTenant(tenantId).setDevice(device).setMetricNames(metricNames)
-        .setUpdatedAt(Instant.now().toString());
-  }
-
-  private TagsData tagsData(String tenantId, SuggestType type, String data) {
-    return new TagsData().setTenant(tenantId).setType(type).setData(data);
   }
 }
