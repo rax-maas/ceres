@@ -44,9 +44,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
@@ -241,13 +243,15 @@ class MetadataServiceTest {
     MetricDTO metricDTO3 = new MetricDTO(metricName, Map.of(
         "host", "h-3", "os", "linux", "deployment", "dev"
     ));
-    List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2, metricDTO3);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2, metricDTO3);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
 
     Thread.sleep(1000);
     Criteria criteria = new Criteria();
     List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
-    assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
   }
   private void store(String tenantId, String metricName,
                      String os, String host,
