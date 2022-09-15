@@ -28,8 +28,10 @@ import com.rackspace.ceres.app.model.Filter;
 import com.rackspace.ceres.app.model.Metric;
 import com.rackspace.ceres.app.model.MetricDTO;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.client.RequestOptions;
@@ -141,12 +143,14 @@ public class ElasticSearchServiceTest {
 
     MetricDTO metricDTO1 = new MetricDTO(metricName1, tags1);
     MetricDTO metricDTO2 = new MetricDTO(metricName2, tags2);
-    List<MetricDTO> metricDTOSExpected = List.of(metricDTO1, metricDTO2);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
 
     Thread.sleep(1000);
     List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, new Criteria());
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
-    assertThat(metricDTOSResult).isEqualTo(metricDTOSExpected);
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
   }
 
   @Test
@@ -168,5 +172,304 @@ public class ElasticSearchServiceTest {
     List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId+"axb", criteria);
 
     assertThat(metricDTOSResult.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testSearchForMetricNames() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName1);
+    Map<String, String> tags1 = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName2);
+    Map<String, String> tags2 = Map.of("host", "h-2", "os", "windows", "deployment", "dev");
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("metricName"));
+
+    MetricDTO metricDTO1 = new MetricDTO(metricName1, null);
+    MetricDTO metricDTO2 = new MetricDTO(metricName2, null);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchForMetricGroups() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricGroup1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricGroup2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName);
+    Map<String, String> tags1 = Map.of("host", "h-2", "os", "windows", "deployment", "dev", "metricGroup", metricGroup1);
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName);
+    Map<String, String> tags2 = Map.of("host", "h-1", "os", "linux", "deployment", "prod", "metricGroup", metricGroup2);
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("tags.metricGroup"));
+
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setTags(Map.of("metricGroup", metricGroup1));
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setTags(Map.of("metricGroup", metricGroup2));
+
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+  @Test
+  public void testSearchForGetTagsWithMetricName() throws InterruptedException, IOException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricName1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName1);
+    Map<String, String> tags1 = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName2);
+    Map<String, String> tags2 = Map.of("host", "h-2", "os", "windows", "deployment", "dev");
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("tags"));
+
+    MetricDTO metricDTO1 = new MetricDTO(null, tags1);
+    MetricDTO metricDTO2 = new MetricDTO(null, tags2);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchForGetTagsWithMetricGroup() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricGroup1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricGroup2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName);
+    Map<String, String> tags1 = Map.of("host", "h-2", "os", "windows", "deployment", "dev", "metricGroup", metricGroup1);
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName);
+    Map<String, String> tags2 = Map.of("host", "h-1", "os", "linux", "deployment", "prod", "metricGroup", metricGroup2);
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("tags"));
+
+    MetricDTO metricDTO1 = new MetricDTO(null, tags1);
+    MetricDTO metricDTO2 = new MetricDTO(null, tags2);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchForGetResources() throws InterruptedException, IOException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphanumeric(10);
+
+    final String resource1 = RandomStringUtils.randomAlphanumeric(10);
+    final String resource2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName);
+    Map<String, String> tags1 = Map.of("resource", resource1, "os", "windows", "deployment", "dev");
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName);
+    Map<String, String> tags2 = Map.of("resource", resource2, "os", "linux", "deployment", "prod");
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+
+    Criteria criteria = new Criteria();
+    criteria.setIncludeFields(List.of("tags.resource"));
+
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setTags(Map.of("resource", resource1));
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setTags(Map.of("resource", resource2));
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchForMetricNamesWithResourceId() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName1 = "metric1";
+    final String metricName2 = "metric2";
+
+    final String resource = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName1);
+    Map<String, String> tags1 = Map.of("resource", resource, "os", "windows", "deployment", "dev");
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName2);
+    Map<String, String> tags2 = Map.of("resource", resource, "os", "linux", "deployment", "prod");
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.resource");
+    filter.setFilterValue(resource);
+    criteria.setFilter(List.of(filter));
+    criteria.setIncludeFields(List.of("metricName"));
+
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setMetricName(metricName1);
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setMetricName(metricName2);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchForMetricGroupsWithResourceId() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName = RandomStringUtils.randomAlphanumeric(10);
+    final String resource = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricGroups1 = RandomStringUtils.randomAlphanumeric(10);
+    final String metricGroups2 = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName);
+    Map<String, String> tags1 = Map.of("resource", resource, "os", "windows", "deployment", "dev", "metricGroup", metricGroups1);
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName);
+    Map<String, String> tags2 = Map.of("resource", resource, "os", "linux", "deployment", "prod", "metricGroup", metricGroups2);
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+    Thread.sleep(1000);
+
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("tags.resource");
+    filter.setFilterValue(resource);
+    criteria.setFilter(List.of(filter));
+    criteria.setIncludeFields(List.of("tags.metricGroup"));
+
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setTags(Map.of("metricGroup", metricGroups1));
+    MetricDTO metricDTO2 = new MetricDTO();
+    metricDTO2.setTags(Map.of("metricGroup", metricGroups2));
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
+
+  @Test
+  public void testSearchWithWildcard() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+
+    final String metricName1 = "metric1";
+    final String metricName2 = "metric1-test";
+    final String metricName3 = "metric2-test";
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName1);
+    Map<String, String> tags1 = Map.of("host", "h-1", "os", "linux", "deployment", "prod");
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+
+    Metric metric2 = new Metric();
+    metric2.setMetric(metricName2);
+    Map<String, String> tags2 = Map.of("host", "h-2", "os", "windows", "deployment", "dev");
+    metric2.setTags(tags2);
+    elasticSearchService.saveMetricToES(tenantId,metric2).block();
+
+    Metric metric3 = new Metric();
+    metric3.setMetric(metricName3);
+    Map<String, String> tags3 = Map.of("host", "h-2", "os", "windows", "deployment", "dev");
+    metric3.setTags(tags3);
+    elasticSearchService.saveMetricToES(tenantId,metric3).block();
+    Thread.sleep(1000);
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("metricName");
+    filter.setFilterValue("metric1*");
+    criteria.setFilter(List.of(filter));
+
+    MetricDTO metricDTO1 = new MetricDTO(metricName1, tags1);
+    MetricDTO metricDTO2 = new MetricDTO(metricName2, tags2);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1, metricDTO2);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
   }
 }
