@@ -4,7 +4,6 @@ substitutions:
   _CERES_APP: ceres
   _IMAGE_TAG: dev
   _APP_NAMESPACE: default
-  _CLOUDSDK_COMPUTE_ZONE: us-east1-b
 
 steps:
   # Pull down settings file for Artifactory settings
@@ -73,6 +72,5 @@ steps:
       path: /root
 
 options:
-  substitution_option: 'ALLOW_LOOSE'
   pool:
     name: projects/ceres-dev-222017/locations/us-east-1/workerPools/test'
