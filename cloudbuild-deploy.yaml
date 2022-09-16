@@ -73,5 +73,4 @@ steps:
       path: /root
 
 options:
-  pool:
-    name: projects/ceres-dev-222017/locations/us-east-1/workerPools/test'
+  substitution_option: 'ALLOW_LOOSE'
