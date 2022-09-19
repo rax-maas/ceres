@@ -45,17 +45,6 @@ public class MetricDeletionHelper {
       + "WHERE tenant = ? AND series_set_hash = ?";
   private final String SELECT_SERIES_SET_HASHES_QUERY = "SELECT series_set_hash FROM series_sets "
       + "WHERE tenant = ? AND metric_name = ?";
-  private final String DELETE_METRIC_GROUP_QUERY = "DELETE from metric_groups WHERE tenant = ? "
-      + "AND metric_group = ?";
-  private final String GET_TAG_VALUE_QUERY = "select tag_value from series_sets where "
-      + "tenant=? AND metric_name=? AND tag_key=?";
-  private final String UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY = "UPDATE metric_groups SET metric_names = "
-      + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND metric_group = '%s'";
-  private final String UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY = "UPDATE devices SET metric_names = "
-      + "metric_names - {'%s'}, updated_at = '%s' WHERE tenant = '%s' AND device = '%s'";
-  private final String DELETE_ALL_DEVICES_QUERY = "DELETE FROM devices WHERE tenant = ?";
-  private final String DELETE_ALL_METRIC_GROUP_QUERY = "DELETE FROM metric_groups WHERE tenant = ?";
-  private final String DELETE_ALL_TAGS_DATA_QUERY = "DELETE FROM tags_data WHERE tenant = ? AND type IN ('TAGK', 'TAGV')";
 
   private final AppProperties appProperties;
   private final DataTablesStatements dataTablesStatements;
@@ -230,58 +219,5 @@ public class MetricDeletionHelper {
       String metricName) {
     return cqlTemplate.queryForFlux(SELECT_SERIES_SET_HASHES_QUERY, String.class,
         tenant, metricName).distinct().doOnError(e -> readDbOperationErrorsCounter.increment());
-  }
-
-  /**
-   * Delete metric_groups by tenant and metric group.
-   *
-   * @param tenant     the tenant
-   * @param metricGroup the metric name
-   * @return the mono
-   */
-  public Mono<Boolean> deleteMetricGroupByTenantAndMetricGroup(String tenant, String metricGroup) {
-    return cqlTemplate
-        .execute(DELETE_METRIC_GROUP_QUERY, tenant, metricGroup)
-        .doOnError(e -> deleteDbOperationErrorsCounter.increment())
-        .retryWhen(appProperties.getRetryDelete().build());
-  }
-
-  public Mono<Boolean> deleteMetricNamesFromDevices(String tenant, String metricNamesToBeDeleted)  {
-    Flux<String> deviceFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
-        tenant, metricNamesToBeDeleted, "resource")
-        .doOnError(e -> readDbOperationErrorsCounter.increment());
-
-    return deviceFlux.flatMap(device -> cqlTemplate.execute(
-        String.format(UPDATE_DEVICES_DELETE_METRIC_NAME_QUERY,
-        metricNamesToBeDeleted, Instant.now().toString(), tenant, device))
-        .doOnError(e -> deleteDbOperationErrorsCounter.increment()))
-        .then(Mono.just(true));
-  }
-
-  public Mono<Boolean> deleteDevices(String tenant)  {
-    return cqlTemplate.execute(DELETE_ALL_DEVICES_QUERY, tenant)
-        .doOnError(e -> deleteDbOperationErrorsCounter.increment());
-  }
-
-  public Mono<Boolean> deleteMetricNamesFromMetricGroups(String tenant, String metricNamesToBeDeleted)  {
-    Flux<String> metricGroupFlux = cqlTemplate.queryForFlux(GET_TAG_VALUE_QUERY, String.class,
-        tenant, metricNamesToBeDeleted, "metricGroup")
-        .doOnError(e -> readDbOperationErrorsCounter.increment());
-
-    return metricGroupFlux.flatMap(metricGroup -> cqlTemplate.execute(
-        String.format(UPDATE_METRIC_GROUP_DELETE_METRIC_NAME_QUERY, metricNamesToBeDeleted,
-            Instant.now().toString(), tenant, metricGroup))
-        .doOnError(e -> deleteDbOperationErrorsCounter.increment()))
-        .then(Mono.just(true));
-  }
-
-  public Mono<Boolean> deleteMetricGroups(String tenant)  {
-    return cqlTemplate.execute(DELETE_ALL_METRIC_GROUP_QUERY, tenant)
-        .doOnError(e -> deleteDbOperationErrorsCounter.increment());
-  }
-
-  public Mono<Boolean> deleteTagsData(String tenant) {
-    return cqlTemplate.execute(DELETE_ALL_TAGS_DATA_QUERY, tenant)
-        .doOnError(e -> deleteDbOperationErrorsCounter.increment());
   }
 }

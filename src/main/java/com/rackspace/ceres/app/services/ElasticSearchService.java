@@ -25,8 +25,10 @@ import com.rackspace.ceres.app.model.MetricDTO;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
@@ -126,7 +128,7 @@ public class ElasticSearchService {
     searchRequest.source(searchSourceBuilder);
     searchRequest.routing(tenantId);
     SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
-    List<MetricDTO> metrics = new ArrayList<>();
+    Set<MetricDTO> metricsSet = new HashSet<>();
     searchResponse.getHits().forEach(e -> {
       MetricDTO metric = null;
       try {
@@ -134,8 +136,8 @@ public class ElasticSearchService {
       } catch (Exception e1) {
         log.error("exception thrown while converting MetricDTO object",e1);
       }
-      metrics.add(metric);
+      metricsSet.add(metric);
     });
-    return metrics;
+    return new ArrayList<>(metricsSet);
   }
 }

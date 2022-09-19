@@ -26,7 +26,7 @@ public class ESContainerSetup extends ElasticsearchContainer {
 
   private static final String CLUSTER_NAME = "cluster.name";
 
-  private static final String ELASTIC_SEARCH = "elasticsearch";
+  private static final String ELASTIC_SEARCH = "docker-cluster";
 
   public ESContainerSetup() {
     super(DockerImageName.parse(ELASTIC_SEARCH_DOCKER)
