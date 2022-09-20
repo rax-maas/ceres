@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_BASE_NAME: ceres-test
+  IMAGE_BASE_NAME: ceres
   HELM_CHART: ceres
-  HELM_CHART_FOLDER: helm-ceres/cherts/ceres
+  HELM_CHART_FOLDER: helm-ceres/charts/ceres
   CLUSTER_NAME: primary-cluster
   REGISTRY: gcr.io
 
@@ -52,13 +52,14 @@ jobs:
         shell: bash
         run: |
           POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          RUN_ID=${{ github.run_number }}
+          POM_VERSION="${POM_VERSION%-SNAPSHOT}"
+          RUN_ID=${{ github.run_number }}.${{ github.run_attempt }}
           COMMIT_SHA=${{ github.sha }}
-          VERSION=${POM_VERSION}-${RUN_ID}-${COMMIT_SHA}
+          VERSION=${POM_VERSION}-${RUN_ID}+${COMMIT_SHA}
           IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_DEV_ACC }}/${{ env.IMAGE_BASE_NAME }}:${VERSION}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "::set-output name=version::$(echo $VERSION)"    
+          echo "::set-output name=version::$(echo $VERSION)"
 
       - name: Maven build
         shell: bash
