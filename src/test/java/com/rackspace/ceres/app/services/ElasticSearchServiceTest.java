@@ -472,4 +472,36 @@ public class ElasticSearchServiceTest {
     assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
     assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
   }
+
+  @Test
+  public void testSearchForEmptyFilterKeyValue() throws IOException, InterruptedException {
+    final String tenantId = RandomStringUtils.randomAlphanumeric(10);
+    final String metricName1 = "metric1";
+
+    final String resource = RandomStringUtils.randomAlphanumeric(10);
+
+    Metric metric1 = new Metric();
+    metric1.setMetric(metricName1);
+    Map<String, String> tags1 = Map.of("resource", resource, "os", "windows", "deployment", "dev");
+    metric1.setTags(tags1);
+    elasticSearchService.saveMetricToES(tenantId,metric1).block();
+    Thread.sleep(1000);
+
+    Criteria criteria = new Criteria();
+    Filter filter = new Filter();
+    filter.setFilterKey("");
+    filter.setFilterValue("");
+    criteria.setFilter(List.of(filter));
+    criteria.setIncludeFields(List.of("metricName"));
+
+    MetricDTO metricDTO1 = new MetricDTO();
+    metricDTO1.setMetricName(metricName1);
+    Set<MetricDTO> metricDTOSet = Set.of(metricDTO1);
+    List<MetricDTO> metricDTOSExpected = new ArrayList<>();
+    metricDTOSExpected.addAll(metricDTOSet);
+
+    List<MetricDTO> metricDTOSResult = elasticSearchService.search(tenantId, criteria);
+    assertThat(metricDTOSResult.size()).isEqualTo(metricDTOSExpected.size());
+    assertThat(metricDTOSResult).containsAll(metricDTOSExpected);
+  }
 }

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -107,10 +108,12 @@ public class ElasticSearchService {
       criteria.getFilter().stream().filter(Objects::nonNull).forEach(filter ->  {
             String filterKey = filter.getFilterKey();
             String filterValue = filter.getFilterValue();
-            if(filterKey.equals("metricName")) {
-              query.must(QueryBuilders.wildcardQuery(filterKey, filterValue));
-            } else {
-              query.must(QueryBuilders.wildcardQuery(filterKey+".keyword", filterValue));
+            if(!StringUtils.isAllBlank(filterKey, filterValue)) {
+              if(filterKey.equals("metricName")) {
+                query.must(QueryBuilders.wildcardQuery(filterKey, filterValue));
+              } else {
+                query.must(QueryBuilders.wildcardQuery(filterKey+".keyword", filterValue));
+              }
             }
           }
       );
