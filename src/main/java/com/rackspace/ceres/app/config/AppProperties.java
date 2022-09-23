@@ -158,7 +158,4 @@ public class AppProperties {
    */
   @NotNull
   String elasticSearchAlias = "metrics-metadata";
-//  public String getIndexName() {
-//    return elasticSearchIndexName;
-//  }
 }
