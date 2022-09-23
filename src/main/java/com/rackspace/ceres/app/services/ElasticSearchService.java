@@ -78,7 +78,7 @@ public class ElasticSearchService {
     log.trace("saving metric {} to ES ", metric);
     IndexRequest indexRequest = new IndexRequest();
     try {
-      indexRequest.index(appProperties.getIndexName());
+      indexRequest.index(appProperties.getElasticSearchAlias());
       indexRequest.source(objectMapper.writeValueAsString(metricEntity), XContentType.JSON);
       indexRequest.routing(tenant);
       restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
@@ -127,7 +127,7 @@ public class ElasticSearchService {
             : Arrays.stream(criteria.getExcludeFields().toArray()).toArray(String[]::new));
 
     SearchRequest searchRequest = new SearchRequest();
-    searchRequest.indices(appProperties.getIndexName());
+    searchRequest.indices(appProperties.getElasticSearchAlias());
     searchRequest.source(searchSourceBuilder);
     searchRequest.routing(tenantId);
     SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);

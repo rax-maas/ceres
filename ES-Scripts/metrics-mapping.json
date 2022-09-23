@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 10,
+      "number_of_replicas": 1
+    }
+  },
+  "mappings": {
+    "_routing": {
+      "required": true
+    },
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "metricName": {
+        "type": "keyword"
+      },
+      "tenant": {
+        "type": "keyword"
+      }
+    }
+  }
+}
