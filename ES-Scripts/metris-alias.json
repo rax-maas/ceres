@@ -1,0 +1,10 @@
+{
+  "actions": [
+    {
+      "add": {
+        "index": "metrics",       
+        "alias": "metrics-metadata"
+      }
+    }
+  ]
+}
