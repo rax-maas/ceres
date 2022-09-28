@@ -17,6 +17,7 @@
 
 package com.rackspace.ceres.app.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rackspace.ceres.app.config.AppProperties;
 import com.rackspace.ceres.app.model.Criteria;
@@ -31,7 +32,9 @@ import java.util.Objects;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -70,22 +73,34 @@ public class ElasticSearchService {
    * @param metric the metric
    * @return the mono
    */
-  public Mono<Void> saveMetricToES(String tenant, Metric metric) {
+  public Mono<Object> saveMetricToES(String tenant, Metric metric) {
     com.rackspace.ceres.app.entities.Metric metricEntity = new com.rackspace.ceres.app.entities.Metric();
     metricEntity.setMetricName(metric.getMetric());
     metricEntity.setTenant(tenant);
     metricEntity.setTags(metric.getTags());
     log.trace("saving metric {} to ES ", metric);
     IndexRequest indexRequest = new IndexRequest();
-    try {
-      indexRequest.index(appProperties.getIndexName());
-      indexRequest.source(objectMapper.writeValueAsString(metricEntity), XContentType.JSON);
-      indexRequest.routing(tenant);
-      restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    return Mono.empty();
+    return Mono.create(sink -> {
+      try {
+        indexRequest.index(appProperties.getIndexName());
+        indexRequest.routing(tenant);
+        indexRequest.source(objectMapper.writeValueAsString(metricEntity), XContentType.JSON);
+      } catch (JsonProcessingException e) {
+        sink.error(new RuntimeException(e));
+        return;
+      }
+      restHighLevelClient.indexAsync(indexRequest, RequestOptions.DEFAULT, new ActionListener<IndexResponse>() {
+        @Override
+        public void onResponse(IndexResponse indexResponse) {
+          sink.success(indexResponse);
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+          sink.error(e);
+        }
+      });
+    }).name("saveMetricsToES").metrics();
   }
 
   /**
@@ -131,6 +146,7 @@ public class ElasticSearchService {
     searchRequest.source(searchSourceBuilder);
     searchRequest.routing(tenantId);
     SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+
     Set<MetricDTO> metricsSet = new HashSet<>();
     searchResponse.getHits().forEach(e -> {
       MetricDTO metric = null;
