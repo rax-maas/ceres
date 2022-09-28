@@ -26,7 +26,7 @@ ceres:
   tag-value-limit: 10
   ingest-start-time: 7d
   ingest-end-time: 1d
-  elastic-search-index-name: metrics
+  elastic-search-alias: metrics
   elastic-search-host: localhost
   elastic-search-port: 9200
 management:

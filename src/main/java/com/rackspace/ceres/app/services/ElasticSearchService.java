@@ -142,7 +142,7 @@ public class ElasticSearchService {
             : Arrays.stream(criteria.getExcludeFields().toArray()).toArray(String[]::new));
 
     SearchRequest searchRequest = new SearchRequest();
-    searchRequest.indices(appProperties.getIndexName());
+    searchRequest.indices(appProperties.getElasticSearchAlias());
     searchRequest.source(searchSourceBuilder);
     searchRequest.routing(tenantId);
     SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
