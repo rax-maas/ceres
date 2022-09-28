@@ -82,7 +82,7 @@ public class ElasticSearchService {
     IndexRequest indexRequest = new IndexRequest();
     return Mono.create(sink -> {
       try {
-        indexRequest.index(appProperties.getIndexName());
+        indexRequest.index(appProperties.getElasticSearchAlias());
         indexRequest.routing(tenant);
         indexRequest.source(objectMapper.writeValueAsString(metricEntity), XContentType.JSON);
       } catch (JsonProcessingException e) {
