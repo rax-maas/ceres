@@ -32,7 +32,7 @@
 
 ### Downsampling
 * Regularly scheduled metrics downsampling PT5M, PT15M, PT1H,... are running well with high performance
-* Delayed metrics downsampling is relying a lot on Redis for frequent updates and is running will with high performance
+* Delayed metrics downsampling is relying a lot on Redis for frequent updates and is running well with high performance
 
 #### Downsampling TODO
 * Possibly create a delayed metrics schedule for better spacing out in time for delayed metrics, currently they are downsampled as soon as possible.
