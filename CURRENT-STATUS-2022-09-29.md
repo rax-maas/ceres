@@ -21,6 +21,7 @@
   * ceres-rollups
   * ceres-query
 * TODO: Suman/Rohit/Abhishek
+* Look over the search api how we can deal with the requirement in https://rackspace.atlassian.net/browse/MNRVA-987 by maybe customizing this in search api only or creating a seperate api for this.
 
 ### Ingestion
 * TODO: Suman/Rohit/Abhishek
